@@ -95,7 +95,7 @@ test("provider signs up, must verify, then reaches setup", async ({ page }) => {
   await typeCode(page, code);
   await page.getByRole("button", { name: "Verify" }).click();
   await expect(page).toHaveURL(/\/provider\/setup$/);
-  await expect(page.getByRole("heading", { name: `Welcome, ${A.business}` })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Set up your business" })).toBeVisible();
 });
 
 test("a used code cannot be used again", async ({ page }) => {

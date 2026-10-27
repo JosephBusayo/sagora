@@ -344,3 +344,40 @@ a:hover {
     animation: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Provider setup and staff review (no Figma frame exists yet: built from the
+   Settings > Business details look and the auth tokens)
+--------------------------------------------------------------------------- */
+.setup { min-height: 100vh; padding: 40px 20px; display: grid; justify-items: center; align-content: start; }
+.setup__card { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 18px; }
+.setup__card--wide { max-width: 760px; }
+.setup__title { margin-top: 10px; }
+.setup__form { display: flex; flex-direction: column; gap: 18px; }
+.setup__buttons { display: flex; gap: 12px; flex-wrap: wrap; }
+.setup__buttons .button { flex: 1; min-width: 150px; }
+.button--ghost { background: transparent; color: var(--color-brand); border: 1px solid var(--color-brand); }
+.button--ghost:hover { background: rgba(86, 118, 33, 0.08); }
+select.field__input { appearance: auto; }
+.setup__textarea { height: auto; padding: 10px 9px; }
+.setup__textarea textarea { resize: vertical; font: var(--text-input); min-height: 90px; }
+.setup__services { border: 0; padding: 0; margin: 0; }
+.setup__checks { display: flex; gap: 12px; flex-wrap: wrap; }
+.setup__check { display: flex; align-items: center; gap: 8px; height: 50px; padding: 0 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-field); font: var(--text-input); cursor: pointer; }
+.setup__check input { accent-color: var(--color-brand); width: 18px; height: 18px; }
+.setup__optional { color: var(--color-placeholder); font-weight: 400; }
+.setup__status { padding: 16px 18px; border-radius: var(--radius-field); background: var(--color-surface); border: 1px solid var(--color-border); }
+.setup__status h2 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+.setup__status p { margin: 0; font: var(--text-input); line-height: 1.45; }
+.setup__status--approved { border-color: var(--color-brand); }
+.setup__status--changes_requested, .setup__status--rejected { border-color: var(--color-error); }
+.setup__note { margin-top: 10px !important; }
+.setup__summary { display: grid; grid-template-columns: 140px 1fr; gap: 8px 16px; margin: 0; font: var(--text-input); }
+.setup__summary dt { color: var(--color-placeholder); }
+.setup__summary dd { margin: 0; overflow-wrap: anywhere; }
+.setup__signout { margin-top: 8px; }
+.staff__item { padding: 18px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-field); display: flex; flex-direction: column; gap: 14px; }
+.staff__item h2 { margin: 0; font-size: 18px; }
+.staff__form { display: flex; flex-direction: column; gap: 8px; }
+.staff__note { border: 1px solid var(--color-border); border-radius: var(--radius-field); padding: 10px; font: var(--text-input); }
+@media (max-width: 520px) { .setup__summary { grid-template-columns: 1fr; gap: 2px; } .setup__summary dd { margin-bottom: 8px; } }

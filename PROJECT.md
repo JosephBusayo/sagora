@@ -332,3 +332,18 @@ Layout (design pixels, 1728×1117 frame): form column 436 wide; text fields 50 t
 ## 12. Acceptance scenarios (summary)
 
 Verification can't be bypassed · setup resumes after verify · invites join the right business · reset kills old sessions · Provider A can't touch Provider B · only authorised staff approve providers · guest/assisted intake preserves details · routing is correct (general vs direct) · request survives email outage with a visible follow-up · quote matches accepted version · shared plough/operator can't double-book · duplicate payment events don't duplicate money · late payment creates an exception · breakdown leads to replacement or refund with history intact · payout needs separate preparer/approver · two identical assets stay distinct · retired equipment unselectable · provider completes setup, quote, private job, conflict check and machine history **without coaching** on desktop and narrow phone.
+
+---
+
+## Build status update (27 Oct 2026, evening): provider setup and approval
+
+**Built and tested (14 browser tests pass):**
+- `/provider/setup`: business details form (name, phone, email, district, town, services, about). "Save for later" keeps a draft; "Submit for review" validates everything. Pre-filled from sign-up.
+- Review states shown in plain words: *Waiting for Sagora to review*, *Sagora needs a few changes* (with the staff note), *Approved*, *Rejected*. A submitted business cannot be edited.
+- `/staff/providers`: staff-only queue with Approve / Ask for changes / Reject. A note is required unless approving. The provider gets an email with the result. Every decision is written to `audit_log`.
+- Staff are made by an operator with database access: `npm run staff:make -- email`. There is no public route to staff.
+- Rules kept: a provider only ever reaches their own business (looked up by session, never by a form value); email confirmation and business approval are separate steps; a double-clicked decision does nothing.
+
+**No Figma frame exists for setup or approval.** The look follows the Settings > Business details form plus the auth tokens. Needs the designer's real screens.
+
+**Still missing for stage 1:** MFA for staff (the staff screen is protected by role and verified email only, so do not use it with real data until MFA is added), invited teammates joining the right business, equipment and verification evidence in setup.

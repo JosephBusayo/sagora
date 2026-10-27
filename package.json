@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:migrate": "tsx --conditions react-server --env-file=.env.local scripts/migrate.ts",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "rm -f data/test.db data/dev-outbox.jsonl && DATABASE_PATH=data/test.db npm run db:migrate && playwright test"
+    "test:e2e": "rm -f data/test.db data/dev-outbox.jsonl && DATABASE_PATH=data/test.db npm run db:migrate && playwright test",
+    "staff:make": "tsx --env-file=.env.local scripts/make-staff.ts"
   },
   "dependencies": {
     "better-auth": "^1.7.14",

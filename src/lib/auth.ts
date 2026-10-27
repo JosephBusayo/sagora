@@ -1,19 +1,14 @@
 import "server-only";
-import fs from "node:fs";
-import path from "node:path";
-import Database from "better-sqlite3";
 import { betterAuth } from "better-auth";
 import { emailOTP } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
+import { db } from "./db";
 import { sendEmail } from "./email";
 
 /** Length of every emailed code. The design shows seven boxes. */
 export const OTP_LENGTH = 7;
 /** Codes expire after 10 minutes and allow 5 wrong tries. */
 const OTP_TTL_SECONDS = 600;
-
-const dbPath = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "sagora.db");
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 const SUBJECTS = {
   "email-verification": "Confirm your Sagora email",
@@ -28,7 +23,7 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   // SQLite keeps local development free and simple. Production moves to Postgres:
   // swap this one line for a `pg` Pool (Better Auth supports both).
-  database: new Database(dbPath),
+  database: db,
 
   emailAndPassword: {
     enabled: true,
