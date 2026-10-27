@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { DISTRICTS, SERVICES, ensureBusiness, type BusinessStatus } from "@/lib/business";
+import { redirect } from "next/navigation";
+import { DISTRICTS, SERVICES, ensureBusiness, getBusinessForUser, type BusinessStatus } from "@/lib/business";
 import { requireProvider } from "@/lib/session";
+import { membershipFor } from "@/lib/team";
 import { SetupForm } from "@/components/setup/SetupForm";
 import { signOut } from "../actions";
 
@@ -29,7 +31,11 @@ const STATUS: Record<Exclude<BusinessStatus, "draft">, { title: string; body: st
 
 export default async function Page() {
   const user = await requireProvider();
-  const b = ensureBusiness(user);
+  // A teammate who accepted an invite has no business of their own: send them to the workspace.
+  const owned = getBusinessForUser(user.id);
+  if (!owned && membershipFor(user.id)) redirect("/provider/dashboard");
+  const b = owned ?? ensureBusiness(user);
+  if (b.status === "approved") redirect("/provider/dashboard");
   const editable = b.status === "draft" || b.status === "changes_requested";
   const info = b.status === "draft" ? null : STATUS[b.status];
 

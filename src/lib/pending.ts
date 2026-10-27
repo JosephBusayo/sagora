@@ -41,3 +41,16 @@ export async function getPending(): Promise<Pending | null> {
 export async function clearPending() {
   (await cookies()).delete(NAME);
 }
+
+const NOTICE = "sagora_notice";
+
+/** Set just before a redirect that ends the session, read once on the next page. */
+export async function setNotice(value: string) {
+  const jar = await cookies();
+  jar.set(NOTICE, value, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 });
+}
+
+export async function readNotice(): Promise<string | null> {
+  const jar = await cookies();
+  return jar.get(NOTICE)?.value ?? null;
+}

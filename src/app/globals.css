@@ -381,3 +381,143 @@ select.field__input { appearance: auto; }
 .staff__form { display: flex; flex-direction: column; gap: 8px; }
 .staff__note { border: 1px solid var(--color-border); border-radius: var(--radius-field); padding: 10px; font: var(--text-input); }
 @media (max-width: 520px) { .setup__summary { grid-template-columns: 1fr; gap: 2px; } .setup__summary dd { margin-bottom: 8px; } }
+
+/* ---------------------------------------------------------------------------
+   App shell (sidebar + panel). Measured from the Team management and Settings
+   frames: frame 1728x1117, sidebar 276, panel inset 17, topbar 96,
+   content padding 57. Colours sampled from the same frames.
+--------------------------------------------------------------------------- */
+:root {
+  --color-nav-active: #e9ecd7;
+  --color-nav-text: #3f3f3d;
+  --color-chip: #e5f6c2;      /* avatar + settings icon circle */
+  --color-pill-bg: #cfe6ca;   /* "Active" status pill */
+  --color-pill-text: #2f5d23;
+  --color-field-soft: #f5f5f5; /* settings + modal inputs are filled, not outlined */
+  --color-hairline: #eceee4;
+  --sidebar-w: 276px;
+}
+
+.app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; background: var(--color-bg); }
+
+/* -------- sidebar -------- */
+.nav { display: flex; flex-direction: column; gap: 22px; padding: 26px 16px 24px; }
+.nav__brand { display: flex; align-items: center; gap: 10px; padding: 0 10px; color: var(--color-brand); font: 600 22px/1 var(--font-sans); }
+.nav__brand .icon { width: 26px; height: 26px; }
+.nav__group { display: flex; flex-direction: column; gap: 6px; }
+.nav__title { margin: 0 0 2px; padding: 0 10px; font: 400 12px/1 var(--font-sans); color: var(--color-placeholder); }
+.nav__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.nav__item { display: flex; align-items: center; gap: 12px; width: 100%; height: 38px; padding: 0 10px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--color-nav-text); font: 400 13.5px/1 var(--font-sans); text-align: left; cursor: pointer; }
+.nav__item:hover { background: rgba(86, 118, 33, 0.07); text-decoration: none; }
+.nav__item--active { background: var(--color-nav-active); color: var(--color-brand); font-weight: 500; }
+.nav__item .icon { flex: none; width: 18px; height: 18px; }
+.nav__spacer { flex: 1; min-height: 20px; }
+
+/* -------- panel + top bar -------- */
+.app__panel { display: flex; flex-direction: column; min-width: 0; margin: 17px 10px 10px 0; background: var(--color-surface);
+  border-radius: var(--radius-panel); overflow: hidden; }
+.topbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; height: 96px; padding: 0 24px;
+  border-bottom: 1px solid var(--color-hairline); }
+.topbar__crumb { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--color-text-muted); font: 400 14px/1 var(--font-sans); }
+.topbar__search { display: flex; align-items: center; gap: 10px; width: 420px; height: 46px; padding: 0 18px; border-radius: var(--radius-pill);
+  border: 1px solid var(--color-hairline); color: var(--color-icon); }
+.topbar__search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: 400 13.5px/1 var(--font-sans); color: var(--color-text); }
+.topbar__actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.topbar__round { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--color-hairline); color: var(--color-text); }
+.topbar__user { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px 0 5px; border-radius: var(--radius-pill);
+  border: 1px solid var(--color-hairline); color: var(--color-text-muted); font: 400 14px/1 var(--font-sans); }
+.topbar__avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #efe061; color: #3f3f1a; font: 600 14px/1 var(--font-sans); }
+.topbar__name { color: var(--color-text); }
+.app__content { flex: 1; min-width: 0; padding: 40px 48px 48px 57px; overflow-x: auto; }
+
+/* -------- page header -------- */
+.pagehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 30px; }
+.pagehead__title { margin: 0; font: 600 25px/1.2 var(--font-sans); }
+.pagehead__sub { margin: 6px 0 0; color: var(--color-text-muted); font: 400 14px/1.3 var(--font-sans); }
+.button--inline { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: auto; height: 48px; padding: 0 26px; font: 500 15px/1 var(--font-sans); }
+.button--inline .icon { width: 18px; height: 18px; }
+
+/* -------- table -------- */
+.table-card { border: 1px solid var(--color-hairline); border-radius: 18px; overflow: hidden; }
+.table { width: 100%; border-collapse: collapse; }
+.table th { padding: 26px 20px; background: #f8f8f6; color: var(--color-text); font: 400 15px/1 var(--font-sans); text-align: left; }
+.table td { padding: 18px 20px; border-top: 1px solid var(--color-hairline); font: 400 14px/1.3 var(--font-sans); vertical-align: middle; }
+.table tbody tr:first-child td { border-top: 1px solid var(--color-hairline); }
+.table__person { display: flex; align-items: center; gap: 16px; }
+.table__avatar { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--color-chip); color: var(--color-brand); font: 500 15px/1 var(--font-sans); }
+.pill { display: inline-flex; align-items: center; height: 32px; padding: 0 18px; border-radius: var(--radius-pill); font: 400 13.5px/1 var(--font-sans); }
+.pill--active { background: var(--color-pill-bg); color: var(--color-pill-text); }
+.pill--invited { background: #f6edcb; color: #6b551a; }
+.table__actions { width: 70px; text-align: right; }
+.icon-button { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--color-text); cursor: pointer; }
+.icon-button:hover { background: var(--color-bg); }
+.empty { padding: 40px 20px; text-align: center; color: var(--color-text-muted); }
+
+/* -------- settings list -------- */
+.settings-list { display: flex; flex-direction: column; gap: 16px; max-width: 1230px; }
+.settings-row { display: flex; align-items: center; gap: 22px; padding: 22px 26px; border: 1px solid var(--color-hairline); border-radius: 18px;
+  background: var(--color-surface); color: inherit; font-weight: 400; }
+.settings-row:hover { border-color: var(--color-brand); text-decoration: none; }
+.settings-row__icon { display: grid; place-items: center; flex: none; width: 54px; height: 54px; border-radius: 50%; background: var(--color-chip); color: var(--color-brand); }
+.settings-row__body { flex: 1; min-width: 0; }
+.settings-row__body h2 { margin: 0 0 5px; font: 600 17px/1.2 var(--font-sans); color: var(--color-text); }
+.settings-row__body p { margin: 0; color: var(--color-text-muted); font: 400 13.5px/1.3 var(--font-sans); }
+.settings-row__chev { color: var(--color-text-muted); }
+
+/* -------- soft (filled) form, used by settings pages and modals -------- */
+.form-soft { display: flex; flex-direction: column; gap: 18px; max-width: 520px; }
+.form-soft .field__box { height: 52px; background: var(--color-field-soft); border-color: transparent; border-radius: 12px; padding: 0 16px; }
+.form-soft .field__label { font: 500 13px/1 var(--font-sans); }
+.form-soft .field { gap: 8px; }
+.form-soft textarea.field__input { min-height: 72px; padding: 14px 0; }
+.form-soft .field__box:focus-within { border-color: var(--color-brand); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.form-actions { display: flex; gap: 16px; margin-top: 22px; }
+.form-actions .button { width: auto; min-width: 160px; height: 52px; font: 500 15px/1 var(--font-sans); }
+.button--soft { background: var(--color-field-soft); color: var(--color-text); }
+.button--soft:hover { background: #ebebeb; }
+
+/* -------- modal -------- */
+.modal-backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(28, 28, 26, 0.62); z-index: 20; }
+.modal { width: 100%; max-width: 530px; max-height: 90vh; overflow-y: auto; padding: 36px 40px 34px; background: var(--color-surface); border-radius: 22px; }
+.modal__head { text-align: center; margin-bottom: 26px; }
+.modal__head h2 { margin: 0 0 8px; font: 600 23px/1.2 var(--font-sans); }
+.modal__head p { margin: 0 auto; max-width: 320px; color: var(--color-text-muted); font: 400 14px/1.4 var(--font-sans); }
+.modal .form-soft { max-width: none; }
+
+/* -------- narrow screens: the sidebar becomes a top strip -------- */
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  .nav { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px; }
+  .nav__group { flex-direction: row; align-items: center; gap: 8px; }
+  .nav__title { display: none; }
+  .nav__list { flex-direction: row; flex-wrap: wrap; }
+  .nav__spacer { display: none; }
+  .app__panel { margin: 0; border-radius: 0; }
+  .topbar { grid-template-columns: 1fr auto; height: auto; padding: 14px; gap: 12px; }
+  .topbar__search { display: none; }
+  .app__content { padding: 20px 16px 40px; }
+  .form-row { grid-template-columns: 1fr; }
+}
+
+/* row action menu */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.rowmenu { position: relative; display: inline-block; }
+.rowmenu__pop { position: absolute; right: 0; top: 38px; z-index: 5; min-width: 190px; padding: 6px; background: var(--color-surface);
+  border: 1px solid var(--color-hairline); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12); text-align: left; }
+.rowmenu__pop button { display: block; width: 100%; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent;
+  font: 400 13.5px/1 var(--font-sans); text-align: left; cursor: pointer; }
+.rowmenu__pop button:hover { background: var(--color-bg); }
+.rowmenu__danger { color: var(--color-error); }
+
+/* Column widths and row heights measured from the Team frame (card 760 design px wide:
+   name 30%, role 20%, permissions 22%, status 20%, actions 8%). */
+.table th:nth-child(1), .table td:nth-child(1) { width: 30%; }
+.table th:nth-child(2), .table td:nth-child(2) { width: 20%; }
+.table th:nth-child(3), .table td:nth-child(3) { width: 22%; }
+.table th:nth-child(4), .table td:nth-child(4) { width: 20%; }
+.table td { padding: 23px 20px; }
+.table-card { max-width: 1315px; }
+.settings-row { padding: 30px 26px; box-shadow: 0 1px 2px rgba(28, 28, 26, 0.04); }
+.settings-list { gap: 20px; }

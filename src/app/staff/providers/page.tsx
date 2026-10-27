@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { listForReview, SERVICES } from "@/lib/business";
 import { requireStaff } from "@/lib/session";
-import { reviewBusiness } from "../actions";
+import { ReviewForm } from "@/components/staff/ReviewForm";
 import { signOut } from "@/app/provider/actions";
 
 export const metadata: Metadata = { title: "Provider review" };
@@ -27,16 +27,7 @@ export default async function Page() {
               <dt>Services</dt><dd>{b.services.map((s) => SERVICES.find((x) => x.id === s)?.label ?? s).join(", ")}</dd>
               {b.description ? (<><dt>About</dt><dd>{b.description}</dd></>) : null}
             </dl>
-            <form action={reviewBusiness} className="staff__form">
-              <input type="hidden" name="id" value={b.id} />
-              <label className="field__label" htmlFor={`n-${b.id}`}>Note to the provider (required unless approving)</label>
-              <textarea id={`n-${b.id}`} name="note" rows={2} maxLength={500} className="staff__note" />
-              <div className="setup__buttons">
-                <button name="decision" value="approved" className="button">Approve</button>
-                <button name="decision" value="changes_requested" className="button button--ghost">Ask for changes</button>
-                <button name="decision" value="rejected" className="button button--ghost">Reject</button>
-              </div>
-            </form>
+            <ReviewForm id={b.id} />
           </section>
         ))}
         <form action={signOut} className="setup__signout"><button type="submit" className="resend__button">Sign out</button></form>

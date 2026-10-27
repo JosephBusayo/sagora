@@ -110,15 +110,20 @@ test("staff asks for changes, provider fixes and resubmits, staff approves", asy
   await s.page.getByRole("button", { name: "Sign in" }).click();
   await s.page.goto("/staff/providers");
   await expect(s.page.getByRole("heading", { name: "Providers waiting for review" })).toBeVisible();
-  const card = s.page.locator("section", { hasText: P.business });
+  await s.page.waitForLoadState("networkidle"); // let the review form hydrate before clicking
+  const card = s.page.locator("section").filter({ hasText: P.email }); // email is unique per run
   await expect(card).toBeVisible();
 
   // Asking for changes without a reason does nothing.
   await card.getByRole("button", { name: "Ask for changes" }).click();
-  await expect(card).toBeVisible();
+  await expect(card.getByText("Say what needs to change")).toBeVisible();
+
   await card.getByLabel(/Note to the provider/).fill("Please add your village name.");
   await card.getByRole("button", { name: "Ask for changes" }).click();
-  await expect(s.page.locator("section", { hasText: P.business })).toHaveCount(0);
+  // The business leaves the queue as soon as it is sent back.
+  await expect(s.page.locator("section").filter({ hasText: P.email })).toHaveCount(0);
+  await s.page.goto("/staff/providers"); // and it stays gone on a fresh load
+  await expect(s.page.locator("section").filter({ hasText: P.email })).toHaveCount(0);
   expect(mailsTo(P.email).some((m) => m.text.includes("Please add your village name."))).toBe(true);
 
   // Provider sees the note and resubmits.
@@ -132,10 +137,17 @@ test("staff asks for changes, provider fixes and resubmits, staff approves", asy
   await expect(page.getByRole("heading", { name: "Waiting for Sagora to review your business" })).toBeVisible();
 
   // Staff approves.
-  await s.page.reload();
-  await s.page.locator("section", { hasText: P.business }).getByRole("button", { name: "Approve" }).click();
-  await expect(s.page.locator("section", { hasText: P.business })).toHaveCount(0);
+  await s.page.goto("/staff/providers");
+  const again = s.page.locator("section").filter({ hasText: P.email });
+  await expect(again).toBeVisible();
+  await s.page.waitForLoadState("networkidle");
+  await again.getByRole("button", { name: "Approve" }).click();
+  await expect(s.page.locator("section").filter({ hasText: P.email })).toHaveCount(0);
+  await s.page.goto("/staff/providers");
+  await expect(s.page.locator("section").filter({ hasText: P.email })).toHaveCount(0);
+  // An approved provider no longer sees the setup screen: they go into the workspace.
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Your business is approved" })).toBeVisible();
+  await expect(page).toHaveURL(/\/provider\/dashboard$/);
+  await expect(page.getByRole("link", { name: "Team" })).toBeVisible();
   await s.ctx.close();
 });

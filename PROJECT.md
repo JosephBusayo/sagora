@@ -347,3 +347,52 @@ Verification can't be bypassed · setup resumes after verify · invites join the
 **No Figma frame exists for setup or approval.** The look follows the Settings > Business details form plus the auth tokens. Needs the designer's real screens.
 
 **Still missing for stage 1:** MFA for staff (the staff screen is protected by role and verified email only, so do not use it with real data until MFA is added), invited teammates joining the right business, equipment and verification evidence in setup.
+
+---
+
+## Build status update (28 Oct 2026): provider workspace, Settings and Team
+
+**Built and tested (20 browser tests pass).**
+
+### App shell
+Sidebar and top bar rebuilt from the Team and Settings frames: frame 1728x1117, sidebar 276px,
+panel inset 17px, top bar 96px, content padding 57px. Colours sampled from the same frames
+(`--color-nav-active #E9ECD7`, `--color-chip #E5F6C2`, `--color-pill-bg #CFE6CA`, table header `#F8F8F6`).
+The sidebar carries all three groups from the design. Sections that are designed but not built yet
+(Dashboard, Requests, My quotes, Jobs, Equipment, Payments, Notifications, Reports, Help)
+render an honest "not built yet" page rather than a dead link.
+
+### Settings (`/provider/settings`)
+The four rows from the design: Business details, Team, Account, Password and security.
+- **Business details** edits the approved business (name, phone, email, village/town, additional information).
+- **Account** edits the person's own name and phone. The sign-in email is read-only: changing it needs
+  re-verification, which is a separate flow and is not designed yet.
+- **Password and security** changes the password, then signs out **every** session, including the current
+  one, and returns to sign-in with a message. That is stricter than "revoke others" and leaves no doubt
+  that no old device is still signed in.
+
+### Team (`/provider/team`)
+Table, invite modal and edit modal from the design.
+- The owner row is created from the business, so the table is never empty, and the owner cannot be
+  edited or removed from this screen.
+- Roles: Operator, Assistant (Owner is not invitable: a business has exactly one).
+  Permissions: Full access, Manage jobs, View jobs.
+- **Invitations** are real: a one-time token is emailed, only its SHA-256 hash is stored, it expires in
+  7 days and is burned on use. Accepting creates the teammate's account from the invited email
+  (never from the form) and links it to that business.
+- A teammate without Full access sees no invite button, and the server refuses the action even if the
+  form is posted directly.
+- Inviting the same person twice is refused by a unique index, not just by a check.
+
+### Design notes
+- Measured against the Figma frames; layout, type and colour are within a few pixels.
+- The top bar shows the account's name. For a brand-new owner that is the business name until they set
+  a personal name in Settings > Account; in the design it is a person's name ("Tim Drake").
+- Icons are hand-drawn stand-ins matched to the design. Replace them with the designer's SVG exports.
+- There is still no design for: the staff review screen, the invite acceptance screen, and the
+  "not built yet" placeholders.
+
+### Still open
+- MFA for staff and for sensitive money actions (brief requirement, not started).
+- Changing the sign-in email.
+- Everything in stages 2-4: farmer app, requests, quotes, jobs, equipment, payments.
