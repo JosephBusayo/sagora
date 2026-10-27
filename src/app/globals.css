@@ -1,49 +1,346 @@
+/* ---------------------------------------------------------------------------
+   Sagora design tokens
+   Colours were measured from the exported sign-in frames (±2 per channel).
+   Replace with the real Figma variables once they can be pulled.
+   Tokens marked (assumed) are not shown in the design and need confirming.
+--------------------------------------------------------------------------- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg: #f7f8f2;
+  --color-surface: #ffffff;
+  --color-border: #eef0e2;
+  --color-brand: #567621;
+  --color-brand-hover: #4a671c; /* (assumed) hover/pressed shade */
+  --color-on-brand: #ffffff;
+  --color-text: #000000;
+  --color-text-muted: #636361;
+  --color-placeholder: #7f7f7f;
+  --color-icon: #7f7f7d;
+  --color-error: #b42318; /* (assumed) no error state in the design yet */
+  --color-error-bg: #fef3f2; /* (assumed) */
+  --color-success: #3d5a14; /* (assumed) */
+  --color-success-bg: #eef3e2; /* (assumed) */
+
+  --radius-field: 10px;
+  --radius-pill: 999px;
+  --radius-panel: 28px;
+
+  /* Type. Geist per the design file; the button label is 16/500.
+     Title, subtitle, label and input sizes are measured, not yet confirmed. */
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text-title: 600 21px/21px var(--font-sans); /* (measured) */
+  --text-subtitle: 400 16px/16px var(--font-sans); /* (measured) */
+  --text-label: 500 13px/9px var(--font-sans); /* (measured) */
+  --text-input: 400 13px/16px var(--font-sans); /* (measured) */
+  --text-helper: 400 13px/13px var(--font-sans); /* (measured) */
+  --text-button: 500 18.4px/31px var(--font-sans); /* (measured from label widths; the 16px style in the design file matches the subtitle) */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-html {
-  height: 100%;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 html,
 body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
   margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: var(--text-input);
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
-  color: inherit;
+  color: var(--color-brand);
+  font-weight: 500;
   text-decoration: none;
 }
+a:hover {
+  text-decoration: underline;
+}
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Auth layout: form column left, rounded photo panel right (1728×1117 frame)
+--------------------------------------------------------------------------- */
+.auth {
+  display: grid;
+  grid-template-columns: minmax(0, 897fr) minmax(0, 809fr);
+  min-height: 100vh;
+  padding: 28px 22px 30px 0;
+}
+
+.auth__main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.auth__form-col {
+  position: relative;
+  width: 100%;
+  max-width: 436px;
+}
+
+.auth__panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-panel);
+  min-height: 480px;
+  background: #3c4a2a;
+}
+
+.auth__logo {
+  display: block;
+  margin: 0 auto;
+  width: 70px;
+  height: 65px;
+}
+
+.auth__head {
+  margin-top: 33px;
+  text-align: center;
+}
+.auth__title {
+  margin: 0;
+  font: var(--text-title);
+}
+.auth__subtitle {
+  margin: 14px 0 0;
+  font: var(--text-subtitle);
+  color: var(--color-text-muted);
+}
+
+.auth__form {
+  margin-top: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.auth__actions {
+  margin-top: 14px; /* 22 gap + 14 = 36 between the last field and the button */
+}
+
+/* ---------------------------------------------------------------------------
+   Fields
+--------------------------------------------------------------------------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.field__label {
+  font: var(--text-label);
+}
+.field__box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 50px;
+  padding: 0 8px 0 9px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-field);
+}
+.field__box:focus-within {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgba(86, 118, 33, 0.15);
+}
+.field--invalid .field__box {
+  border-color: var(--color-error);
+}
+.field__input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: var(--text-input);
+  color: var(--color-text);
+}
+.field__input::placeholder {
+  color: var(--color-placeholder);
+}
+.field__prefix {
+  font: var(--text-input);
+  color: var(--color-placeholder);
+}
+.field__toggle {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-icon);
+  cursor: pointer;
+}
+.field__helper {
+  margin: -2px 0 0;
+  font: var(--text-helper);
+  color: var(--color-placeholder);
+}
+.field__error {
+  margin: -2px 0 0;
+  font: var(--text-helper);
+  color: var(--color-error);
+}
+
+/* ---------------------------------------------------------------------------
+   One-time code: seven boxes
+--------------------------------------------------------------------------- */
+.otp {
+  display: flex;
+  gap: 10px;
+}
+.otp__box {
+  width: 53px;
+  height: 50px;
+  padding: 0;
+  text-align: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-field);
+  font: var(--text-input);
+  font-size: 16px;
+  color: var(--color-text);
+}
+.otp__box:focus {
+  outline: 0;
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px rgba(86, 118, 33, 0.15);
+}
+.otp--invalid .otp__box {
+  border-color: var(--color-error);
+}
+.otp__fallback {
+  width: 100%;
+  height: 50px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-field);
+  font: var(--text-input);
+  letter-spacing: 0.3em;
+}
+
+.resend {
+  margin: 0;
+  font: var(--text-helper);
+  color: var(--color-text);
+}
+.resend__button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 500;
+  color: var(--color-brand);
+  cursor: pointer;
+}
+.resend__button:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------------
+   Buttons and messages
+--------------------------------------------------------------------------- */
+.button {
+  display: block;
+  width: 100%;
+  height: 55px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+  font: var(--text-button);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.button:hover {
+  background: var(--color-brand-hover);
+}
+.button:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.notice {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-field);
+  font: var(--text-helper);
+  font-size: 13px;
+}
+.notice--error {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+.notice--success {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+}
+
+/* Sits below the form without moving it: the design centres the form column alone. */
+.auth__footer {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 22px 0 0;
+  text-align: center;
+  font: var(--text-helper);
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* Placeholder page for the signed-in provider (setup comes next) */
+.shell-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+  text-align: center;
+}
+.shell-placeholder__card {
+  width: 100%;
+  max-width: 436px;
+}
+
+@media (max-width: 960px) {
+  .auth {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0;
+  }
+  .auth__panel {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
   }
 }

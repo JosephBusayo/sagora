@@ -1,9 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Native module used by the dev database.
+  serverExternalPackages: ["better-sqlite3"],
 };
 
 export default nextConfig;

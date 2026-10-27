@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sagora 2.0
 
-## Getting Started
+Agricultural service platform for Sierra Leone. Read **PROJECT.md** first: it is the source of truth for scope, rules, decisions and build status.
 
-First, run the development server:
+## Run it locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local      # then set BETTER_AUTH_SECRET (openssl rand -hex 32)
+npm run db:migrate              # creates the local SQLite database in ./data
+npm run dev                     # http://localhost:3000  -> provider sign-in
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+With no `RESEND_API_KEY`, emails are not sent. They are written to `data/dev-outbox.jsonl`, which is where you read verification codes while developing:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+tail -n 1 data/dev-outbox.jsonl
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Checks
 
-## Learn More
+```bash
+npm run lint
+npm run typecheck
+npm run build
+npm run test:e2e                # needs a prior `npm run build`; uses a throwaway database
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Where things live
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Path | What |
+|---|---|
+| `src/app/provider/*` | Provider access screens and `actions.ts` (server actions) |
+| `src/components/auth/*` | Shared form pieces (fields, code input, buttons) |
+| `src/lib/auth.ts` | Better Auth setup (email + password, emailed codes) |
+| `src/lib/email.ts` | The single place that sends email |
+| `src/app/globals.css` | Design tokens and styles |
+| `e2e/` | Browser tests |
