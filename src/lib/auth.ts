@@ -3,7 +3,7 @@ import { betterAuth } from "better-auth";
 import { emailOTP } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "./db";
-import { sendEmail } from "./email";
+import { notify } from "./outbox";
 
 /** Length of every emailed code. The design shows seven boxes. */
 export const OTP_LENGTH = 7;
@@ -61,16 +61,16 @@ export const auth = betterAuth({
       overrideDefaultEmailVerification: true,
       rateLimit: { window: 60, max: 3 },
       async sendVerificationOTP({ email, otp, type }) {
-        // Not awaited on purpose (avoids revealing timing differences). If this
-        // moves to serverless hosting, wrap it in waitUntil().
-        void sendEmail({
+        // Saved to the outbox, which then sends. Sign-up never fails because email did.
+        notify({
+          kind: `otp.${type}`,
           to: email,
           subject: SUBJECTS[type],
           text:
             `Your Sagora code is ${otp}\n\n` +
             `It expires in ${OTP_TTL_SECONDS / 60} minutes. ` +
             `If you did not ask for this, you can ignore this email.`,
-        }).catch((err) => console.error("[email] send failed:", err.message));
+        });
       },
     }),
     nextCookies(), // keep last: lets server actions set the session cookie

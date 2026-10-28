@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { confirmDelivery, raiseConcern } from "@/lib/jobs";
 import { requireFarmer } from "@/lib/session";
-import { sendEmail } from "@/lib/email";
+import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
 
 const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String(fd.get(k)).trim() : "");
@@ -26,11 +26,13 @@ export async function confirmDeliveryAction(fd: FormData) {
 
   const row = providerEmail(requestId);
   if (row?.email) {
-    void sendEmail({
+    notify({
+      kind: "job.confirmed",
+      dedupeKey: `job.confirmed:${requestId}`,
       to: row.email,
       subject: `${row.reference} confirmed by the farmer`,
       text: `The farmer has confirmed the work on ${row.reference}. Settlement is arranged separately.`,
-    }).catch(() => {});
+    });
   }
   redirect(`/farmer/requests/${requestId}?confirmed=1`);
 }
@@ -43,11 +45,13 @@ export async function raiseConcernAction(fd: FormData) {
 
   const row = providerEmail(requestId);
   if (row?.email) {
-    void sendEmail({
+    notify({
+      kind: "job.concern",
+      dedupeKey: `job.concern:${requestId}`,
       to: row.email,
       subject: `A concern was raised on ${row.reference}`,
       text: `The farmer has raised a concern about the work on ${row.reference}:\n\n${str(fd, "concern")}\n\nSagora will follow up.`,
-    }).catch(() => {});
+    });
   }
   redirect(`/farmer/requests/${requestId}?concern=1`);
 }

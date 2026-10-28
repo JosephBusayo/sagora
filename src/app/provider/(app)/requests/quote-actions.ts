@@ -5,7 +5,7 @@ import { requireWorkspace } from "@/lib/guard";
 import { parseAmount, formatAmount } from "@/lib/money";
 import { sendQuote, withdrawQuote } from "@/lib/quotes";
 import { getById } from "@/lib/requests";
-import { sendEmail } from "@/lib/email";
+import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
 import type { FormState } from "@/lib/auth-flows";
 
@@ -54,7 +54,9 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   const request = getById(requestId);
   if (request?.contactEmail) {
     const isRevision = result.quote.version > 1;
-    void sendEmail({
+    notify({
+      kind: isRevision ? "quote.revised" : "quote.sent",
+      dedupeKey: `quote:${result.quote.id}`,
       to: request.contactEmail,
       subject: `${isRevision ? "Updated quote" : "New quote"} for ${request.reference}`,
       text:
@@ -63,7 +65,7 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
         `Can start: ${result.quote.startDate}\nPrice holds until: ${result.quote.validUntil}\n\n` +
         `Sign in to compare quotes and accept one. Accepting agrees the price; it is not a booking ` +
         `until payment is arranged.`,
-    }).catch(() => {});
+    });
   }
 
   revalidatePath("/provider/requests");

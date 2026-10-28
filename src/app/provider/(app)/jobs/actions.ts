@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/guard";
 import { reportWork, scheduleJob, startWork } from "@/lib/jobs";
-import { sendEmail } from "@/lib/email";
+import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
 import type { FormState } from "@/lib/auth-flows";
 
@@ -64,14 +64,16 @@ export async function reportWorkAction(_prev: FormState, fd: FormData): Promise<
     )
     .get(jobId) as { email: string; reference: string } | undefined;
   if (row?.email) {
-    void sendEmail({
+    notify({
+      kind: "job.work_reported",
+      dedupeKey: `job.reported:${jobId}:${acres}`,
       to: row.email,
       subject: `${business.name} has reported the work on ${row.reference}`,
       text:
         `${business.name} says they have finished ${acres} acres on ${row.reference}.\n\n` +
         `${note ? `Their note: ${note}\n\n` : ""}` +
         `Sign in to confirm the work was done, or raise a concern. Nothing is settled until you do.`,
-    }).catch(() => {});
+    });
   }
   revalidatePath("/provider/jobs");
   return { notice: "Work reported. The farmer has been asked to confirm it." };

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireWorkspace } from "@/lib/guard";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
-import { sendEmail } from "@/lib/email";
+import { notify } from "@/lib/outbox";
 import { PERMISSIONS, ROLES, createInvite, removeMember, updateMember } from "@/lib/team";
 import type { FormState } from "@/app/provider/actions";
 
@@ -48,7 +48,9 @@ export async function inviteMember(_prev: FormState, fd: FormData): Promise<Form
   if (!created) return { error: "That person is already on your team or has already been invited.", values };
 
   const base = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
-  await sendEmail({
+  notify({
+    kind: "team.invited",
+    dedupeKey: `team.invited:${created.id}`,
     to: input.email,
     subject: `${business.name} invited you to Sagora`,
     text:

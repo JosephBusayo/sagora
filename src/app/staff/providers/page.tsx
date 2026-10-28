@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { listForReview, SERVICES } from "@/lib/business";
 import { requireStaff } from "@/lib/session";
 import { ReviewForm } from "@/components/staff/ReviewForm";
@@ -30,6 +31,7 @@ export default async function Page() {
             <ReviewForm id={b.id} />
           </section>
         ))}
+        <p className="auth__footer"><Link href="/staff/outbox">Notification queue</Link></p>
         <form action={signOut} className="setup__signout"><button type="submit" className="resend__button">Sign out</button></form>
       </div>
     </main>

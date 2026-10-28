@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { acceptQuote } from "@/lib/quotes";
 import { requireFarmer } from "@/lib/session";
-import { sendEmail } from "@/lib/email";
+import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
 
 /**
@@ -27,14 +27,16 @@ export async function acceptQuoteAction(fd: FormData) {
     )
     .get(quoteId) as { email: string; name: string; reference: string } | undefined;
   if (row?.email) {
-    void sendEmail({
+    notify({
+      kind: "quote.accepted",
+      dedupeKey: `quote.accepted:${quoteId}`,
       to: row.email,
       subject: `Your quote for ${row.reference} was accepted`,
       text:
         `${row.name}: the farmer accepted your quote for ${row.reference}.\n\n` +
         `The price and terms are fixed at the version they accepted. Payment and the booking ` +
         `itself are arranged separately.`,
-    }).catch(() => {});
+    });
   }
   redirect(`/farmer/requests/${requestId}?accepted=1`);
 }

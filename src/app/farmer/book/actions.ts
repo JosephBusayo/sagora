@@ -5,7 +5,7 @@ import { z } from "zod";
 import { DISTRICTS, SERVICES } from "@/lib/business";
 import { createRequest } from "@/lib/requests";
 import { requireFarmer } from "@/lib/session";
-import { sendEmail } from "@/lib/email";
+import { notify } from "@/lib/outbox";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
 import type { FormState } from "@/lib/auth-flows";
 
@@ -60,7 +60,9 @@ export async function bookService(_prev: FormState, fd: FormData): Promise<FormS
 
   // The reference is the farmer's way back to this request, so it goes out by email too.
   // TODO (stage 2): write to an outbox first and retry, so an email outage never loses it.
-  void sendEmail({
+  notify({
+    kind: "request.created",
+    dedupeKey: `request.created:${created.id}`,
     to: farmer.email,
     subject: `Your Sagora request ${created.reference}`,
     text:
@@ -68,7 +70,7 @@ export async function bookService(_prev: FormState, fd: FormData): Promise<FormS
       `Your reference is ${created.reference}. Keep it: it is how you find this request again.\n\n` +
       `A request is not a booking. Providers will send you quotes, and nothing is confirmed ` +
       `until you accept one and pay.`,
-  }).catch(() => {});
+  });
 
   redirect(`/farmer/requests?new=${created.reference}`);
 }

@@ -709,3 +709,34 @@ arrive in stage 4, so a scheduled job carries no money guarantee and the screens
 ### Not built
 Private jobs the provider enters themselves (no farmer request), a calendar view, and
 replacement/refund when a breakdown stops work. The last one needs payments.
+
+---
+
+## Build status update (28 Oct 2026): notification outbox
+
+**Built and tested (58 browser tests, up from 54).** This closes a correctness gap that was in
+the system from day one.
+
+### The problem it fixes
+Every notification was `void sendEmail(...)` — fired and forgotten. If the email provider was
+slow or down, the message vanished with no record and nobody knew. The brief is explicit:
+*"events are saved first, then sent with retries and duplicate protection. Saving a
+request/quote/payment must never depend on email delivery. Failed sends show in a staff queue."*
+
+### How it works now
+`notify()` writes a row to `notification_outbox` — an ordinary insert inside the caller's own
+work — and only then tries to send. Every notification in the product goes through it:
+verification codes, invitations, quote sent and accepted, business review, work reported,
+confirmations and concerns.
+
+- **Retries with backoff**: 1, 2, 4, 8, 16 minutes, then it gives up after 5 attempts.
+- **Duplicate protection**: a `dedupe_key` per event, unique in the database. The same quote
+  cannot email the farmer twice because a form was submitted twice.
+- **Concurrency-safe**: each message is claimed with a conditional update, so two drains running
+  at once cannot send the same message twice.
+- **Staff queue** at `/staff/outbox`: everything that did not go first time, with the error, the
+  retry time, and a Try again button. Staff-only, tested.
+
+### Still to do
+Nothing drains the queue on a schedule yet — sending is kicked off by the event itself, and staff
+can drain by hand. A scheduled worker is a deployment concern and belongs with hosting.
