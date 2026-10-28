@@ -211,7 +211,7 @@ test("a retired machine stays readable but cannot be chosen", async ({ page }) =
   await expect(card(page, "Rice harvester").getByText("Available")).toBeVisible();
 });
 
-test("one provider cannot see or touch another provider's machines", async ({ page, browser }) => {
+test("one provider cannot see or touch another provider's machines", async ({ browser }) => {
   // A second provider with their own register.
   const other = { business: "Sesay Hire", phone: "077 303 303", email: `sesay.${run}@example.com`, password: "other-provider-26" };
   const o = await fresh(browser);
