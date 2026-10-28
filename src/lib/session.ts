@@ -2,6 +2,7 @@ import "server-only";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "./auth";
+import { isVerified } from "./mfa";
 
 type SessionUser = { id: string; name: string; email: string; emailVerified: boolean; role?: string | null; phone?: string | null; businessName?: string | null };
 
@@ -24,10 +25,31 @@ export async function requireFarmer(): Promise<SessionUser> {
   return u;
 }
 
-/** Staff only. Anyone else is sent away without being told the page exists. */
+/**
+ * Staff only, and only once this browser has proved a second factor.
+ *
+ * Anyone who is not staff is sent to sign-in without being told the page exists. Staff who have
+ * not passed the emailed code go to /staff/verify. The brief asks for MFA on staff and finance
+ * roles, and these screens move money.
+ */
 export async function requireStaff(): Promise<SessionUser> {
   const s = await auth.api.getSession({ headers: await headers() });
   const u = s?.user as SessionUser | undefined;
   if (!u || !u.emailVerified || u.role !== "staff") redirect("/provider/sign-in");
+  if (!isVerified(s!.session.id)) redirect("/staff/verify");
   return u;
+}
+
+/** Staff identity only, without the second factor — for the verify screen itself. */
+export async function staffAwaitingCode(): Promise<{ user: SessionUser; sessionId: string }> {
+  const s = await auth.api.getSession({ headers: await headers() });
+  const u = s?.user as SessionUser | undefined;
+  if (!u || !u.emailVerified || u.role !== "staff") redirect("/provider/sign-in");
+  return { user: u, sessionId: s!.session.id };
+}
+
+/** The current session's id, for ending the second factor on sign-out. */
+export async function currentSessionId(): Promise<string | null> {
+  const s = await auth.api.getSession({ headers: await headers() });
+  return s?.session.id ?? null;
 }

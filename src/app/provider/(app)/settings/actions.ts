@@ -10,6 +10,7 @@ import { audit } from "@/lib/business";
 import { db } from "@/lib/db";
 import { requireWorkspace } from "@/lib/guard";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
+import { clearForUser } from "@/lib/mfa";
 import { setNotice } from "@/lib/pending";
 import type { FormState } from "@/app/provider/actions";
 
@@ -74,7 +75,7 @@ export async function saveAccount(_prev: FormState, fd: FormData): Promise<FormS
 /* --------------------------------------------------------------- password */
 
 export async function changePassword(_prev: FormState, fd: FormData): Promise<FormState> {
-  await requireWorkspace();
+  const { user } = await requireWorkspace();
   const current = String(fd.get("current") ?? "");
   const password = String(fd.get("password") ?? "");
   const confirm = String(fd.get("confirm") ?? "");
@@ -97,7 +98,9 @@ export async function changePassword(_prev: FormState, fd: FormData): Promise<Fo
     return { error: "We couldn't change your password. Please try again." };
   }
   // Every session ends, including this one, so the person signs in once with the new
-  // password and knows for certain that no old device is still signed in.
+  // password and knows for certain that no old device is still signed in. A staff second
+  // factor dies with those sessions: a stolen password must not leave a verified browser behind.
+  clearForUser(user.id);
   await auth.api.signOut({ headers: await headers() });
   await setNotice("password-changed");
   redirect("/provider/sign-in");

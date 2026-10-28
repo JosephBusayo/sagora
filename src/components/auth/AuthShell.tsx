@@ -28,7 +28,9 @@ export function AuthShell({ image, title, subtitle, children, footer }: Props) {
             <p className="auth__subtitle">{subtitle}</p>
           </header>
           {children}
-          {footer ? <p className="auth__footer">{footer}</p> : null}
+          {/* A div, not a p: a footer may hold a sign-out form, and a form inside a p is invalid
+              HTML that the browser moves, which breaks hydration. */}
+          {footer ? <div className="auth__footer">{footer}</div> : null}
         </div>
       </main>
       <aside className="auth__panel" aria-hidden="true">

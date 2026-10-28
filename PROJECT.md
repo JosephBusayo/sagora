@@ -799,3 +799,37 @@ once the frames arrive.
 ### Reconciliation
 `/staff/payments?tab=books` answers the only question finance actually has: does the ledger still
 balance, is any account negative, and is money sitting on a job that is already finished.
+
+## Build status update (28 Oct 2026): a second factor for staff
+
+**Built and tested (75 browser tests, up from 68; the smoke run is 30 steps).** The brief asks for
+*"MFA for staff and finance roles"*, and after payments phase A those screens move real money, so
+this was the biggest thing left.
+
+### How it works
+A staff password now gets you as far as `/staff/verify` and no further. That screen emails a
+7-digit code to the staff account's own address and the rest of `/staff` opens only once it is
+entered. The check lives in `requireStaff()`, which every staff page **and every staff server
+action** already calls — so it is enforced on the request, not by a redirect that could be skipped.
+
+- **Tied to the session, not the user.** A code proved in one browser does nothing for another.
+- **Single use.** The code is destroyed the moment it works, so it cannot be replayed.
+- **Ten-minute life, five attempts.** Too many wrong guesses burn the code, not the account — a new
+  one is always one click away. Wrong codes are compared with `timingSafeEqual` against a hash;
+  the code itself is never stored.
+- **Twelve-hour window**, so a forgotten session on a shared machine is not a way in overnight.
+- **Dies with the password.** Changing a password clears every session's second factor, so a
+  stolen password cannot leave a verified browser behind. Signing out clears it too.
+- **Codes go through the outbox**, like every other email, so a failed send is visible and retried.
+
+### A real bug it turned up
+`AuthShell` rendered its footer in a `<p>`. The sign-out form in the new footer is a `<form>`
+inside a `<p>` — invalid HTML, which the browser silently moves, which broke hydration with React
+error #418. The smoke run caught it because it fails on any console error. The footer is a `<div>`
+now.
+
+### Still open
+The design also shows a **"Payments — OTP"** screen on the *provider* side (`15-10667`). What that
+one protects is not written down anywhere — most likely changing where payouts are sent, which is
+the brief's "changing the beneficiary". Not built: it needs confirming first, and it is in
+WAITING-ON.

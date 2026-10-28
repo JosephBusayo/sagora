@@ -44,6 +44,25 @@ async function fresh(browser: Browser) {
 }
 const inDays = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
 
+/** Staff screens need a second factor: a code emailed to the staff account itself. */
+async function passStaffCheck(page: Page, email: string, landing: string) {
+  await page.goto(landing);
+  if (!/\/staff\/verify$/.test(page.url())) return;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const c = await latestCode(email);
+    await page.getByLabel("Digit 1 of 7").click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(c);
+    await page.getByRole("button", { name: "Verify" }).click();
+    try {
+      await page.waitForURL((u) => !u.pathname.includes("/staff/verify"), { timeout: 5000 });
+      await page.goto(landing);
+      return;
+    } catch { await page.waitForTimeout(400); }
+  }
+  throw new Error(`staff verification never completed for ${email}`);
+}
+
 function outboxRows(kindLike: string) {
   const db = openTestDb();
   const rows = db.prepare(
@@ -141,7 +160,7 @@ test("a failing send keeps the work, retries, and shows in the staff queue", asy
   await s.page.getByLabel("Password", { exact: true }).fill(STAFF.pass);
   await s.page.getByRole("button", { name: "Sign in" }).click();
 
-  await s.page.goto("/staff/outbox");
+  await passStaffCheck(s.page, STAFF.email, "/staff/outbox");
   await expect(s.page.getByRole("heading", { name: "Notification queue" })).toBeVisible();
   const row = s.page.getByRole("row").filter({ hasText: "unreachable@example.com" });
   await expect(row.getByText("Gave up")).toBeVisible();

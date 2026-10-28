@@ -114,6 +114,25 @@ async function scheduledJob(browser: Browser, acres: string, village: string, pr
   return reference;
 }
 
+/** Staff screens need a second factor: a code emailed to the staff account itself. */
+async function passStaffCheck(page: Page, email: string, landing = "/staff/payments") {
+  await page.goto(landing);
+  if (!/\/staff\/verify$/.test(page.url())) return;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const c = await latestCode(email);
+    await page.getByLabel("Digit 1 of 7").click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(c);
+    await page.getByRole("button", { name: "Verify" }).click();
+    try {
+      await page.waitForURL((u) => !u.pathname.includes("/staff/verify"), { timeout: 5000 });
+      await page.goto(landing);
+      return;
+    } catch { await page.waitForTimeout(400); }
+  }
+  throw new Error(`staff verification never completed for ${email}`);
+}
+
 const collectRow = (page: Page, reference: string) => page.getByRole("row").filter({ hasText: reference });
 
 let refA = "";
@@ -176,6 +195,7 @@ test.beforeAll(async ({ browser }) => {
 
 test("a part payment does not book the job", async ({ page }) => {
   await signIn(page, CLERK, "provider");
+  await passStaffCheck(page, CLERK.email);
   await page.goto("/staff/payments");
   await expect(page.getByRole("heading", { name: "Payments" })).toBeVisible();
   await expect(page.getByText("manual, not verified by a payment provider")).toBeVisible();
@@ -195,6 +215,7 @@ test("a part payment does not book the job", async ({ page }) => {
 
 test("the same receipt reference cannot be recorded twice", async ({ page }) => {
   await signIn(page, CLERK, "provider");
+  await passStaffCheck(page, CLERK.email);
   await page.goto("/staff/payments");
   const row = collectRow(page, refA);
   await row.getByText("Record a payment", { exact: true }).click();
@@ -209,6 +230,7 @@ test("the same receipt reference cannot be recorded twice", async ({ page }) => 
 
 test("paying the balance books the job and tells both sides", async ({ page }) => {
   await signIn(page, CLERK, "provider");
+  await passStaffCheck(page, CLERK.email);
   await page.goto("/staff/payments");
   const row = collectRow(page, refA);
   await row.getByText("Record a payment", { exact: true }).click();
@@ -258,6 +280,7 @@ test("money arriving after the machine is taken opens a case instead of overbook
   db.close();
 
   await signIn(page, CLERK, "provider");
+  await passStaffCheck(page, CLERK.email);
   await page.goto("/staff/payments");
   const row = collectRow(page, refB);
   await row.getByText("Record a payment", { exact: true }).click();
@@ -274,6 +297,7 @@ test("money arriving after the machine is taken opens a case instead of overbook
 
 test("a refund needs a second person, and the preparer cannot be it", async ({ page, browser }) => {
   await signIn(page, CLERK, "provider");
+  await passStaffCheck(page, CLERK.email);
   await page.goto("/staff/payments?tab=cases");
   await page.getByText("Refund the farmer", { exact: true }).click();
   await page.getByLabel("Amount to refund").fill("500.00");
@@ -289,6 +313,7 @@ test("a refund needs a second person, and the preparer cannot be it", async ({ p
   // The other person can.
   const b = await fresh(browser);
   await signIn(b.page, BOSS, "provider");
+  await passStaffCheck(b.page, BOSS.email);
   await b.page.goto("/staff/payments?tab=releases");
   await b.page.locator("section.staff__item").filter({ hasText: "Refund" }).getByRole("button", { name: "Approve it" }).click();
   await expect(b.page.getByRole("status")).toContainText("Approved");
@@ -320,6 +345,7 @@ test("a payout waits for the farmer's confirmation, not the provider's word", as
 
   // Reported is not confirmed, so there is nothing to pay out.
   await signIn(page, CLERK, "provider");
+  await passStaffCheck(page, CLERK.email);
   await page.goto("/staff/payments?tab=releases");
   await expect(page.getByRole("heading", { name: "Ready to pay out" })).toHaveCount(0);
 
@@ -339,6 +365,7 @@ test("a payout waits for the farmer's confirmation, not the provider's word", as
 
   const b = await fresh(browser);
   await signIn(b.page, BOSS, "provider");
+  await passStaffCheck(b.page, BOSS.email);
   await b.page.goto("/staff/payments?tab=releases");
   const payout = b.page.locator("section.staff__item").filter({ hasText: "Payout" });
   await payout.getByRole("button", { name: "Approve it" }).click();
@@ -362,6 +389,7 @@ test("a payout waits for the farmer's confirmation, not the provider's word", as
 test("changing where money goes withdraws an approval that has not been sent", async ({ page, browser }) => {
   // A third job, paid and booked, then confirmed, so there is a payout to interfere with.
   await signIn(page, CLERK, "provider");
+  await passStaffCheck(page, CLERK.email);
   await page.goto("/staff/payments");
   const row = collectRow(page, refC);
   await row.getByText("Record a payment", { exact: true }).click();
@@ -382,6 +410,7 @@ test("changing where money goes withdraws an approval that has not been sent", a
 
   const boss = await fresh(browser);
   await signIn(boss.page, BOSS, "provider");
+  await passStaffCheck(boss.page, BOSS.email);
   await boss.page.goto("/staff/payments?tab=releases");
   const payout = boss.page.locator("section.staff__item").filter({ hasText: `Payout · ${refC}` });
   await payout.getByRole("button", { name: "Approve it" }).click();
@@ -406,6 +435,7 @@ test("changing where money goes withdraws an approval that has not been sent", a
 
 test("the books balance after all of that", async ({ page }) => {
   await signIn(page, CLERK, "provider");
+  await passStaffCheck(page, CLERK.email);
   await page.goto("/staff/payments?tab=books");
   await expect(page.getByRole("status").filter({ hasText: "The ledger balances" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Accounts in the negative" })).toHaveCount(0);

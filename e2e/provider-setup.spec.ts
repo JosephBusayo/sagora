@@ -51,6 +51,25 @@ async function registerAndVerify(page: Page, u: typeof P) {
   await expect(page).toHaveURL(/verify-email$/);
   await enterCode(page, u.email);
 }
+/** Staff screens need a second factor: a code emailed to the staff account itself. */
+async function passStaffCheck(page: Page, email: string, landing: string) {
+  await page.goto(landing);
+  if (!/\/staff\/verify$/.test(page.url())) return;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const c = await latestCode(email);
+    await page.getByLabel("Digit 1 of 7").click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(c);
+    await page.getByRole("button", { name: "Verify" }).click();
+    try {
+      await page.waitForURL((u) => !u.pathname.includes("/staff/verify"), { timeout: 5000 });
+      await page.goto(landing);
+      return;
+    } catch { await page.waitForTimeout(400); }
+  }
+  throw new Error(`staff verification never completed for ${email}`);
+}
+
 async function fresh(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
   return { ctx, page: await ctx.newPage() };
@@ -123,7 +142,7 @@ test("staff asks for changes, provider fixes and resubmits, staff approves", asy
   await s.page.getByLabel("Email").fill(S.email);
   await s.page.getByLabel("Password", { exact: true }).fill(S.password);
   await s.page.getByRole("button", { name: "Sign in" }).click();
-  await s.page.goto("/staff/providers");
+  await passStaffCheck(s.page, S.email, "/staff/providers");
   await expect(s.page.getByRole("heading", { name: "Providers waiting for review" })).toBeVisible();
   await s.page.waitForLoadState("networkidle"); // let the review form hydrate before clicking
   const card = s.page.locator("section").filter({ hasText: P.email }); // email is unique per run

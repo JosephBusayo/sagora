@@ -70,6 +70,18 @@ async function verify(page, email) {
   await page.waitForURL((u) => !u.pathname.includes("verify-email"), { timeout: 8000 });
 }
 
+/** Staff screens need a second factor: a code emailed to the staff account itself. */
+async function passStaffCheck(page, email, landing) {
+  await page.goto(landing);
+  if (!/\/staff\/verify$/.test(page.url())) return;
+  const c = await code(email);
+  await page.getByLabel("Digit 1 of 7").click();
+  await page.keyboard.type(c);
+  await page.getByRole("button", { name: "Verify" }).click();
+  await page.waitForURL((u) => !u.pathname.includes("/staff/verify"), { timeout: 8000 });
+  await page.goto(landing);
+}
+
 /* ---------------------------------------------------------------- farmer */
 const f = await newPage();
 await step("Farmer creates an account", f.page, async () => {
@@ -145,12 +157,17 @@ await step("Staff account is created and promoted", s.page, async () => {
   db.prepare("UPDATE user SET role='staff' WHERE email=?").run(STAFF.email);
   db.close();
 });
-await step("Staff reviews and approves the provider", s.page, async () => {
+await step("A staff password alone does not open the staff screens", s.page, async () => {
   await s.page.goto("/provider/sign-in");
   await s.page.getByLabel("Email").fill(STAFF.email);
   await s.page.getByLabel("Password", { exact: true }).fill(STAFF.pass);
   await s.page.getByRole("button", { name: "Sign in" }).click();
-  await s.page.goto("/staff/providers");
+  await s.page.goto("/staff/payments");
+  if (!/\/staff\/verify$/.test(s.page.url())) throw new Error(`no second factor: landed on ${s.page.url()}`);
+  await s.page.screenshot({ path: path.join(OUT, "03a-staff-verify.png"), fullPage: true });
+});
+await step("Staff reviews and approves the provider", s.page, async () => {
+  await passStaffCheck(s.page, STAFF.email, "/staff/providers");
   await s.page.waitForLoadState("networkidle");
   const card = s.page.locator("section").filter({ hasText: PROV.email });
   await card.getByRole("button", { name: "Approve" }).click();
@@ -240,7 +257,7 @@ await step("Provider schedules the work, committing the tractor", p.page, async 
   await p.page.screenshot({ path: path.join(OUT, "09-job-scheduled.png"), fullPage: true });
 });
 await step("Staff records a part payment, which does not book the job", s.page, async () => {
-  await s.page.goto("/staff/payments");
+  await passStaffCheck(s.page, STAFF.email, "/staff/payments");
   const row = s.page.getByRole("row").filter({ hasText: reference });
   await row.getByText("Record a payment", { exact: true }).click();
   await row.getByLabel("Amount received").fill("1,000.00");

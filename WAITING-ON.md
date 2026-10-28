@@ -39,6 +39,7 @@ the real tokens, assets and frames be pulled directly instead of measured off a 
 | 8 | **The signed fee and refund policy sheet** | The 10% pilot fee (waived for the first 20 jobs), the 5-working-day refund deadline, the 90-day write-off, advance rules. All built; the fee is set to **0%** until this is signed |
 | 9 | **Who sits at the finance desk, and who may approve** | Money out needs two different people. Right now any staff account can prepare and any other can approve — there are no finance roles yet |
 | 10 | **A bank or mobile money account to send payouts from** | Payouts are recorded against a transfer reference. Someone has to actually make the transfers |
+| 11 | **What the provider-side "Payments — OTP" screen protects** | It is in the design (`15-10667`) with no explanation. Best guess: changing where payouts are sent. Staff MFA is built; this one is not, because nobody has said what it is for |
 
 ## From Joseph
 
@@ -51,7 +52,7 @@ the real tokens, assets and frames be pulled directly instead of measured off a 
 
 Not waiting on anyone; just not written yet.
 
-- **MFA for staff and money actions** — a brief requirement, and the biggest one left. Money now moves through `/staff/payments`, so this matters more than it did yesterday: until it exists, do not put real money behind the staff screens.
+- ~~MFA for staff~~ — **done.** A staff password now only reaches `/staff/verify`; an emailed 7-digit code opens the rest.
 - **Changing a sign-in email** — needs re-verification; no design exists.
 - **A scheduled drain for the notification outbox** — the queue retries when something triggers it, and staff can drain it by hand at `/staff/outbox`. Nothing runs it on a timer yet; that belongs with hosting.
 - **SQL migration files** — the schema is still `CREATE TABLE IF NOT EXISTS` in `db.ts`. Must become numbered migrations before Postgres.

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { APIError } from "better-auth/api";
 import { z } from "zod";
 import { auth, OTP_LENGTH } from "./auth";
+import { clearFor } from "./mfa";
 import { db } from "./db";
 import { normaliseSierraLeonePhone } from "./phone";
 import { clearPending, getPending, setPending } from "./pending";
@@ -251,6 +252,10 @@ export async function resetPassword(fd: FormData): Promise<FormState> {
 /* ---------------------------------------------------------------- sign out */
 
 export async function signOutTo(audience: Audience) {
+  // The staff second factor belongs to the session, so signing out must end it too — otherwise
+  // the next person to sign in on this machine inherits a browser that is already verified.
+  const s = await auth.api.getSession({ headers: await headers() });
+  if (s?.session.id) clearFor(s.session.id);
   await auth.api.signOut({ headers: await headers() });
   redirect(ROUTES[audience].signIn);
 }
