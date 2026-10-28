@@ -12,10 +12,14 @@
 import {
   IconArrowBoxLeft,
   IconBell,
+  IconBubbleInfo,
   IconBubbleQuestion,
+  IconCalendar2,
+  IconCalendarRepeat,
   IconChevronRight,
   IconDotGrid1x3Horizontal,
   IconFileDownload,
+  IconGarage,
   IconHeadphones,
   IconHomeDoor,
   IconLock,
@@ -25,7 +29,9 @@ import {
   IconNoteText,
   IconPeopleIdCard2,
   IconPlusMedium,
+  IconResize,
   IconSettingsGear1,
+  IconSquareGridCircle,
   IconStore1,
   IconSuitcaseWork,
   IconTeam,
@@ -70,6 +76,13 @@ const ICONS = {
   dots: IconDotGrid1x3Horizontal,
   pin: IconMapPin,
   user: IconUser,
+  // Request detail rows, matched to the Requests design (15-6284).
+  serviceType: IconSquareGridCircle,
+  farmSize: IconResize,
+  calendar: IconCalendar2,
+  calendarAlt: IconCalendarRepeat,
+  village: IconGarage,
+  info: IconBubbleInfo,
 } as const;
 
 export type IconName = keyof typeof ICONS;

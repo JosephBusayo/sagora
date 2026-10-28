@@ -4,7 +4,6 @@ import fs from "node:fs";
 import path from "node:path";
 
 const OUTBOX = path.join(process.cwd(), "data", "dev-outbox.jsonl");
-const DB = path.join(process.cwd(), "data", "test.db");
 const SHOTS = path.join(process.cwd(), "e2e", "screens");
 fs.mkdirSync(SHOTS, { recursive: true });
 

@@ -36,7 +36,7 @@ export function RequestsTable({ rows }: { rows: RequestRow[] }) {
                 <td>
                   <span className="table__person">
                     <span className="request-icon" aria-hidden="true">
-                      <Icon name={r.service === "harvesting" ? "quotes" : "equipment"} size={20} />
+                      <Icon name={r.service === "harvesting" ? "quotes" : "equipment"} size={22} />
                     </span>
                     <span>{r.reference}</span>
                   </span>

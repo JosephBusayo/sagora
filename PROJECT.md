@@ -579,3 +579,22 @@ pretends to work.
 ### Not built
 Farmer bookings, payments and notifications; the farmer app shell (the sidebar in `1-2507`).
 The farmer screens currently use the simple centred layout, not the farmer sidebar.
+
+---
+
+## Design corrections (28 Oct 2026), from Joseph's review
+
+Measured against the Figma frames rather than estimated.
+
+| What was wrong | Fix |
+|---|---|
+| Request modal banner was a flat gradient with one circle | **Three concentric circles**, 600 / 300 / 112px, each a lighter shade outwards (`#EEF6CD`, `#E4F2B5`, `#D1E898`) on a `#FCFEEF` banner, 180px tall. Absolutely centred, because an oversized grid item aligns to the start, not the centre |
+| Modal tabs were left-aligned with an ash highlight | **Spread across the modal** (`space-between`), highlight is green `#DAEBB5` on a `#FAFBF6` band |
+| Five of the seven detail-row icons were wrong | Service type `IconSquareGridCircle`, farm size `IconResize`, preferred date `IconCalendar2`, alternate date `IconCalendarRepeat`, community/village `IconGarage`, additional information `IconBubbleInfo`. District (`IconMapPin`) was already right |
+| Settings row icon circles too small | **54px → 70px.** Measured: the row is 129px tall with 30px padding, so the circle is 70 |
+| Requests row icon circle too small | **40px → 48px** |
+| Team table avatar slightly small | **44px → 46px** |
+
+The icons were found by matching the design crops against all 2,165 icons rendered to a grid:
+service type scored 0.912, farm size 0.954, alternate date 0.869. Guessing by name had missed all
+three. The modal is also now 638px wide, as the design has it, rather than 530.

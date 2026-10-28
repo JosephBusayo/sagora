@@ -39,9 +39,14 @@ export function RequestModal({ request, onClose }: { request: RequestDetail; onC
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="req-title" ref={ref}>
+      <div className="modal modal--request" role="dialog" aria-modal="true" aria-labelledby="req-title" ref={ref}>
+        {/* Three concentric circles, each a lighter shade outwards, as in the design. */}
         <div className="modal__banner" aria-hidden="true">
-          <span><Icon name={request.service === "harvesting" ? "quotes" : "requests"} size={32} /></span>
+          <span className="banner__ring banner__outer" />
+          <span className="banner__ring banner__mid" />
+          <span className="banner__ring banner__inner">
+            <Icon name={request.service === "harvesting" ? "quotes" : "requests"} size={34} />
+          </span>
         </div>
         <div className="tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === "details"} className={`tab${tab === "details" ? " tab--on" : ""}`} onClick={() => setTab("details")}>
@@ -61,13 +66,13 @@ export function RequestModal({ request, onClose }: { request: RequestDetail; onC
         </div>
 
         <div className="detail-list">
-          <Row icon="dots" label="Service type" value={request.serviceLabel} />
-          <Row icon="equipment" label="Farm size" value={`${request.acres} acres`} />
-          <Row icon="requests" label="Preferred date" value={request.preferredDate} />
-          <Row icon="requests" label="Alternate date" value={request.alternateDate ?? "Not given"} />
+          <Row icon="serviceType" label="Service type" value={request.serviceLabel} />
+          <Row icon="farmSize" label="Farm size" value={`${request.acres} acres`} />
+          <Row icon="calendar" label="Preferred date" value={request.preferredDate} />
+          <Row icon="calendarAlt" label="Alternate date" value={request.alternateDate ?? "Not given"} />
           <Row icon="pin" label="District" value={request.district} />
-          <Row icon="store" label="Community / Village" value={request.village} />
-          <Row icon="reports" label="Additional information" value={request.notes || "None"} />
+          <Row icon="village" label="Community / Village" value={request.village} />
+          <Row icon="info" label="Additional information" value={request.notes || "None"} />
         </div>
 
         <div className="form-actions">
