@@ -589,3 +589,22 @@ select.field__input { appearance: auto; }
 .quote-card__price { margin: 0; font: 600 20px/1.2 var(--font-sans); color: var(--color-brand); white-space: nowrap; }
 .quote-form { max-width: none; }
 .quote-summary { display: flex; flex-direction: column; gap: 14px; }
+
+/* -------- equipment register -------- */
+.equipment__top { display: flex; justify-content: flex-end; margin: -14px 0 20px; }
+.equipment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; }
+.asset { display: flex; flex-direction: column; gap: 12px; padding: 20px; background: var(--color-surface);
+  border: 1px solid var(--color-hairline); border-radius: 16px; }
+.asset--retired { background: #fbfbf8; }
+.asset--retired .asset__title h3 { color: var(--color-text-muted); }
+.asset__head { display: flex; align-items: flex-start; gap: 14px; }
+.asset__title { flex: 1; min-width: 0; }
+.asset__title h3 { margin: 0 0 3px; font: 600 16px/1.25 var(--font-sans); overflow-wrap: anywhere; }
+.asset__title p { margin: 0; color: var(--color-text-muted); font: var(--text-helper); }
+.asset__state { margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.asset__notes { margin: 0; color: var(--color-text-muted); font: 400 13px/1.45 var(--font-sans); }
+.asset__faults { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;
+  border-top: 1px solid var(--color-hairline); padding-top: 12px; }
+.asset__faults li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.asset__fault-text { flex: 1; min-width: 140px; font: 400 13px/1.4 var(--font-sans); }
+.setup__check input[type="radio"] { accent-color: var(--color-brand); width: 18px; height: 18px; }

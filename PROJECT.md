@@ -639,3 +639,37 @@ The **Activity** tab stays visibly disabled.
 `15-8170` (My quotes) was never exported, so the provider quote form, the My quotes table and the
 farmer's quote cards are built in the design system's language rather than from a frame.
 Added to WAITING-ON.md.
+
+---
+
+## Build status update (28 Oct 2026): equipment register and faults
+
+**Built and tested (47 browser tests, up from 40).** `/provider/equipment` replaces the
+placeholder. This is the backbone for jobs and for the double-booking checks in stage 4.
+
+### What it does
+Add a machine (type, name, registration or serial, owned or leased, condition notes), edit it,
+report a fault, mark a fault fixed, retire a machine and bring it back.
+
+### The three brief rules it exists to satisfy
+- **"Two identical tractors stay distinct."** Nothing is merged by name. Two machines called
+  *Massey Ferguson 375* are two rows with two histories; the registration tells them apart.
+  A test adds both and checks they stay separate.
+- **"Retired assets stay readable but unselectable."** Nothing is ever deleted, because jobs and
+  agreements point back at it. Retiring only removes a machine from what work can be given to,
+  via `selectableAssets()`, and it can be brought back.
+- **"A blocking fault flags affected jobs without erasing commitments."** A blocking fault makes
+  a machine unavailable while open; a minor one records the problem and leaves it usable. Marking
+  a fault fixed resolves it — it is never deleted, so the machine's history survives.
+
+### Access
+Providers only ever see their own register, and a teammate with *View jobs* can read it but gets
+no Add button, no row menu, and is refused by the server if they post anyway. Both are tested.
+
+### No design for this
+`11-31` (Equipments, 7 frames) was never exported, so this is built in the design system's
+language: the same cards, pills, modals and row menus as the rest of the workspace.
+
+### Not built
+Operators (people), schedules, and commitments against a machine. Those arrive with Jobs, and the
+conflict check ("shared plough/operator can't double-book") needs them plus payments.
