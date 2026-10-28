@@ -12,7 +12,8 @@
     "test:e2e": "node scripts/e2e.mjs",
     "staff:make": "tsx --env-file=.env.local scripts/make-staff.ts",
     "dev:approve": "tsx --env-file=.env.local scripts/dev-approve.ts",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "check:money": "node scripts/check-money.mjs"
   },
   "dependencies": {
     "@central-icons-react/round-filled-radius-2-stroke-2": "^1.2.22",

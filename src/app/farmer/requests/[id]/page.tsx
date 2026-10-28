@@ -10,6 +10,8 @@ import { db } from "@/lib/db";
 import { acceptQuoteAction } from "../accept-actions";
 import { confirmDeliveryAction, raiseConcernAction } from "../job-actions";
 import { JOB_STATUS_LABEL, jobForRequest, type JobStatus } from "@/lib/jobs";
+import { bookingFor, methodLabel, paymentsFor } from "@/lib/payments";
+import { releasesFor } from "@/lib/settlement";
 
 export const metadata: Metadata = { title: "Request" };
 export const dynamic = "force-dynamic";
@@ -34,6 +36,10 @@ export default async function Page({ params, searchParams }: {
   const quotes = listForRequest(id);
   const agreement = agreementFor(id);
   const job = jobForRequest(id);
+  const booking = bookingFor(id);
+  const payments = paymentsFor(id);
+  const received = payments.reduce((n, p) => n + p.amountMinor, 0);
+  const refunds = releasesFor(id).filter((r) => r.kind === "refund" && r.status !== "void");
 
   return (
     <main className="setup">
@@ -48,9 +54,76 @@ export default async function Page({ params, searchParams }: {
         {error ? <p className="notice notice--error" role="alert">{error}</p> : null}
         {accepted ? (
           <p className="notice notice--success" role="status">
-            You accepted this quote. The price and terms are now fixed. Paying for the work, and
-            confirming the booking, come next — that part is not built yet.
+            You accepted this quote. The price and terms are now fixed. The work is booked once the
+            payment is in and the machines are still free for your dates.
           </p>
+        ) : null}
+
+        {agreement ? (
+          <section className="quote-card">
+            <div className="quote-card__head">
+              <div>
+                <h3>Payment</h3>
+                <p>
+                  {booking
+                    ? "Paid in full and booked."
+                    : received === 0
+                      ? "Nothing received yet."
+                      : `${formatAmount(received)} of ${formatAmount(agreement.amountMinor)} received.`}
+                </p>
+              </div>
+              <p className="quote-card__price">{formatAmount(agreement.amountMinor)}</p>
+            </div>
+
+            {/* The brief keeps these two apart on purpose: money in is not a booking. */}
+            <p className="asset__state">
+              <span className={`pill pill--${received >= agreement.amountMinor ? "completed" : received > 0 ? "in_progress" : "awaiting_quotes"}`}>
+                {received >= agreement.amountMinor ? "Payment complete" : received > 0 ? "Part paid" : "Not paid"}
+              </span>
+              <span className={`pill pill--${booking ? "completed" : "awaiting_quotes"}`}>
+                {booking ? "Booking confirmed" : "Booking not confirmed"}
+              </span>
+            </p>
+
+            {payments.length > 0 ? (
+              <ul className="asset__faults">
+                {payments.map((p) => (
+                  <li key={p.id}>
+                    <span className="asset__fault-text">
+                      {formatAmount(p.amountMinor)} by {methodLabel(p.method)} · {p.externalRef}
+                    </span>
+                    <span className="field__helper">
+                      {new Date(p.recordedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {!booking && received > 0 && received < agreement.amountMinor ? (
+              <p className="field__helper">
+                {formatAmount(agreement.amountMinor - received)} is still to come. Your dates are not held
+                until the full amount is in.
+              </p>
+            ) : null}
+            {!booking && received >= agreement.amountMinor ? (
+              <p className="notice notice--error" role="status">
+                Your payment is in, but the booking is not confirmed — the machines are no longer free for
+                those dates. Sagora is sorting this out with you and your money is safe.
+              </p>
+            ) : null}
+
+            {refunds.length > 0 ? (
+              <p className="field__helper">
+                {refunds.map((r) => `${formatAmount(r.netMinor)} refund ${r.status === "paid" ? "sent" : "being processed"}`).join(" · ")}
+              </p>
+            ) : null}
+
+            <p className="field__helper">
+              Payments are recorded by the Sagora team from your receipt, not by an automatic payment
+              provider yet. <Link href="/farmer/payments">See all your payments</Link>.
+            </p>
+          </section>
         ) : null}
 
         {confirmed ? (

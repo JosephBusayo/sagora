@@ -1,7 +1,7 @@
 # Waiting on
 
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
-each one is a swap, not a rewrite. Updated 28 Oct 2026.
+each one is a swap, not a rewrite. Updated 28 Oct 2026 (after payments phase A).
 
 ## From the designer
 
@@ -15,6 +15,7 @@ each one is a swap, not a rewrite. Updated 28 Oct 2026.
 | 5b | **My quotes frames** (`15-8170`) | Provider quote form, My quotes table, farmer quote cards | Built in the design system's language, not from a frame |
 | 5c | **Equipment frames** (`11-31`, 7 frames) | The equipment register, fault states | Built in the design system's language, not from a frame |
 | 5d | **Jobs frames** (`15-9385`, 2 frames) | The jobs list, scheduling, work report | Built in the design system's language, not from a frame |
+| 5e | **Payments frames** — provider (`15-10667`, 9 frames) and farmer (`32-21589`, 5 frames) | Provider payments, farmer transactions, the finance desk | Built in the design system's language. The farmer table follows the columns named in the frame list (id, type, amount, date, status) |
 | 6 | **Screens that do not exist in Figma** | Staff review queue, invite acceptance, "not built yet" placeholder, provider setup and approval | Built in the design system's language, not from a frame |
 | 7 | **Confirm the farmer sign-up title** | Farmer sign-up | The Figma frame says "Create a provider account", which looks like a copy slip. Build says "Create an account" |
 | 8 | **Confirm the verification button label** | Email verification | The frame repeats "Get verification code". Build says "Verify" |
@@ -29,25 +30,28 @@ the real tokens, assets and frames be pulled directly instead of measured off a 
 | # | What | Why it matters |
 |---|---|---|
 | 1 | **Where production Postgres lives, and who pays** | Supabase, Neon and others all work. Free tiers cover us until real users arrive, so this is not urgent, but it shapes deployment |
-| 2 | **Monime sandbox access and terms** | Blocks all of stage 4 (payments). Quotes can now be accepted, but nothing can be paid for |
+| 2 | **Monime sandbox access and terms** | Now blocks **only** the automatic part. Payments, booking, payouts, refunds and reconciliation all work by hand today; Monime replaces the "record it by hand" step with a webhook |
 | 3 | **A Monime account in his own name** | It holds his money and his KYC. It must never be in the developer's name |
 | 4 | **The domain, registered in his name** | Moving a domain between owners is slow and avoidable |
 | 5 | **Farmer request recovery without SMS** (§6.2) | Many farmers have no email. Open question in the brief, and it changes the intake design |
 | 6 | **Stack confirmation** | Section 10 decisions are still unconfirmed. Nothing is blocked, but he should know what is being built |
 | 7 | **Who approves providers, and against what evidence** | The approval screen works; the policy behind it is undefined |
+| 8 | **The signed fee and refund policy sheet** | The 10% pilot fee (waived for the first 20 jobs), the 5-working-day refund deadline, the 90-day write-off, advance rules. All built; the fee is set to **0%** until this is signed |
+| 9 | **Who sits at the finance desk, and who may approve** | Money out needs two different people. Right now any staff account can prepare and any other can approve — there are no finance roles yet |
+| 10 | **A bank or mobile money account to send payouts from** | Payouts are recorded against a transfer reference. Someone has to actually make the transfers |
 
 ## From Joseph
 
 | # | What |
 |---|---|
 | 1 | **Central Icons licence key on every build machine** — CI and the deploy host, not just the laptop. `npm install` fails without it |
-| 2 | **Confirm the five remaining sidebar sections** are wanted as designed — Dashboard, Jobs, Equipment, Payments, Reports |
+| 2 | **Confirm the remaining sidebar sections** are wanted as designed — Dashboard, Reports, Notifications |
 
 ## Known gaps in the build itself
 
 Not waiting on anyone; just not written yet.
 
-- **MFA for staff and money actions** — a brief requirement. Until it exists, do not put real data behind the staff screen.
+- **MFA for staff and money actions** — a brief requirement, and the biggest one left. Money now moves through `/staff/payments`, so this matters more than it did yesterday: until it exists, do not put real money behind the staff screens.
 - **Changing a sign-in email** — needs re-verification; no design exists.
-- **Email outbox with retries** — a TODO in `email.ts`. The brief requires a request to survive an email outage.
+- **A scheduled drain for the notification outbox** — the queue retries when something triggers it, and staff can drain it by hand at `/staff/outbox`. Nothing runs it on a timer yet; that belongs with hosting.
 - **SQL migration files** — the schema is still `CREATE TABLE IF NOT EXISTS` in `db.ts`. Must become numbered migrations before Postgres.

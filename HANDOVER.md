@@ -18,7 +18,7 @@ reached through one file, configured by one environment variable, and holds no l
 | Resend | Sends email | Developer | New account, new API key, change one environment variable |
 | Vercel (planned) | Hosting | Developer | Transfer the project, or redeploy from the same repository anywhere that runs Node |
 | Central Icons | The icon set | Developer | New licence on the client's account; change `CENTRAL_LICENSE_KEY` |
-| Monime | Payments | **Client** | Must be the client's own account from day one: it holds their money and their KYC |
+| Monime | Payments | **Client** | Must be the client's own account from day one: it holds their money and their KYC. Not connected yet — the product records payments by hand in the meantime, and Monime becomes a second source behind the same ledger |
 | Domain | Web address | **Client** | Register in the client's name. Moving a domain between owners is slow and avoidable |
 
 Two of these should never be in the developer's name: **payments and the domain**. Everything

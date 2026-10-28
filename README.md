@@ -42,7 +42,8 @@ tail -n 1 data/dev-outbox.jsonl
 npm run lint
 npm run typecheck
 npm run build
-npm run test:e2e                # builds first, then runs 20 browser tests on a throwaway database
+npm run test:e2e                # builds first, then runs 68 browser tests on a throwaway database
+npm run check:money             # 47 checks of the money rules, no browser, ~10 seconds
 ```
 
 ## See the whole thing in a browser
@@ -66,7 +67,11 @@ npm run dev:approve -- your@email.com
 6. Invite a teammate from Team. The invitation link is in `data/dev-outbox.jsonl`; open it in a private window to accept it.
 
 To use the real staff review screen instead of step 4, make a second account and run
-`npm run staff:make -- staff@email.com`, then sign in with it to reach `/staff/providers`.
+`npm run staff:make -- staff@email.com`, then sign in with it to reach `/staff/providers`,
+`/staff/payments` (the finance desk) and `/staff/outbox` (failed notifications).
+
+Money out needs **two different staff accounts**: one prepares a payout or refund, a different one
+approves it. Make two if you want to walk that through.
 
 ## Smoke run
 

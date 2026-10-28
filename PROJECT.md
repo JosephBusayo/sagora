@@ -740,3 +740,62 @@ confirmations and concerns.
 ### Still to do
 Nothing drains the queue on a schedule yet — sending is kicked off by the event itself, and staff
 can drain by hand. A scheduled worker is a deployment concern and belongs with hosting.
+
+## Build status update (28 Oct 2026): payments phase A — ledger, booking, payouts, refunds
+
+**Built and tested: 68 browser tests (up from 58), plus 47 money checks that run without a
+browser (`npm run check:money`).** This is everything in the brief's payment stage that does not
+need Monime. The PSP adapter (phase B) is the only part still waiting on someone else.
+
+### Money is a ledger, not a column
+`src/lib/ledger.ts`. Every movement is a transaction of two or more entries that **sum to zero**,
+stored as integer SLE minor units. Nothing is ever updated or deleted: a mistake is corrected by
+posting the mirror image, so both the error and the correction stay visible. Accounts are derived
+names rather than a table — `external:mobile_money`, `funds:<request>`, `payable:<business>`,
+`refundable:<request>`, `fee:platform`.
+
+### Payments are recorded by hand, and labelled as such
+`src/lib/payments.ts`. A coordinator records what arrived with its **receipt reference**, which is
+unique in the database — that is what makes a duplicate harmless rather than a second payment.
+Every screen that shows an amount says *manual, not verified by a payment provider*.
+
+### One booking decision, in one transaction
+Recording a payment opens `BEGIN IMMEDIATE` and decides the booking inside it: terms agreed **and**
+funds ≥ the agreed amount **and** every machine still free for those dates. Three outcomes:
+
+| What happened | What the system does |
+| --- | --- |
+| Not enough money yet | Records it. `Le X of Le Y received; the booking is not confirmed yet.` |
+| Enough, machines free | Books it, and emails the farmer and the provider |
+| Enough, machines gone | Opens a **"Payment received, booking not confirmed"** case. The money stays held. Nothing is overbooked |
+
+### Money out needs two people
+`src/lib/settlement.ts`. A payout or refund is **prepared** by one person and **approved** by a
+different one — enforced on the row, not in a screen. Changing the amount, or the provider changing
+their payout destination, reverses what was owed and sends it back for approval. That is the
+brief's *"changing amount or beneficiary invalidates approval"*, built literally.
+
+A payout also waits for the **farmer's confirmation**, never the provider's report. Silence is not
+consent, and a disputed job cannot be paid out at all.
+
+### The fee is built but switched off
+The brief's pilot fee (10%, waived for a provider's first 20 jobs) is in `FEE_POLICY` with
+`approved: false`, so **nothing is deducted**. The arithmetic is tested. When Karim signs the
+policy sheet it is a one-line change.
+
+### Screens
+| Screen | Who | What it does |
+| --- | --- | --- |
+| `/staff/payments` | Finance desk | To collect · Cases · Money out · Reconciliation |
+| `/provider/payments` | Provider | What each job is worth, what the farmer paid, where their money is, and where it should be sent |
+| `/farmer/payments` | Farmer | The transactions table from the design: id, type, amount, date, status |
+| `/farmer/requests/[id]` | Farmer | Payment status and booking status shown as two separate things |
+
+**No design for these.** The Figma payments frames (provider `15-10667`, farmer `32-21589`) have
+never been exported to us and the Figma connector is rate-limited on a View seat, so these are
+built from the design system already measured from the delivered frames. They will need a pass
+once the frames arrive.
+
+### Reconciliation
+`/staff/payments?tab=books` answers the only question finance actually has: does the ledger still
+balance, is any account negative, and is money sitting on a job that is already finished.

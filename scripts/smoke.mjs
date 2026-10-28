@@ -39,14 +39,23 @@ try {
   // Nothing there, which is what we want.
 }
 
-const server = spawn("npx", ["next", "start", "-p", String(PORT)], { stdio: "inherit", shell: win, env });
+// Detached on POSIX so the whole group can be stopped: `next start` spawns a child of its own,
+// and killing only the parent leaves that child holding port 3200 and this script's output pipe.
+const server = spawn("npx", ["next", "start", "-p", String(PORT)], {
+  stdio: "inherit", shell: win, env, detached: !win,
+});
 server.on("exit", (code) => {
   if (code !== 0 && code !== null) {
     console.error(`The server stopped with code ${code}.`);
     process.exit(code);
   }
 });
-const stop = () => { try { server.kill(); } catch {} };
+const stop = () => {
+  try {
+    if (win) spawnSync("taskkill", ["/pid", String(server.pid), "/T", "/F"], { stdio: "ignore", shell: true });
+    else process.kill(-server.pid, "SIGTERM");
+  } catch {}
+};
 process.on("exit", stop);
 process.on("SIGINT", () => { stop(); process.exit(130); });
 

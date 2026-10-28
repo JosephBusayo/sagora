@@ -22,9 +22,10 @@ export default async function Page() {
         <div className="home__actions">
           <Link href="/farmer/book" className="button">Book a service</Link>
           <Link href="/farmer/requests" className="button button--soft">My requests</Link>
+          <Link href="/farmer/payments" className="button button--soft">Payments</Link>
         </div>
         <p className="auth__subtitle" style={{ marginTop: 18 }}>
-          The full farmer app — bookings, payments and notifications — is not built yet.
+          Notifications and settings are not built yet.
         </p>
         <form action={signOutFarmer} className="setup__signout">
           <button type="submit" className="resend__button">Sign out</button>

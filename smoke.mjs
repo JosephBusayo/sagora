@@ -226,10 +226,104 @@ await step("Provider is told their quote was accepted", p.page, async () => {
   await p.page.screenshot({ path: path.join(OUT, "08-my-quotes.png"), fullPage: true });
 });
 
+/* ------------------------------------------------------------- the money */
+await step("Provider schedules the work, committing the tractor", p.page, async () => {
+  await p.page.goto("/provider/jobs");
+  const card = p.page.locator("article.asset").filter({ hasText: reference });
+  await card.getByRole("button", { name: "Schedule" }).click();
+  const d = p.page.getByRole("dialog");
+  await d.getByLabel("Work starts").fill(inDays(20));
+  await d.getByLabel("Work ends").fill(inDays(21));
+  await d.getByLabel("Blue Massey").check();
+  await d.getByRole("button", { name: "Commit the machines" }).click();
+  await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: 8000 });
+  await p.page.screenshot({ path: path.join(OUT, "09-job-scheduled.png"), fullPage: true });
+});
+await step("Staff records a part payment, which does not book the job", s.page, async () => {
+  await s.page.goto("/staff/payments");
+  const row = s.page.getByRole("row").filter({ hasText: reference });
+  await row.getByText("Record a payment", { exact: true }).click();
+  await row.getByLabel("Amount received").fill("1,000.00");
+  await row.getByLabel("Receipt or transaction reference").fill(`MM-SMOKE-${run}-1`);
+  await row.getByRole("button", { name: "Record it" }).click();
+  await s.page.getByText("the booking is not confirmed yet").waitFor();
+  await s.page.screenshot({ path: path.join(OUT, "10-staff-payments.png"), fullPage: true });
+});
+await step("The same receipt reference is refused the second time", s.page, async () => {
+  const row = s.page.getByRole("row").filter({ hasText: reference });
+  await row.getByText("Record a payment", { exact: true }).click();
+  await row.getByLabel("Amount received").fill("100.00");
+  await row.getByLabel("Receipt or transaction reference").fill(`MM-SMOKE-${run}-1`);
+  await row.getByRole("button", { name: "Record it" }).click();
+  await s.page.getByText("has already been recorded").waitFor();
+});
+await step("Paying the balance books the job in one decision", s.page, async () => {
+  const row = s.page.getByRole("row").filter({ hasText: reference });
+  await row.getByText("Record a payment", { exact: true }).click();
+  await row.getByLabel("Receipt or transaction reference").fill(`BK-SMOKE-${run}-2`);
+  await row.getByRole("button", { name: "Record it" }).click();
+  await s.page.getByText("Paid in full and booked").waitFor();
+});
+await step("Both sides are emailed that it is booked", s.page, async () => {
+  for (let i = 0; i < 40; i++) {
+    if (mails(FARMER.email).some((m) => m.subject.includes("is booked"))) break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  if (!mails(FARMER.email).some((m) => m.subject.includes("is booked"))) throw new Error("farmer was not told");
+  if (!mails(PROV.email).some((m) => m.subject.includes("paid and booked"))) throw new Error("provider was not told");
+});
+await step("The farmer sees payment and booking as two separate things", f.page, async () => {
+  await f.page.goto(`/farmer/requests`);
+  await f.page.getByRole("link", { name: reference }).click();
+  await f.page.getByText("Payment complete").waitFor();
+  await f.page.getByText("Booking confirmed").waitFor();
+  await f.page.goto("/farmer/payments");
+  await f.page.getByText(`MM-SMOKE-${run}-1`).waitFor();
+  await f.page.screenshot({ path: path.join(OUT, "11-farmer-payments.png"), fullPage: true });
+});
+await step("No payout before the farmer confirms the work", s.page, async () => {
+  await s.page.goto("/staff/payments?tab=releases");
+  if (await s.page.getByRole("heading", { name: "Ready to pay out" }).count()) {
+    throw new Error("a payout was offered before the farmer confirmed");
+  }
+});
+await step("Provider reports the work and the farmer confirms it", p.page, async () => {
+  await p.page.goto("/provider/jobs");
+  await p.page.locator("article.asset").filter({ hasText: reference }).getByRole("button", { name: "Start work" }).click();
+  await p.page.waitForTimeout(500);
+  await p.page.locator("article.asset").filter({ hasText: reference }).getByRole("button", { name: "Report work done" }).click();
+  const d = p.page.getByRole("dialog");
+  await d.getByLabel("How much was done (acres)").fill("6");
+  await d.getByRole("button", { name: "Report the work" }).click();
+  await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: 8000 });
+
+  await f.page.goto("/farmer/requests");
+  await f.page.getByRole("link", { name: reference }).click();
+  await f.page.getByRole("button", { name: "Confirm the work was done" }).click();
+  await f.page.getByText("confirmed the work").waitFor();
+});
+await step("A payout needs a second person to approve it", s.page, async () => {
+  await s.page.goto("/staff/payments?tab=releases");
+  await s.page.getByRole("heading", { name: "Ready to pay out" }).waitFor();
+  await s.page.getByRole("button", { name: "Prepare the payout" }).click();
+  await s.page.getByText("A second person must approve it").waitFor();
+  const release = s.page.locator("section.staff__item").filter({ hasText: "Payout" });
+  await release.getByRole("button", { name: "Approve it" }).click();
+  await s.page.getByText("cannot approve it").waitFor();
+  await s.page.screenshot({ path: path.join(OUT, "12-payout-two-person.png"), fullPage: true });
+});
+await step("The books balance at the end of all of it", s.page, async () => {
+  await s.page.goto("/staff/payments?tab=books");
+  await s.page.getByText("The ledger balances").waitFor();
+  await s.page.screenshot({ path: path.join(OUT, "13-reconciliation.png"), fullPage: true });
+});
+
 /* ------------------------------------------------------------- the rest */
+
 await step("Provider settings, team, jobs and account screens open", p.page, async () => {
   for (const [url, heading] of [
     ["/provider/jobs", "Jobs"],
+    ["/provider/payments", "Payments"],
     ["/provider/settings", "Settings"],
     ["/provider/settings/business", "Business details"],
     ["/provider/settings/account", "Account"],
@@ -241,7 +335,7 @@ await step("Provider settings, team, jobs and account screens open", p.page, asy
   }
 });
 await step("Unbuilt sections say so instead of breaking", p.page, async () => {
-  for (const url of ["/provider/dashboard", "/provider/payments", "/provider/notifications", "/provider/reports", "/provider/help"]) {
+  for (const url of ["/provider/dashboard", "/provider/notifications", "/provider/reports", "/provider/help"]) {
     await p.page.goto(url);
     await p.page.getByText("Not built yet.").waitFor({ timeout: 8000 });
   }
