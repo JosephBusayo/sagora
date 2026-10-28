@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "rm -f data/test.db data/test.db-wal data/test.db-shm data/dev-outbox.jsonl && next build && DATABASE_PATH=data/test.db npm run db:migrate && playwright test",
     "staff:make": "tsx --env-file=.env.local scripts/make-staff.ts",
-    "dev:approve": "tsx --env-file=.env.local scripts/dev-approve.ts"
+    "dev:approve": "tsx --env-file=.env.local scripts/dev-approve.ts",
+    "smoke": "node smoke.mjs"
   },
   "dependencies": {
     "@central-icons-react/round-filled-radius-2-stroke-2": "^1.2.22",

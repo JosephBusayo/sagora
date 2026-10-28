@@ -68,6 +68,23 @@ npm run dev:approve -- your@email.com
 To use the real staff review screen instead of step 4, make a second account and run
 `npm run staff:make -- staff@email.com`, then sign in with it to reach `/staff/providers`.
 
+## Smoke run
+
+A scripted walkthrough of the whole product against a real server, with a fresh database.
+It is the walk-through you would do by hand: farmer signs up, books work, provider signs up,
+staff approves them, provider quotes, farmer accepts.
+
+```bash
+npm run build
+DATABASE_PATH=data/smoke.db npm run db:migrate
+DATABASE_PATH=data/smoke.db BETTER_AUTH_URL=http://localhost:3200 \
+  BETTER_AUTH_SECRET=smoke-secret-smoke-secret-smoke-1234 SAGORA_TEST_OUTBOX=1 \
+  npx next start -p 3200 &
+npm run smoke
+```
+
+Each step prints OK or FAIL; a failure saves a screenshot to `/tmp/smoke`.
+
 ## Where things live
 
 | Path | What |
