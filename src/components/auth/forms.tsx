@@ -2,22 +2,20 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import {
-  requestPasswordReset,
-  resendCode,
-  resetPassword,
-  signInProvider,
-  signUpProvider,
-  verifyCode,
-  type FormState,
-} from "@/app/provider/actions";
+import type { FormState } from "@/lib/auth-flows";
 import { OTP_LENGTH_PUBLIC } from "@/lib/constants";
 import { Field } from "./Field";
 import { OtpInput } from "./OtpInput";
 import { PasswordField } from "./PasswordField";
 import { SubmitButton } from "./SubmitButton";
 
+/**
+ * The access forms, shared by the provider and farmer screens. Each screen passes its own
+ * server actions and links, so there is one copy of the markup and validation display.
+ */
+
 const initial: FormState = {};
+type Action = (prev: FormState, fd: FormData) => Promise<FormState>;
 
 function Alert({ state }: { state: FormState }) {
   if (state.error) return <p className="notice notice--error" role="alert">{state.error}</p>;
@@ -25,13 +23,23 @@ function Alert({ state }: { state: FormState }) {
   return null;
 }
 
-export function SignUpForm() {
-  const [state, action] = useActionState(signUpProvider, initial);
+/** The only real difference between the two sign-up screens is this first field. */
+export type NameField = { name: string; label: string; placeholder: string; autoComplete: string };
+
+export function SignUpForm({ action, nameField }: { action: Action; nameField: NameField }) {
+  const [state, formAction] = useActionState(action, initial);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   return (
-    <form action={action} className="auth__form">
-      <Field name="businessName" label="Business name" placeholder="Enter your business name" autoComplete="organization" defaultValue={v.businessName} error={e.businessName} />
+    <form action={formAction} className="auth__form">
+      <Field
+        name={nameField.name}
+        label={nameField.label}
+        placeholder={nameField.placeholder}
+        autoComplete={nameField.autoComplete}
+        defaultValue={v[nameField.name]}
+        error={e[nameField.name]}
+      />
       <Field name="phone" label="Your phone number" type="tel" inputMode="tel" prefix="+232" placeholder="00 000 000" autoComplete="tel-national" defaultValue={v.phone} error={e.phone} />
       <Field name="email" label="Email" type="email" inputMode="email" placeholder="abc@gmail.com" autoComplete="email" defaultValue={v.email} error={e.email} />
       <PasswordField name="password" label="Password" autoComplete="new-password" placeholder="Create a password" helper="At least 8 characters" error={e.password} />
@@ -43,12 +51,12 @@ export function SignUpForm() {
   );
 }
 
-export function SignInForm() {
-  const [state, action] = useActionState(signInProvider, initial);
+export function SignInForm({ action, forgotHref }: { action: Action; forgotHref: string }) {
+  const [state, formAction] = useActionState(action, initial);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   return (
-    <form action={action} className="auth__form">
+    <form action={formAction} className="auth__form">
       <Field name="email" label="Email" type="email" inputMode="email" placeholder="abc@gmail.com" autoComplete="email" defaultValue={v.email} error={e.email} />
       <PasswordField
         name="password"
@@ -57,7 +65,7 @@ export function SignInForm() {
         error={e.password}
         helper={
           <>
-            Forgot password? <Link href="/provider/forgot-password">Click here</Link>
+            Forgot password? <Link href={forgotHref}>Click here</Link>
           </>
         }
       />
@@ -69,12 +77,12 @@ export function SignInForm() {
   );
 }
 
-export function ForgotPasswordForm() {
-  const [state, action] = useActionState(requestPasswordReset, initial);
+export function ForgotPasswordForm({ action }: { action: Action }) {
+  const [state, formAction] = useActionState(action, initial);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   return (
-    <form action={action} className="auth__form">
+    <form action={formAction} className="auth__form">
       <Field name="email" label="Email" type="email" inputMode="email" placeholder="abc@gmail.com" autoComplete="email" defaultValue={v.email} error={e.email} />
       <div className="auth__actions">
         <Alert state={state} />
@@ -84,15 +92,15 @@ export function ForgotPasswordForm() {
   );
 }
 
-export function VerifyCodeForm() {
-  const [state, action] = useActionState(verifyCode, initial);
-  const [resendState, resendAction] = useActionState(resendCode, initial);
+export function VerifyCodeForm({ action, resendAction }: { action: Action; resendAction: Action }) {
+  const [state, formAction] = useActionState(action, initial);
+  const [resendState, resend] = useActionState(resendAction, initial);
   const e = state.fieldErrors ?? {};
   return (
     <>
       {/* Separate form so "Resend code" can sit under the boxes, as in the design. */}
-      <form id="resend-form" action={resendAction} />
-      <form action={action} className="auth__form">
+      <form id="resend-form" action={resend} />
+      <form action={formAction} className="auth__form">
         <OtpInput
           length={OTP_LENGTH_PUBLIC}
           label="OTP"
@@ -116,11 +124,11 @@ export function VerifyCodeForm() {
   );
 }
 
-export function ResetPasswordForm() {
-  const [state, action] = useActionState(resetPassword, initial);
+export function ResetPasswordForm({ action }: { action: Action }) {
+  const [state, formAction] = useActionState(action, initial);
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="auth__form">
+    <form action={formAction} className="auth__form">
       {/* The design leaves 12px extra between the helper text and the second field. */}
       <div style={{ marginBottom: 12 }}>
         <PasswordField name="password" label="Password" autoComplete="new-password" placeholder="Create a new password" helper="At least 8 characters" error={e.password} />

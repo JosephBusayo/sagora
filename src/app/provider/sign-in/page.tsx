@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SignInForm } from "@/components/auth/forms";
+import { signInProvider } from "../actions";
 import { readNotice } from "@/lib/pending";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -35,7 +36,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
           Your password has been updated. Sign in with your new password.
         </p>
       ) : null}
-      <SignInForm />
+      <SignInForm action={signInProvider} forgotHref="/provider/forgot-password" />
     </AuthShell>
   );
 }

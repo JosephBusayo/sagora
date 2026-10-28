@@ -9,6 +9,8 @@ import { cookies } from "next/headers";
 export type Pending = {
   email: string;
   purpose: "verify" | "reset";
+  /** Which set of screens the person is in, so verification returns them to the right one. */
+  audience: "provider" | "farmer";
   /** Set after a reset code has been checked, so the reset step can use it. */
   code?: string;
 };

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { ForgotPasswordForm } from "@/components/auth/forms";
+import { requestPasswordReset } from "../actions";
 
 export const metadata: Metadata = { title: "Forgot password" };
 
@@ -19,7 +20,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
           That reset session expired. Request a new code.
         </p>
       ) : null}
-      <ForgotPasswordForm />
+      <ForgotPasswordForm action={requestPasswordReset} />
     </AuthShell>
   );
 }

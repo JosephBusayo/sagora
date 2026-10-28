@@ -11,6 +11,16 @@ export async function requireProvider(): Promise<SessionUser> {
   const u = s?.user as SessionUser | undefined;
   if (!u || !u.emailVerified) redirect("/provider/sign-in");
   if (u.role === "staff") redirect("/staff/providers");
+  if (u.role === "farmer") redirect("/farmer/home"); // a farmer account has no provider workspace
+  return u;
+}
+
+/** Verified farmer, or redirect to the farmer sign-in. */
+export async function requireFarmer(): Promise<SessionUser> {
+  const s = await auth.api.getSession({ headers: await headers() });
+  const u = s?.user as SessionUser | undefined;
+  if (!u || !u.emailVerified) redirect("/farmer/sign-in");
+  if (u.role !== "farmer") redirect(u.role === "staff" ? "/staff/providers" : "/provider/setup");
   return u;
 }
 

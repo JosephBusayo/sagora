@@ -505,3 +505,37 @@ the designer's SVG. It is the only hand-drawn graphic left in the app.
 
 **Install:** needs `CENTRAL_LICENSE_KEY` in the environment, on every machine that builds the
 project. See README and HANDOVER.md.
+
+---
+
+## Build status update (28 Oct 2026): farmer access
+
+**Built and tested (27 browser tests pass, up from 20).**
+
+### Farmer screens (`/farmer/*`)
+Create account, Sign in, Forgot password, Email verification, Reset password, plus a guarded
+placeholder home. Same rules as the provider screens: verified email before entry, neutral
+recovery messages, rate limits, single-use codes, sign-out-everywhere on reset, and sign-up that
+works with JavaScript off.
+
+**What differs from the provider screens, per the design (`59-2686`):**
+- The first field is **First and last name** instead of Business name, and no business record is
+  created. A farmer account carries `role = "farmer"`, set server-side; the client can never set it.
+- The farmer sign-up frame in Figma is titled "Create a provider account". That is a copy slip
+  carried over from the provider flow, so the build says "Create an account". Worth confirming.
+- The farmer photos are still the provider stand-ins. The farmer frames need exporting.
+
+### One shared flow, two apps
+The sign-up / sign-in / recovery rules now live in `src/lib/auth-flows.ts`, used by both
+`/provider/*` and `/farmer/*`. Each app keeps its own thin `actions.ts` for its redirects, and the
+form components take their action as a prop. The two apps cannot drift apart: a fix to the rules
+applies to both at once. The 20 existing tests passed unchanged through the refactor.
+
+### Where each account belongs
+`homeForRole()` decides, so signing in on the wrong screen still lands in the right app:
+staff to `/staff/providers`, farmers to `/farmer/home`, providers to `/provider/setup`.
+A farmer cannot open the provider workspace or the staff screen, and a provider cannot open the
+farmer home. All four crossings are covered by tests.
+
+**Not built:** the farmer app itself — home, Book a service, My requests, My bookings, farmer
+Payments, Notifications and Settings. That is stage 2.
