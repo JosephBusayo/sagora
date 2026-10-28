@@ -12,8 +12,6 @@ export type Row = {
 };
 type Option = { id: string; label: string };
 
-const initial = (n: string) => (n.trim()[0] ?? "?").toUpperCase();
-
 export function TeamTable({ rows, roles, permissions }: { rows: Row[]; roles: Option[]; permissions: Option[] }) {
   const [editing, setEditing] = useState<Row | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
@@ -36,7 +34,7 @@ export function TeamTable({ rows, roles, permissions }: { rows: Row[]; roles: Op
               <tr key={m.id}>
                 <td>
                   <span className="table__person">
-                    <span className="table__avatar" aria-hidden="true">{initial(m.name)}</span>
+                    <span className="table__avatar" aria-hidden="true"><Icon name="user" size={22} /></span>
                     <span>{m.name}</span>
                   </span>
                 </td>

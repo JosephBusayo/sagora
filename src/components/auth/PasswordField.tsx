@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { IconEyeOpen, IconEyeSlash } from "@central-icons-react/round-filled-radius-2-stroke-2";
 
 type Props = {
   name: string;
@@ -12,15 +13,9 @@ type Props = {
 };
 
 function Eye({ off }: { off: boolean }) {
-  // Solid eye, as in the design. The slash marks "hide".
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="currentColor" d="M12 5C6.6 5 2.7 9 1.5 11.3a1.5 1.5 0 0 0 0 1.4C2.7 15 6.6 19 12 19s9.3-4 10.5-6.3a1.5 1.5 0 0 0 0-1.4C21.3 9 17.4 5 12 5Z" />
-      <circle cx="12" cy="12" r="3.1" fill="var(--color-surface)" />
-      {off ? <path d="M4 4l16 16" stroke="var(--color-surface)" strokeWidth="4.5" strokeLinecap="round" /> : null}
-      {off ? <path d="M4 4l16 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /> : null}
-    </svg>
-  );
+  // Central Icon System, same set as the rest of the app. The slash marks "hide".
+  const C = off ? IconEyeSlash : IconEyeOpen;
+  return <C size={20} aria-hidden />;
 }
 
 /** Password input with a show/hide toggle. Works as a normal password field without JavaScript. */

@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Settings" };
 const ROWS: { href: string; icon: IconName; title: string; body: string }[] = [
   { href: "/provider/settings/business", icon: "store", title: "Business details", body: "View and update your business information, contact details and location" },
   { href: "/provider/team", icon: "team", title: "Team", body: "Manage your team members and their permissions" },
-  { href: "/provider/settings/account", icon: "account", title: "Account", body: "Manage your personal account details" },
+  { href: "/provider/settings/account", icon: "user", title: "Account", body: "Manage your personal account details" },
   { href: "/provider/settings/password", icon: "lock", title: "Password and security", body: "Manage your password" },
 ];
 

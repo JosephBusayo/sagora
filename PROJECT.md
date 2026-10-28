@@ -468,3 +468,40 @@ See **HANDOVER.md** for the account list and the rules that keep every service r
 
 **Still to do before the move off SQLite:** turn the `CREATE TABLE` statements in `src/lib/db.ts`
 into numbered `.sql` migration files.
+
+---
+
+## Icons (28 Oct 2026): Central Icon System, matched from the design
+
+The designer uses **Central Icon System** (Iconists). The design's icons are **round, filled,
+stroke 2**; the package is `@central-icons-react/round-filled-radius-2-stroke-2`.
+
+**How the style was identified:** all 2,165 icons were rendered to a grid in four candidate
+variants and matched against the Figma sidebar by pixel correlation. Round/filled/stroke-2 scored
+clearly ahead of stroke 1.5 (0.595 vs 0.576). The three corner-radius options differ by about 1.2%
+of pixels at 20px, so **radius 2 is a default, not a reading** - worth one word of confirmation
+from the designer, and a one-word change if wrong.
+
+**The names, matched to the design:**
+
+| Slot | Icon | Slot | Icon |
+|---|---|---|---|
+| Dashboard | `IconHomeDoor` | General settings | `IconSettingsGear1` |
+| Requests | `IconFileDownload` | Help & support | `IconHeadphones` |
+| My quotes | `IconNoteText` | Account (sidebar) | `IconPeopleIdCard2` |
+| Jobs | `IconSuitcaseWork` | Account (settings row) | `IconUser` |
+| Equipment | `IconTruck` | Logout | `IconArrowBoxLeft` |
+| Payments | `IconMoneyHand` | Search | `IconMagnifyingGlass` |
+| Notifications | `IconBell` | Row menu | `IconDotGrid1x3Horizontal` |
+| Team | `IconTeam` | Business details | `IconStore1` |
+| Reports | `IconBubbleQuestion` | Password | `IconLock` |
+
+Plus `IconChevronRight`, `IconPlusMedium`, `IconMapPin`, `IconEyeOpen`/`IconEyeSlash`.
+
+**Still a stand-in:** the Sagora logo mark. It is brand, not part of the icon library, and needs
+the designer's SVG. It is the only hand-drawn graphic left in the app.
+
+**Bundle:** tree-shaking keeps only the icons actually used. Total static assets are 888 KB.
+
+**Install:** needs `CENTRAL_LICENSE_KEY` in the environment, on every machine that builds the
+project. See README and HANDOVER.md.

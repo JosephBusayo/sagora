@@ -17,6 +17,7 @@ reached through one file, configured by one environment variable, and holds no l
 | Postgres host (not chosen yet) | The database | Developer | Transfer the project to the client's account, or hand over the database with `pg_dump` |
 | Resend | Sends email | Developer | New account, new API key, change one environment variable |
 | Vercel (planned) | Hosting | Developer | Transfer the project, or redeploy from the same repository anywhere that runs Node |
+| Central Icons | The icon set | Developer | New licence on the client's account; change `CENTRAL_LICENSE_KEY` |
 | Monime | Payments | **Client** | Must be the client's own account from day one: it holds their money and their KYC |
 | Domain | Web address | **Client** | Register in the client's name. Moving a domain between owners is slow and avoidable |
 
@@ -70,6 +71,15 @@ anyway, so a leaked old key cannot be used.
 Step 4 matters most. Access should end at handover, not drift on indefinitely.
 
 ---
+
+## One thing to watch: the icon licence
+
+The icon packages run a check during `npm install` and **fail without `CENTRAL_LICENSE_KEY`**.
+That is the only part of this project that cannot be installed by someone who just clones the
+repository. At handover the client needs their own Central Icons licence, or the ~22 icons in use
+replaced with exported SVGs. Everything else installs with no key, no account and no compiler.
+
+The icons are reached through `src/components/app/Icon.tsx` alone, so swapping them is one file.
 
 ## Known gap
 

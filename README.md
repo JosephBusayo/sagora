@@ -5,9 +5,20 @@ Agricultural service platform for Sierra Leone. Read **PROJECT.md** first: it is
 
 ## Requirements
 
-**Node 22.5 or newer** (`node -v`). Nothing else: no Python, no Visual Studio build tools,
-no compiler. The local database uses Node's own built-in SQLite, so `npm install` is the
-same on Windows, macOS and Linux.
+**Node 22.5 or newer** (`node -v`). Nothing compiles: no Python, no Visual Studio build tools.
+The local database uses Node's own built-in SQLite, so `npm install` is the same on Windows,
+macOS and Linux.
+
+**A Central Icons licence key.** The icon packages check it during installation, so
+`npm install` fails without it. Set it before installing, on every machine that builds the
+project — your laptop, CI, and the deploy host:
+
+```bash
+# macOS / Linux
+export CENTRAL_LICENSE_KEY=your-key
+# Windows PowerShell
+$env:CENTRAL_LICENSE_KEY="your-key"
+```
 
 ## Run it locally
 
@@ -71,5 +82,6 @@ To use the real staff review screen instead of step 4, make a second account and
 | `src/lib/auth.ts` | Better Auth setup (email + password, emailed codes) |
 | `src/lib/db.ts` | The local database (Node built-in SQLite). Swap here for Postgres |
 | `src/lib/email.ts` | The single place that sends email |
+| `src/components/app/Icon.tsx` | The icon set. One place maps names to Central Icons |
 | `src/app/globals.css` | Design tokens and styles |
 | `e2e/` | Browser tests |
