@@ -13,6 +13,9 @@ export const SERVICES = [
   { id: "harvesting", label: "Harvesting" },
 ] as const;
 
+/** The design writes "Bombali District". The two Western Area names already read as places. */
+export const districtLabel = (d: string) => (d.startsWith("Western Area") ? d : `${d} District`);
+
 export type BusinessStatus = "draft" | "submitted" | "changes_requested" | "approved" | "rejected";
 
 export type Business = {

@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { DatabaseSync } from "node:sqlite";
+import { openTestDb } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -57,7 +57,7 @@ async function signIn(page: Page, email: string, password: string) {
   await expect(page).not.toHaveURL(/sign-in/); // the session cookie is set by the redirect
 }
 function approve(email: string) {
-  const db = new DatabaseSync(DB);
+  const db = openTestDb();
   const u = db.prepare("SELECT id FROM user WHERE email=?").get(email) as { id: string };
   const now = new Date().toISOString();
   db.prepare("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?").run(now, now, u.id);

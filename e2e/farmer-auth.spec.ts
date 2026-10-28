@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { DatabaseSync } from "node:sqlite";
+import { openTestDb } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -46,7 +46,7 @@ async function fresh(browser: Browser) {
   return { ctx, page: await ctx.newPage() };
 }
 const roleOf = (email: string) => {
-  const db = new DatabaseSync(DB);
+  const db = openTestDb();
   const r = db.prepare("SELECT role FROM user WHERE email=?").get(email) as { role: string } | undefined;
   db.close();
   return r?.role;

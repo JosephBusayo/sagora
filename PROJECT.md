@@ -539,3 +539,43 @@ farmer home. All four crossings are covered by tests.
 
 **Not built:** the farmer app itself — home, Book a service, My requests, My bookings, farmer
 Payments, Notifications and Settings. That is stage 2.
+
+---
+
+## Build status update (28 Oct 2026): requests — a farmer asks, a provider sees
+
+**Built and tested (33 browser tests, up from 27).** This is the first slice that joins the two
+apps: a farmer asks for work and a provider browses it.
+
+### Farmer
+- **Book a service** (`/farmer/book`): service, farm size in acres, preferred and alternate dates,
+  district, community/village, and notes. Refuses a date in the past, and an alternate date
+  earlier than the preferred one. No Figma frame exists for this screen; the fields come from the
+  provider's request-detail modal (`15-6284`), which shows exactly what a request holds.
+- **My requests** (`/farmer/requests`): the farmer's own requests with status, and Withdraw while
+  nobody has started.
+- Every request gets a human reference (**SG-1048**, as in the design), allocated inside the same
+  transaction as the request, so a reference is never issued without its request. It is emailed to
+  the farmer with the rule stated plainly: *a request is not a booking*.
+
+### Provider
+- **Requests** (`/provider/requests`), built from the four Figma frames: the table (Request,
+  Service, Location, Farm size, Preferred date, Status), the three filters (service, district,
+  date window), pagination, and the detail modal with its tabs.
+- The filters are a plain GET form, so they work without JavaScript; with it they submit on change.
+- **The farmer's name, phone and email are not sent to the browse list at all** — not hidden with
+  CSS, not present in the HTML. They are shared when there is a reason to, which is the quote
+  stage. A test asserts this.
+
+### States
+`Awaiting quotes · Quotes sent · In progress · Completed · Cancelled`. The design has no state for
+a request nobody has quoted yet, so **"Awaiting quotes"** is an addition — listed in WAITING-ON.md.
+
+### Deliberately not working yet
+**Send a quote** and the **My quote** and **Activity** tabs are visible but disabled, because
+quoting is the next stage. They are shown so the screen matches the design, and disabled so nothing
+pretends to work.
+
+### Not built
+Farmer bookings, payments and notifications; the farmer app shell (the sidebar in `1-2507`).
+The farmer screens currently use the simple centred layout, not the farmer sidebar.

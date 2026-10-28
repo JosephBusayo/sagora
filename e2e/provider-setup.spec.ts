@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { DatabaseSync } from "node:sqlite";
+import { openTestDb } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -116,7 +116,7 @@ test("staff asks for changes, provider fixes and resubmits, staff approves", asy
   // Make a second verified account and promote it to staff, as an operator would.
   const s = await fresh(browser);
   await registerAndVerify(s.page, S);
-  const db = new DatabaseSync(path.join(process.cwd(), "data", "test.db"));
+  const db = openTestDb();
   db.prepare("UPDATE user SET role='staff' WHERE email=?").run(S.email);
   db.close();
   await s.page.goto("/provider/sign-in");

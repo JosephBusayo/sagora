@@ -521,3 +521,51 @@ select.field__input { appearance: auto; }
 .table-card { max-width: 1315px; }
 .settings-row { padding: 30px 26px; box-shadow: 0 1px 2px rgba(28, 28, 26, 0.04); }
 .settings-list { gap: 20px; }
+
+/* ---------------------------------------------------------------------------
+   Requests: farmer booking and the provider browse list
+--------------------------------------------------------------------------- */
+.book { max-width: 620px; }
+.book__form { max-width: none; }
+.book__rule { margin: 0; padding: 12px 14px; border-radius: var(--radius-field); background: var(--color-bg);
+  border: 1px solid var(--color-border); color: var(--color-text-muted); font: var(--text-helper); }
+.home__actions { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+.home__actions .button { width: auto; min-width: 170px; height: 50px; display: grid; place-items: center; font: 500 15px/1 var(--font-sans); }
+
+/* status pills: one colour per state, matching the Requests design */
+.pill--awaiting_quotes { background: #f1f1ea; color: #5a5a52; }
+.pill--quotes_sent { background: var(--color-pill-bg); color: var(--color-pill-text); }
+.pill--in_progress { background: #f8ecc4; color: #6b551a; }
+.pill--completed { background: #cfe0f0; color: #2b4a66; }
+.pill--cancelled { background: #f6d2d6; color: #8a2733; }
+
+.filters { display: flex; gap: 12px; flex-wrap: wrap; }
+.filter { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 16px; background: var(--color-surface);
+  border: 1px solid var(--color-hairline); border-radius: var(--radius-pill); color: var(--color-text); }
+.filter select { border: 0; outline: 0; background: transparent; font: 400 14px/1 var(--font-sans); color: inherit; cursor: pointer; }
+.filter .icon { color: var(--color-text); }
+.request-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--color-chip); color: var(--color-brand); }
+.pager { display: flex; justify-content: center; gap: 10px; margin-top: 28px; }
+.pager a, .pager span { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid var(--color-hairline); font: 400 14px/1 var(--font-sans); color: var(--color-text); }
+.pager a:hover { border-color: var(--color-brand); text-decoration: none; }
+.pager .is-current { background: var(--color-nav-active); border-color: var(--color-nav-active); color: var(--color-brand); font-weight: 500; }
+.detail-list { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.detail-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 13px 0; }
+.detail-row__label { display: flex; align-items: center; gap: 10px; color: var(--color-text-muted); font: 400 14px/1.3 var(--font-sans); }
+.detail-row__label .icon { color: var(--color-icon); flex: none; }
+.detail-row__value { font: 500 14px/1.45 var(--font-sans); text-align: right; }
+.modal__banner { display: grid; place-items: center; height: 150px; margin: -36px -40px 0; background: radial-gradient(circle at 50% 55%, #dcefb9 0%, #e9f4d2 45%, #f4f9e6 100%); }
+.modal__banner span { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; background: #cde79a; color: var(--color-brand); }
+.tabs { display: flex; gap: 6px; margin: 0 -40px 18px; padding: 14px 24px; background: #fbfcf7; }
+.tab { height: 38px; padding: 0 20px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--color-brand);
+  font: 400 14px/38px var(--font-sans); cursor: pointer; }
+.tab--on { background: var(--color-nav-active); font-weight: 500; }
+.tab:disabled { color: var(--color-placeholder); cursor: not-allowed; }
+.detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+.detail-head h2 { margin: 0 0 4px; font: 600 20px/1.2 var(--font-sans); }
+.detail-head p { margin: 0; color: var(--color-text-muted); font: var(--text-helper); }
+.detail-head__date { color: var(--color-text-muted); font: var(--text-helper); white-space: nowrap; }
+.table--requests th:nth-child(n), .table--requests td:nth-child(n) { width: auto; }
+.table--requests th:first-child, .table--requests td:first-child { width: 22%; }
+.table--requests th:last-child, .table--requests td:last-child { width: 60px; }
