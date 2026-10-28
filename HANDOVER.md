@@ -14,7 +14,7 @@ reached through one file, configured by one environment variable, and holds no l
 | Service | What it does | Held by | How it moves |
 |---|---|---|---|
 | GitHub | The code | Developer | Transfer the repository, or move it to a Sagora organisation now and change owners later |
-| Supabase | Postgres database | Developer | Transfer the project to the client's Supabase organisation, or hand over the database with `pg_dump` |
+| Postgres host (not chosen yet) | The database | Developer | Transfer the project to the client's account, or hand over the database with `pg_dump` |
 | Resend | Sends email | Developer | New account, new API key, change one environment variable |
 | Vercel (planned) | Hosting | Developer | Transfer the project, or redeploy from the same repository anywhere that runs Node |
 | Monime | Payments | **Client** | Must be the client's own account from day one: it holds their money and their KYC |
@@ -30,12 +30,12 @@ can be handed over together. The client's own domain address is better still.
 
 ## What keeps us portable
 
-**The database is plain Postgres.** Supabase is used only as a Postgres host. We do not use
-Supabase Auth, Row Level Security as an access-control layer, Storage, Realtime or Edge
-Functions. Sign-in is Better Auth, in our own code (`src/lib/auth.ts`), and all database access
-goes through the server. The practical effect: moving to Neon, Railway, AWS or the client's own
-server is a `pg_dump`, a restore, and one changed connection string. Nothing in the application
-knows the name "Supabase".
+**The database is plain Postgres.** Whichever host we end up on is used as a Postgres host and
+nothing more. No vendor's own auth, no Row Level Security as an access-control layer, no vendor
+storage or serverless functions. Sign-in is Better Auth, in our own code (`src/lib/auth.ts`), and
+all database access goes through the server. The practical effect: moving between Supabase, Neon,
+Railway, AWS or the client's own server is a `pg_dump`, a restore, and one changed connection
+string. No vendor's name appears anywhere in the application.
 
 **Every external service sits behind one file.**
 

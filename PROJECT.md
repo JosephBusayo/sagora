@@ -423,13 +423,17 @@ This changes development only. Production was always going to be Postgres.
 
 ---
 
-## Decision (28 Oct 2026): Supabase Postgres, used as plain Postgres
+## Option assessed (28 Oct 2026): Supabase — NOT DECIDED
 
-**Database:** Supabase, for the Postgres only. Not Supabase Auth, not Row Level Security as an
-access layer, not Storage, Realtime or Edge Functions. Sign-in stays Better Auth in our own code,
-and all database access stays on the server.
+**Status: the production database host is still open.** Joseph asked whether Supabase *could* be
+used. The answer is yes. The choice between Supabase, Neon, another managed host and a plain VPS
+has not been made, and nothing in the code depends on it either way.
 
-**Why Supabase:** it is managed Postgres with a free tier big enough to build and demo on, and
+**The one rule, whichever host wins:** use it as plain Postgres. Not Supabase Auth, not Row Level
+Security as an access layer, not Storage, Realtime or Edge Functions. Sign-in stays Better Auth in
+our own code, and all database access stays on the server.
+
+**If Supabase:** it is managed Postgres with a free tier big enough to build and demo on, and
 scaling is not a concern for this project. Supabase runs on ordinary Postgres, so the ceiling is
 Postgres's ceiling, which is far above a national-scale service for one country's agricultural
 bookings. If it is ever outgrown, it is outgrown as Postgres, and the move is a dump and restore.
@@ -438,12 +442,24 @@ bookings. If it is ever outgrown, it is outgrown as Postgres, and the move is a 
 the application to one vendor and make the handover a rewrite. Keeping it to plain Postgres means
 the word "Supabase" appears nowhere in the code, only in a connection string.
 
-**Costs (checked 28 Oct 2026):**
-- Free: 500 MB database, 5 GB egress, two projects per organisation. **Free projects pause after
-  about a week of inactivity**, which matters while the client is only looking at it occasionally.
-- Pro: from $25/month, 8 GB database, 250 GB egress, and no pausing. Needed at launch, not before.
+**Postgres itself is free software** (PostgreSQL Licence). There is no licence fee and no vendor
+behind it. What costs money is the machine it runs on, or a managed host's fee.
 
-**Handover:** Supabase supports transferring a project to another organisation. The source
+**Free tiers, checked 28 Oct 2026:**
+
+| Host | Free allowance | The catch |
+|---|---|---|
+| Supabase | 500 MB, 5 GB egress, 2 projects | Pauses after about a week idle; paused projects are eventually removed |
+| Neon | 1 GB per project (20 GB total), 100 CU-hours | Compute suspends after 5 min idle, so a cold start on the first query |
+| Aiven | 5 GB | Single node, no failover, few connections |
+| Render | 1 GB | **Database deleted after 30 days** unless upgraded |
+| Railway | One-time trial credit only | Not ongoing free hosting |
+| Own VPS | No cap beyond the disk | ~$5-12/month, and backups, upgrades and security are ours |
+
+**Paid, when real users arrive:** Supabase Pro from $25/month (8 GB, 250 GB egress, no pausing).
+Neon Launch is pay-as-you-go: $0.106 per CU-hour, $0.35 per GB-month.
+
+**Handover, if Supabase:** Supabase supports transferring a project to another organisation. The source
 organisation's owner starts it and must be a member of the target. A project cannot change region
 in a transfer, and an active GitHub integration must be disconnected first. Falling back to
 `pg_dump` and restore always works regardless.
