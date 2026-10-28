@@ -1,8 +1,88 @@
 import type { Metadata } from "next";
-import { Placeholder } from "@/components/app/Placeholder";
+import { requireWorkspace } from "@/lib/guard";
+import { Shell, PageHead } from "@/components/app/Shell";
+import { Icon } from "@/components/app/Icon";
+import { districtLabel } from "@/lib/business";
+import { formatAmount } from "@/lib/money";
+import { serviceLabel } from "@/lib/requests";
+import { QUOTE_STATUS_LABEL, isExpired, listForBusiness } from "@/lib/quotes";
+import { withdrawQuoteAction } from "../requests/quote-actions";
 
 export const metadata: Metadata = { title: "My quotes" };
+export const dynamic = "force-dynamic";
 
-export default function Page() {
-  return <Placeholder title="My quotes" icon="quotes" />;
+const fmt = (iso: string) =>
+  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+
+/** One colour per state, reusing the request pills. */
+const PILL: Record<string, string> = {
+  sent: "awaiting_quotes",
+  accepted: "quotes_sent",
+  not_selected: "cancelled",
+  withdrawn: "cancelled",
+  superseded: "awaiting_quotes",
+};
+
+export default async function Page() {
+  const { user, business } = await requireWorkspace();
+  const quotes = listForBusiness(business.id);
+
+  return (
+    <Shell crumb={{ label: "My quotes", icon: "quotes" }} user={{ name: user.name }}>
+      <PageHead title="My quotes" subtitle="Prices you have sent to farmers, and what happened to them" />
+      {quotes.length === 0 ? (
+        <div className="table-card"><p className="empty">You have not sent any quotes yet. Open a request to send one.</p></div>
+      ) : (
+        <div className="table-card">
+          <table className="table">
+            <thead>
+              <tr>
+                <th scope="col">Request</th>
+                <th scope="col">Service</th>
+                <th scope="col">Location</th>
+                <th scope="col">Price</th>
+                <th scope="col">Holds until</th>
+                <th scope="col">Status</th>
+                <th scope="col"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {quotes.map((q) => {
+                const expired = isExpired(q);
+                return (
+                  <tr key={q.id}>
+                    <td>
+                      <span className="table__person">
+                        <span className="request-icon" aria-hidden="true">
+                          <Icon name={q.service === "harvesting" ? "quotes" : "equipment"} size={22} />
+                        </span>
+                        <span>{q.reference}{q.version > 1 ? <span className="field__helper"> v{q.version}</span> : null}</span>
+                      </span>
+                    </td>
+                    <td>{serviceLabel(q.service)}</td>
+                    <td>{districtLabel(q.district)}</td>
+                    <td>{formatAmount(q.amountMinor)}</td>
+                    <td>{fmt(q.validUntil)}</td>
+                    <td>
+                      <span className={`pill pill--${expired ? "cancelled" : PILL[q.status]}`}>
+                        {expired ? "Expired" : QUOTE_STATUS_LABEL[q.status]}
+                      </span>
+                    </td>
+                    <td className="table__actions">
+                      {q.status === "sent" ? (
+                        <form action={withdrawQuoteAction}>
+                          <input type="hidden" name="requestId" value={q.requestId} />
+                          <button type="submit" className="resend__button">Withdraw</button>
+                        </form>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Shell>
+  );
 }

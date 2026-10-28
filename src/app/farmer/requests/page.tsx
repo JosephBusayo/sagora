@@ -51,7 +51,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
-                    <td>{r.reference}</td>
+                    <td><Link href={`/farmer/requests/${r.id}`}>{r.reference}</Link></td>
                     <td>{serviceLabel(r.service)}</td>
                     <td>{r.village}, {districtLabel(r.district)}</td>
                     <td>{r.acres} acres</td>

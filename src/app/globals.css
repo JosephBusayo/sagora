@@ -576,3 +576,16 @@ select.field__input { appearance: auto; }
 .table--requests th:nth-child(n), .table--requests td:nth-child(n) { width: auto; }
 .table--requests th:first-child, .table--requests td:first-child { width: 22%; }
 .table--requests th:last-child, .table--requests td:last-child { width: 60px; }
+
+/* -------- quotes -------- */
+.quotes__heading { margin: 10px 0 0; font: 600 18px/1.2 var(--font-sans); }
+.quote-cards { display: flex; flex-direction: column; gap: 14px; }
+.quote-card { padding: 20px 22px; border: 1px solid var(--color-hairline); border-radius: 16px; background: var(--color-surface);
+  display: flex; flex-direction: column; gap: 14px; }
+.quote-card--agreed { border-color: var(--color-brand); }
+.quote-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.quote-card__head h3 { margin: 0 0 4px; font: 600 17px/1.2 var(--font-sans); }
+.quote-card__head p { margin: 0; color: var(--color-text-muted); font: var(--text-helper); }
+.quote-card__price { margin: 0; font: 600 20px/1.2 var(--font-sans); color: var(--color-brand); white-space: nowrap; }
+.quote-form { max-width: none; }
+.quote-summary { display: flex; flex-direction: column; gap: 14px; }

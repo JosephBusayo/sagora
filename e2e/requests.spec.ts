@@ -178,8 +178,10 @@ test("the provider sees the request, filters it, and opens the details", async (
   await expect(dialog.getByText("5 acres")).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/18-request-detail.png` });
 
-  // Quoting is the next stage, so it is visibly unavailable rather than broken.
-  await expect(dialog.getByRole("button", { name: "Send a quote" })).toBeDisabled();
+  // Quoting opens in the My quote tab; Activity is a later stage and stays disabled.
+  await expect(dialog.getByRole("tab", { name: "Activity" })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Send a quote" }).click();
+  await expect(dialog.getByLabel("Total price (Le)")).toBeVisible();
   await dialog.getByRole("button", { name: "Close" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });

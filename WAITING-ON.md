@@ -12,6 +12,7 @@ each one is a swap, not a rewrite. Updated 28 Oct 2026.
 | 3 | **Auth photos** for the farmer frames (`59-2686`) | Farmer sign-up, sign-in, verify, reset | Provider photos, cropped from the one export |
 | 4 | **Real asset exports** for the provider auth photos | Provider auth screens | Crops of `sign_in.jpg` |
 | 5 | **Farmer app frames** (`1-2507`, `21-16070`) at usable resolution | Farmer home, Book a service, My requests | Built from layer names plus the shared design system |
+| 5b | **My quotes frames** (`15-8170`) | Provider quote form, My quotes table, farmer quote cards | Built in the design system's language, not from a frame |
 | 6 | **Screens that do not exist in Figma** | Staff review queue, invite acceptance, "not built yet" placeholder, provider setup and approval | Built in the design system's language, not from a frame |
 | 7 | **Confirm the farmer sign-up title** | Farmer sign-up | The Figma frame says "Create a provider account", which looks like a copy slip. Build says "Create an account" |
 | 8 | **Confirm the verification button label** | Email verification | The frame repeats "Get verification code". Build says "Verify" |
@@ -26,7 +27,7 @@ the real tokens, assets and frames be pulled directly instead of measured off a 
 | # | What | Why it matters |
 |---|---|---|
 | 1 | **Where production Postgres lives, and who pays** | Supabase, Neon and others all work. Free tiers cover us until real users arrive, so this is not urgent, but it shapes deployment |
-| 2 | **Monime sandbox access and terms** | Blocks all of stage 4 (payments). Nothing about money can be built or tested without it |
+| 2 | **Monime sandbox access and terms** | Blocks all of stage 4 (payments). Quotes can now be accepted, but nothing can be paid for |
 | 3 | **A Monime account in his own name** | It holds his money and his KYC. It must never be in the developer's name |
 | 4 | **The domain, registered in his name** | Moving a domain between owners is slow and avoidable |
 | 5 | **Farmer request recovery without SMS** (§6.2) | Many farmers have no email. Open question in the brief, and it changes the intake design |

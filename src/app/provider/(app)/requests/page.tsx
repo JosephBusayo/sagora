@@ -5,6 +5,8 @@ import { Shell, PageHead } from "@/components/app/Shell";
 import { Icon } from "@/components/app/Icon";
 import { DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
 import { DATE_WINDOWS, STATUS_LABEL, browse, serviceLabel, type RequestStatus } from "@/lib/requests";
+import { QUOTE_STATUS_LABEL, currentQuote, isExpired, type QuoteStatus } from "@/lib/quotes";
+import { formatAmount } from "@/lib/money";
 import { RequestsTable, type RequestRow } from "@/components/requests/RequestsTable";
 import { FilterAutoSubmit } from "@/components/requests/FilterAutoSubmit";
 
@@ -56,7 +58,7 @@ function Filters({ current }: { current: Params }) {
 }
 
 export default async function Page({ searchParams }: { searchParams: Promise<Params> }) {
-  const { user } = await requireWorkspace();
+  const { user, business } = await requireWorkspace();
   const sp = await searchParams;
   const page = Number(sp.page ?? "1") || 1;
   const { rows, pages } = browse({ service: sp.service, district: sp.district, window: sp.window }, page);
@@ -75,6 +77,22 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
     submittedOn: fmt(r.createdAt.slice(0, 10)),
     status: r.status,
     statusLabel: STATUS_LABEL[r.status as RequestStatus],
+    myQuote: (() => {
+      const q = currentQuote(r.id, business.id);
+      if (!q) return null;
+      return {
+        version: q.version,
+        status: q.status,
+        statusLabel: QUOTE_STATUS_LABEL[q.status as QuoteStatus],
+        amount: formatAmount(q.amountMinor),
+        amountInput: (q.amountMinor / 100).toFixed(2),
+        includes: q.includes,
+        startDate: q.startDate,
+        validUntil: q.validUntil,
+        note: q.note,
+        expired: isExpired(q),
+      };
+    })(),
   }));
 
   const href = (p: number) => {

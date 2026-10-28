@@ -598,3 +598,44 @@ Measured against the Figma frames rather than estimated.
 The icons were found by matching the design crops against all 2,165 icons rendered to a grid:
 service type scored 0.912, farm size 0.954, alternate date 0.869. Guessing by name had missed all
 three. The modal is also now 638px wide, as the design has it, rather than 530.
+
+---
+
+## Build status update (28 Oct 2026): quotes and agreements
+
+**Built and tested (40 browser tests, up from 33).** Journey 3 and the first half of journey 4:
+a provider prices a job, the farmer compares and accepts.
+
+### Provider
+- **Send a quote** lives in the request modal's **My quote** tab, which the design already shows.
+  Price, what it covers, the day work can start, and how long the price holds.
+- **My quotes** (`/provider/quotes`) replaces the placeholder: every quote sent, its price,
+  validity and outcome, with Withdraw while it is still open.
+
+### Farmer
+- `/farmer/requests/[id]` lists every quote on their request, cheapest first, with Accept.
+  Plain forms and redirects, so it works with JavaScript off.
+
+### The rules that matter
+- **Quotes are versioned.** Changing a quote never rewrites what the farmer saw: the old version
+  is kept and marked superseded, and a new version is created. `(request, business, version)` is unique.
+- **Accepting freezes the version.** The agreement stores its own copy of the amount, what it
+  covers and the start date, so later edits cannot change what was agreed. Brief rule: *quote
+  matches accepted version*.
+- **One agreement per request**, enforced by a unique index, so a double submit cannot create two.
+  Accepting also closes the other providers' quotes in the same transaction.
+- **An expired quote can be read but never accepted.** Validity must fall on or before the start date.
+- **Money is an integer count of minor units** (`src/lib/money.ts`), parsed from what the provider
+  typed and formatted as `Le 1,200.50`. No floats anywhere near a price.
+- A farmer opening another farmer's request gets a 404, not a redirect: the request's existence
+  is not revealed.
+
+### Deliberately not done
+**Accepting is not a booking.** It records agreed terms and says so on screen. Payment, holds,
+resource conflicts and the single booking decision are stage 4, and need Monime from Karim.
+The **Activity** tab stays visibly disabled.
+
+### No design for this
+`15-8170` (My quotes) was never exported, so the provider quote form, the My quotes table and the
+farmer's quote cards are built in the design system's language rather than from a frame.
+Added to WAITING-ON.md.

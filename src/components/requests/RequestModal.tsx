@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/app/Icon";
+import { QuoteForm, type MyQuote } from "./QuoteForm";
 
 export type RequestDetail = {
   id: string;
@@ -26,7 +27,7 @@ function Row({ icon, label, value }: { icon: IconName; label: string; value: str
   );
 }
 
-export function RequestModal({ request, onClose }: { request: RequestDetail; onClose: () => void }) {
+export function RequestModal({ request, myQuote, onClose }: { request: RequestDetail; myQuote: MyQuote | null; onClose: () => void }) {
   const [tab, setTab] = useState<"details" | "quote" | "activity">("details");
   const ref = useRef<HTMLDivElement>(null);
 
@@ -52,11 +53,17 @@ export function RequestModal({ request, onClose }: { request: RequestDetail; onC
           <button type="button" role="tab" aria-selected={tab === "details"} className={`tab${tab === "details" ? " tab--on" : ""}`} onClick={() => setTab("details")}>
             Request details
           </button>
-          {/* Quotes are the next stage; the tabs are shown so the screen matches the design. */}
-          <button type="button" role="tab" aria-selected={false} className="tab" disabled title="Quotes are not built yet">My quote</button>
+          <button type="button" role="tab" aria-selected={tab === "quote"} className={`tab${tab === "quote" ? " tab--on" : ""}`} onClick={() => setTab("quote")}>
+            My quote
+          </button>
+          {/* Activity is a later stage; shown so the screen matches the design, disabled so it does not pretend. */}
           <button type="button" role="tab" aria-selected={false} className="tab" disabled title="Activity is not built yet">Activity</button>
         </div>
 
+        {tab === "quote" ? (
+          <QuoteForm requestId={request.id} existing={myQuote} onDone={onClose} />
+        ) : (
+        <>
         <div className="detail-head">
           <div>
             <h2 id="req-title">{request.reference}</h2>
@@ -77,8 +84,12 @@ export function RequestModal({ request, onClose }: { request: RequestDetail; onC
 
         <div className="form-actions">
           <button type="button" className="button button--soft" onClick={onClose}>Close</button>
-          <button type="button" className="button" disabled title="Quoting is the next stage">Send a quote</button>
+          <button type="button" className="button" onClick={() => setTab("quote")}>
+            {myQuote && myQuote.status === "sent" ? "Update my quote" : "Send a quote"}
+          </button>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
