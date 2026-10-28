@@ -70,20 +70,17 @@ To use the real staff review screen instead of step 4, make a second account and
 
 ## Smoke run
 
-A scripted walkthrough of the whole product against a real server, with a fresh database.
-It is the walk-through you would do by hand: farmer signs up, books work, provider signs up,
-staff approves them, provider quotes, farmer accepts.
-
 ```bash
-npm run build
-DATABASE_PATH=data/smoke.db npm run db:migrate
-DATABASE_PATH=data/smoke.db BETTER_AUTH_URL=http://localhost:3200 \
-  BETTER_AUTH_SECRET=smoke-secret-smoke-secret-smoke-1234 SAGORA_TEST_OUTBOX=1 \
-  npx next start -p 3200 &
 npm run smoke
 ```
 
-Each step prints OK or FAIL; a failure saves a screenshot to `/tmp/smoke`.
+One command: builds the app, starts it on port 3200 with a throwaway database, drives the whole
+product through a browser, then stops. It is the walkthrough you would do by hand — farmer signs
+up, books work, provider signs up, staff approves them, provider quotes, farmer accepts.
+
+Each step prints OK or FAIL; a failure saves a screenshot to `/tmp/smoke` (`%TEMP%\smoke` on
+Windows). It refuses to run if something is already using port 3200, rather than driving the
+wrong server.
 
 ## Where things live
 
