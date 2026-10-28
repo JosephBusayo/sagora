@@ -78,8 +78,7 @@ One command: builds the app, starts it on port 3200 with a throwaway database, d
 product through a browser, then stops. It is the walkthrough you would do by hand — farmer signs
 up, books work, provider signs up, staff approves them, provider quotes, farmer accepts.
 
-Each step prints OK or FAIL; a failure saves a screenshot to `/tmp/smoke` (`%TEMP%\smoke` on
-Windows). It refuses to run if something is already using port 3200, rather than driving the
+Each step prints OK or FAIL; a failure saves a screenshot to a `sagora-smoke` folder in your system temp directory. It refuses to run if something is already using port 3200, rather than driving the
 wrong server.
 
 ## Where things live

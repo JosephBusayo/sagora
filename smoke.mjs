@@ -7,10 +7,12 @@
  */
 import { chromium } from "playwright";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const BASE = "http://localhost:3200";
-const OUT = "/tmp/smoke";
+// The system temp folder, so this works the same on Windows, macOS and Linux.
+const OUT = path.join(os.tmpdir(), "sagora-smoke");
 const OUTBOX = path.join(process.cwd(), "data", "dev-outbox.jsonl");
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -55,7 +57,7 @@ async function step(name, page, fn) {
     await fn();
     steps.push({ name, ok: true });
   } catch (err) {
-    const file = `${OUT}/fail-${++shot}.png`;
+    const file = path.join(OUT, `fail-${++shot}.png`);
     try { await page.screenshot({ path: file, fullPage: true }); } catch {}
     steps.push({ name, ok: false, error: String(err).split("\n")[0], shot: file });
   }
@@ -96,7 +98,7 @@ await step("Farmer books ploughing and gets a reference", f.page, async () => {
   await f.page.getByRole("button", { name: "Send request" }).click();
   await f.page.waitForURL(/\/farmer\/requests\?new=/);
   reference = (await f.page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)[0];
-  await f.page.screenshot({ path: `${OUT}/01-farmer-requests.png`, fullPage: true });
+  await f.page.screenshot({ path: path.join(OUT, "01-farmer-requests.png"), fullPage: true });
 });
 await step("Farmer gets the reference by email", f.page, async () => {
   const m = mails(FARMER.email).find((x) => x.text.includes(reference));
@@ -124,7 +126,7 @@ await step("Provider completes setup and submits for review", p.page, async () =
   await p.page.getByLabel("Town or village").fill("Makeni");
   await p.page.getByRole("button", { name: "Submit for review" }).click();
   await p.page.getByRole("heading", { name: "Waiting for Sagora to review your business" }).waitFor();
-  await p.page.screenshot({ path: `${OUT}/02-provider-waiting.png`, fullPage: true });
+  await p.page.screenshot({ path: path.join(OUT, "02-provider-waiting.png"), fullPage: true });
 });
 
 /* ----------------------------------------------------------------- staff */
@@ -153,7 +155,7 @@ await step("Staff reviews and approves the provider", s.page, async () => {
   const card = s.page.locator("section").filter({ hasText: PROV.email });
   await card.getByRole("button", { name: "Approve" }).click();
   await s.page.waitForTimeout(800);
-  await s.page.screenshot({ path: `${OUT}/03-staff-review.png`, fullPage: true });
+  await s.page.screenshot({ path: path.join(OUT, "03-staff-review.png"), fullPage: true });
 });
 
 /* ------------------------------------------------- provider does the work */
@@ -175,12 +177,12 @@ await step("Provider adds a tractor to the equipment register", p.page, async ()
   await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: 8000 });
   await p.page.reload();
   await p.page.getByText("Blue Massey").waitFor();
-  await p.page.screenshot({ path: `${OUT}/04-equipment.png`, fullPage: true });
+  await p.page.screenshot({ path: path.join(OUT, "04-equipment.png"), fullPage: true });
 });
 await step("Provider sees the farmer's request and the filters work", p.page, async () => {
   await p.page.goto("/provider/requests");
   await p.page.getByRole("button", { name: `Open request ${reference}` }).waitFor();
-  await p.page.screenshot({ path: `${OUT}/05-provider-requests.png`, fullPage: true });
+  await p.page.screenshot({ path: path.join(OUT, "05-provider-requests.png"), fullPage: true });
   await p.page.goto("/provider/requests?district=Kono");
   await p.page.getByText("No requests match these filters yet.").waitFor();
 });
@@ -195,7 +197,7 @@ await step("Provider sends a quote", p.page, async () => {
   await d.getByLabel("Price holds until").fill(inDays(15));
   await d.getByRole("button", { name: "Send a quote" }).click();
   await d.getByText("Quote sent to the farmer.").waitFor();
-  await p.page.screenshot({ path: `${OUT}/06-quote-sent.png` });
+  await p.page.screenshot({ path: path.join(OUT, "06-quote-sent.png") });
 });
 
 /* ------------------------------------------------------ farmer accepts it */
@@ -205,7 +207,7 @@ await step("Farmer sees the quote and accepts it", f.page, async () => {
   await f.page.getByText("Le 2,400.00").waitFor();
   await f.page.getByRole("button", { name: "Accept this quote" }).click();
   await f.page.getByText("The price and terms are now fixed").waitFor();
-  await f.page.screenshot({ path: `${OUT}/07-farmer-accepted.png`, fullPage: true });
+  await f.page.screenshot({ path: path.join(OUT, "07-farmer-accepted.png"), fullPage: true });
 });
 await step("The accepted amount is frozen in an agreement", f.page, async () => {
   const { DatabaseSync } = await import("node:sqlite");
@@ -221,7 +223,7 @@ await step("Provider is told their quote was accepted", p.page, async () => {
   if (!mails(PROV.email).some((m) => m.subject.includes("was accepted"))) throw new Error("no acceptance email");
   await p.page.goto("/provider/quotes");
   await p.page.getByText("Le 2,400.00").waitFor();
-  await p.page.screenshot({ path: `${OUT}/08-my-quotes.png`, fullPage: true });
+  await p.page.screenshot({ path: path.join(OUT, "08-my-quotes.png"), fullPage: true });
 });
 
 /* ------------------------------------------------------------- the rest */
