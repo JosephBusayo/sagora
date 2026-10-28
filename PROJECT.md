@@ -420,3 +420,35 @@ a clean `npm install` takes about 20 seconds and has no native dependencies at a
   which the slower driver exposed.
 
 This changes development only. Production was always going to be Postgres.
+
+---
+
+## Decision (28 Oct 2026): Supabase Postgres, used as plain Postgres
+
+**Database:** Supabase, for the Postgres only. Not Supabase Auth, not Row Level Security as an
+access layer, not Storage, Realtime or Edge Functions. Sign-in stays Better Auth in our own code,
+and all database access stays on the server.
+
+**Why Supabase:** it is managed Postgres with a free tier big enough to build and demo on, and
+scaling is not a concern for this project. Supabase runs on ordinary Postgres, so the ceiling is
+Postgres's ceiling, which is far above a national-scale service for one country's agricultural
+bookings. If it is ever outgrown, it is outgrown as Postgres, and the move is a dump and restore.
+
+**Why not its other features:** using Supabase Auth or client-side access through RLS would weld
+the application to one vendor and make the handover a rewrite. Keeping it to plain Postgres means
+the word "Supabase" appears nowhere in the code, only in a connection string.
+
+**Costs (checked 28 Oct 2026):**
+- Free: 500 MB database, 5 GB egress, two projects per organisation. **Free projects pause after
+  about a week of inactivity**, which matters while the client is only looking at it occasionally.
+- Pro: from $25/month, 8 GB database, 250 GB egress, and no pausing. Needed at launch, not before.
+
+**Handover:** Supabase supports transferring a project to another organisation. The source
+organisation's owner starts it and must be a member of the target. A project cannot change region
+in a transfer, and an active GitHub integration must be disconnected first. Falling back to
+`pg_dump` and restore always works regardless.
+
+See **HANDOVER.md** for the account list and the rules that keep every service replaceable.
+
+**Still to do before the move off SQLite:** turn the `CREATE TABLE` statements in `src/lib/db.ts`
+into numbered `.sql` migration files.

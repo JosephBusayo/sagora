@@ -1,6 +1,7 @@
 # Sagora 2.0
 
 Agricultural service platform for Sierra Leone. Read **PROJECT.md** first: it is the source of truth for scope, rules, decisions and build status.
+**HANDOVER.md** covers accounts and how the project moves to the client.
 
 ## Requirements
 
