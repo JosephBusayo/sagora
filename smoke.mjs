@@ -227,8 +227,9 @@ await step("Provider is told their quote was accepted", p.page, async () => {
 });
 
 /* ------------------------------------------------------------- the rest */
-await step("Provider settings, team and account screens open", p.page, async () => {
+await step("Provider settings, team, jobs and account screens open", p.page, async () => {
   for (const [url, heading] of [
+    ["/provider/jobs", "Jobs"],
     ["/provider/settings", "Settings"],
     ["/provider/settings/business", "Business details"],
     ["/provider/settings/account", "Account"],
@@ -240,7 +241,7 @@ await step("Provider settings, team and account screens open", p.page, async () 
   }
 });
 await step("Unbuilt sections say so instead of breaking", p.page, async () => {
-  for (const url of ["/provider/dashboard", "/provider/jobs", "/provider/payments", "/provider/notifications", "/provider/reports", "/provider/help"]) {
+  for (const url of ["/provider/dashboard", "/provider/payments", "/provider/notifications", "/provider/reports", "/provider/help"]) {
     await p.page.goto(url);
     await p.page.getByText("Not built yet.").waitFor({ timeout: 8000 });
   }

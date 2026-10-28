@@ -8,6 +8,8 @@ import { STATUS_LABEL, getById, serviceLabel } from "@/lib/requests";
 import { agreementFor, isExpired, listForRequest } from "@/lib/quotes";
 import { db } from "@/lib/db";
 import { acceptQuoteAction } from "../accept-actions";
+import { confirmDeliveryAction, raiseConcernAction } from "../job-actions";
+import { JOB_STATUS_LABEL, jobForRequest, type JobStatus } from "@/lib/jobs";
 
 export const metadata: Metadata = { title: "Request" };
 export const dynamic = "force-dynamic";
@@ -20,17 +22,18 @@ const businessName = (id: string) =>
 
 export default async function Page({ params, searchParams }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ accepted?: string; error?: string }>;
+  searchParams: Promise<{ accepted?: string; error?: string; confirmed?: string; concern?: string }>;
 }) {
   const farmer = await requireFarmer();
   const { id } = await params;
-  const { accepted, error } = await searchParams;
+  const { accepted, error, confirmed, concern } = await searchParams;
 
   const request = getById(id);
   if (!request || request.farmerId !== farmer.id) notFound(); // never reveal another farmer's request
 
   const quotes = listForRequest(id);
   const agreement = agreementFor(id);
+  const job = jobForRequest(id);
 
   return (
     <main className="setup">
@@ -48,6 +51,57 @@ export default async function Page({ params, searchParams }: {
             You accepted this quote. The price and terms are now fixed. Paying for the work, and
             confirming the booking, come next — that part is not built yet.
           </p>
+        ) : null}
+
+        {confirmed ? (
+          <p className="notice notice--success" role="status">
+            Thank you. You have confirmed the work. Payment and settlement are arranged separately.
+          </p>
+        ) : null}
+        {concern ? (
+          <p className="notice notice--error" role="status">
+            Your concern has been recorded and the provider has been told. Sagora will follow up.
+          </p>
+        ) : null}
+
+        {job && job.status !== "unscheduled" ? (
+          <section className="quote-card">
+            <div className="quote-card__head">
+              <div>
+                <h3>The work</h3>
+                <p>{JOB_STATUS_LABEL[job.status as JobStatus]}</p>
+              </div>
+              {job.startDate ? <p className="field__helper">{fmt(job.startDate)} to {fmt(job.endDate!)}</p> : null}
+            </div>
+
+            {job.status === "work_reported" ? (
+              <>
+                <p>
+                  The provider reports <strong>{job.reportedAcres} acres</strong> done.
+                  {job.workNote ? ` Their note: ${job.workNote}` : ""}
+                </p>
+                <p className="field__helper">Nothing is settled until you confirm. If something is wrong, say so instead.</p>
+                <form action={confirmDeliveryAction}>
+                  <input type="hidden" name="requestId" value={request.id} />
+                  <button type="submit" className="button button--inline">Confirm the work was done</button>
+                </form>
+                <form action={raiseConcernAction} className="form-soft" style={{ maxWidth: "none" }}>
+                  <input type="hidden" name="requestId" value={request.id} />
+                  <div className="field">
+                    <label className="field__label" htmlFor="concern">Or raise a concern</label>
+                    <div className="field__box" style={{ height: "auto", alignItems: "flex-start" }}>
+                      <textarea id="concern" name="concern" className="field__input" rows={2} maxLength={400}
+                        placeholder="Only half the field was ploughed" style={{ resize: "vertical" }} />
+                    </div>
+                  </div>
+                  <button type="submit" className="button button--soft button--inline">Raise a concern</button>
+                </form>
+              </>
+            ) : null}
+
+            {job.status === "completed" ? <p className="field__helper">You confirmed {job.reportedAcres} acres.</p> : null}
+            {job.status === "disputed" ? <p className="field__helper">Your concern: {job.concern}</p> : null}
+          </section>
         ) : null}
 
         <h2 className="quotes__heading">Quotes</h2>

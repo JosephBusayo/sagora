@@ -673,3 +673,39 @@ language: the same cards, pills, modals and row menus as the rest of the workspa
 ### Not built
 Operators (people), schedules, and commitments against a machine. Those arrive with Jobs, and the
 conflict check ("shared plough/operator can't double-book") needs them plus payments.
+
+---
+
+## Build status update (28 Oct 2026): jobs, commitments and delivery
+
+**Built and tested (54 browser tests, up from 47).** `/provider/jobs` replaces the placeholder.
+An accepted quote now becomes work with machines committed to it.
+
+### What happens
+A job is created the moment a farmer accepts a quote, unscheduled. The provider schedules it:
+dates, machines from the register, and an operator from the team. Then: start work → report what
+was done → the farmer confirms or raises a concern.
+
+### The rules it exists to enforce
+- **"Overlapping commitments must fail."** One plough cannot be on two jobs at once. The clash
+  check runs **inside** the transaction that writes the commitment, so two schedules racing for
+  the same machine cannot both succeed. The refusal names the machine, the job and the dates.
+- **"Work reported vs farmer-confirmed delivery"** are different states, and **silence is not
+  consent**: the provider's report moves the job to *Awaiting farmer confirmation* and no further.
+  Only the farmer's explicit confirmation completes it. They can raise a concern instead, which
+  moves the job to *Farmer raised a concern* and emails the provider.
+- **"A blocking fault flags affected jobs without erasing commitments."** A fault on a committed
+  machine marks the job **At risk** and keeps the commitment, so the plan is never silently lost.
+  A faulty machine already on a job stays visible in the schedule form, marked unavailable.
+- Only machines that are active and fault-free can be newly committed.
+
+### Still not a booking
+The brief's booking decision needs accepted terms **and verified funds** and free resources. Funds
+arrive in stage 4, so a scheduled job carries no money guarantee and the screens do not claim one.
+
+### No design for this
+`15-9385` (My jobs, 2 frames) was never exported. Built in the design system's language.
+
+### Not built
+Private jobs the provider enters themselves (no farmer request), a calendar view, and
+replacement/refund when a breakdown stops work. The last one needs payments.

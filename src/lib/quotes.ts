@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { changed, db } from "./db";
 import { audit } from "./business";
 import { getById as getRequest } from "./requests";
+import { ensureJobForAgreement } from "./jobs";
 
 /**
  * Quotes are versioned, and accepting one freezes the exact version that was accepted into an
@@ -199,6 +200,8 @@ export function acceptQuote(quoteId: string, farmerId: string): AcceptResult {
     throw err;
   }
   audit(farmerId, "quote.accepted", quote.id, `v${quote.version} ${quote.amountMinor}`);
+  // The work now exists, unscheduled. Scheduling it commits machines; see lib/jobs.ts.
+  ensureJobForAgreement(quote.requestId, quote.businessId);
   return { ok: true };
 }
 
