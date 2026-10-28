@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import Database from "better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -34,10 +34,20 @@ async function signUpAndVerify(page: Page, u: { business: string; phone: string;
   await page.getByLabel("Email").fill(u.email);
   await page.getByLabel("Password", { exact: true }).fill(u.password);
   await page.getByRole("button", { name: "Create account" }).click();
-  const code = await latestCode(u.email);
-  await page.getByLabel("Digit 1 of 7").click();
-  await page.keyboard.type(code);
-  await page.getByRole("button", { name: "Verify" }).click();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const code = await latestCode(u.email);
+    await page.getByLabel("Digit 1 of 7").click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(code);
+    await page.getByRole("button", { name: "Verify" }).click();
+    try {
+      await page.waitForURL((p) => !p.pathname.includes("verify-email"), { timeout: 5000 });
+      return;
+    } catch {
+      await page.waitForTimeout(400); // not accepted yet; read a fresh code and retry
+    }
+  }
+  throw new Error(`verification never completed for ${u.email}`);
 }
 async function signIn(page: Page, email: string, password: string) {
   await page.goto("/provider/sign-in");
@@ -47,7 +57,7 @@ async function signIn(page: Page, email: string, password: string) {
   await expect(page).not.toHaveURL(/sign-in/); // the session cookie is set by the redirect
 }
 function approve(email: string) {
-  const db = new Database(DB);
+  const db = new DatabaseSync(DB);
   const u = db.prepare("SELECT id FROM user WHERE email=?").get(email) as { id: string };
   const now = new Date().toISOString();
   db.prepare("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?").run(now, now, u.id);

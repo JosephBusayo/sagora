@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import Database from "better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -23,6 +23,24 @@ async function latestCode(email: string): Promise<string> {
   }
   throw new Error(`no email for ${email}`);
 }
+/** Types the emailed code and waits for the verification to actually go through. */
+async function enterCode(page: Page, email: string) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const code = await latestCode(email);
+    await page.getByLabel("Digit 1 of 7").click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.type(code);
+    await page.getByRole("button", { name: "Verify" }).click();
+    try {
+      await page.waitForURL((u) => !u.pathname.includes("verify-email"), { timeout: 5000 });
+      return;
+    } catch {
+      await page.waitForTimeout(400); // the code was not accepted yet; read it again and retry
+    }
+  }
+  throw new Error(`verification never completed for ${email}`);
+}
+
 async function registerAndVerify(page: Page, u: typeof P) {
   await page.goto("/provider/sign-up");
   await page.getByLabel("Business name").fill(u.business);
@@ -31,10 +49,7 @@ async function registerAndVerify(page: Page, u: typeof P) {
   await page.getByLabel("Password", { exact: true }).fill(u.password);
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL(/verify-email$/);
-  const code = await latestCode(u.email);
-  await page.getByLabel("Digit 1 of 7").click();
-  await page.keyboard.type(code);
-  await page.getByRole("button", { name: "Verify" }).click();
+  await enterCode(page, u.email);
 }
 async function fresh(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
@@ -101,7 +116,7 @@ test("staff asks for changes, provider fixes and resubmits, staff approves", asy
   // Make a second verified account and promote it to staff, as an operator would.
   const s = await fresh(browser);
   await registerAndVerify(s.page, S);
-  const db = new Database(path.join(process.cwd(), "data", "test.db"));
+  const db = new DatabaseSync(path.join(process.cwd(), "data", "test.db"));
   db.prepare("UPDATE user SET role='staff' WHERE email=?").run(S.email);
   db.close();
   await s.page.goto("/provider/sign-in");

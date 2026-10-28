@@ -396,3 +396,27 @@ Table, invite modal and edit modal from the design.
 - MFA for staff and for sensitive money actions (brief requirement, not started).
 - Changing the sign-in email.
 - Everything in stages 2-4: farmer app, requests, quotes, jobs, equipment, payments.
+
+---
+
+## Fix (28 Oct 2026): `npm install` failed on Windows
+
+`better-sqlite3` is a native module. On Windows it has no prebuilt binary for Node 24, so
+npm tried to compile it with node-gyp and stopped: *"THIS VERSION OF PYTHON IS NOT SUPPORTED"*.
+Fixing it that way would have meant installing Python and the Visual Studio C++ build tools on
+every machine that ever touches this project, and the same trap would catch the client later.
+
+**The dev database now uses Node's built-in SQLite (`node:sqlite`) instead.** Better Auth
+supports it directly (its own test suite runs on it). Nothing in the project compiles any more:
+a clean `npm install` takes about 20 seconds and has no native dependencies at all.
+
+- `better-sqlite3` and `@types/better-sqlite3` removed; `@types/node` raised to v24.
+- `serverExternalPackages` no longer needed in `next.config.ts` (a Node built-in is never bundled).
+- `package.json` now declares `engines.node >= 22.5.0`, which is when `node:sqlite` arrived.
+- `PRAGMA busy_timeout = 5000` set explicitly: Node's SQLite waits 0ms for a write lock by
+  default, where better-sqlite3 waited 5s, so without it two writes at once fail with
+  "database is locked".
+- A race in the test helpers (typing a verification code before it was accepted) now retries,
+  which the slower driver exposed.
+
+This changes development only. Production was always going to be Postgres.

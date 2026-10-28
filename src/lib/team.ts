@@ -1,6 +1,6 @@
 import "server-only";
 import { randomBytes, randomUUID, createHash } from "node:crypto";
-import { db } from "./db";
+import { changed, db } from "./db";
 import { audit } from "./business";
 
 db.exec(`
@@ -112,8 +112,8 @@ export function updateMember(businessId: string, actorId: string, id: string, in
   const res = db
     .prepare("UPDATE team_member SET name=?, phone=?, email=?, role=?, permission=?, updated_at=? WHERE id=? AND business_id=?")
     .run(input.name, input.phone, input.email, input.role, input.permission, new Date().toISOString(), id, businessId);
-  if (res.changes) audit(actorId, "team.updated", businessId, `${id} ${input.role}/${input.permission}`);
-  return res.changes > 0;
+  if (changed(res)) audit(actorId, "team.updated", businessId, `${id} ${input.role}/${input.permission}`);
+  return changed(res) > 0;
 }
 
 export function removeMember(businessId: string, actorId: string, id: string): boolean {
@@ -122,8 +122,8 @@ export function removeMember(businessId: string, actorId: string, id: string): b
   const res = db
     .prepare("UPDATE team_member SET status='removed', invite_hash=NULL, updated_at=? WHERE id=? AND business_id=?")
     .run(new Date().toISOString(), id, businessId);
-  if (res.changes) audit(actorId, "team.removed", businessId, m.email);
-  return res.changes > 0;
+  if (changed(res)) audit(actorId, "team.removed", businessId, m.email);
+  return changed(res) > 0;
 }
 
 /* ------------------------------------------------------------- accepting */
@@ -153,7 +153,7 @@ export function acceptInvite(token: string, userId: string): Member | null {
        WHERE id=? AND status='invited'`,
     )
     .run(userId, new Date().toISOString(), found.member.id);
-  if (!res.changes) return null;
+  if (!changed(res)) return null;
   audit(userId, "team.joined", found.member.businessId, found.member.email);
   return { ...found.member, userId, status: "active" };
 }

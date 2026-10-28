@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { db } from "./db";
+import { changed, db } from "./db";
 
 export const DISTRICTS = [
   "Bo", "Bombali", "Bonthe", "Falaba", "Kailahun", "Kambia", "Karene", "Kenema",
@@ -87,7 +87,7 @@ export function saveBusiness(userId: string, input: BusinessInput, submit: boole
       input.name, input.phone, input.email, input.district, input.town, JSON.stringify(input.services), input.description, now,
       submit ? 1 : 0, submit ? 1 : 0, now, submit ? 1 : 0, userId,
     );
-  if (res.changes === 0) return false;
+  if (changed(res) === 0) return false;
   const b = getBusinessForUser(userId)!;
   audit(userId, submit ? "business.submitted" : "business.draft_saved", b.id);
   return true;
@@ -116,7 +116,7 @@ export function decide(businessId: string, staffId: string, decision: Decision, 
        WHERE id=? AND status='submitted'`,
     )
     .run(decision, note, now, staffId, now, businessId);
-  if (res.changes === 0) return null;
+  if (changed(res) === 0) return null;
   audit(staffId, `business.${decision}`, businessId, note);
   const r = db.prepare("SELECT * FROM provider_business WHERE id = ?").get(businessId) as Row;
   return fromRow(r);

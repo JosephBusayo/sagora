@@ -1,11 +1,11 @@
 // Local shortcut so you can see the workspace without running the staff review.
 // Run: npm run dev:approve -- provider@example.com
-import Database from "better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 
 const email = process.argv[2]?.trim().toLowerCase();
 if (!email) { console.error("Usage: npm run dev:approve -- email@example.com"); process.exit(1); }
-const db = new Database(process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "sagora.db"));
+const db = new DatabaseSync(process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "sagora.db"));
 const user = db.prepare("SELECT id FROM user WHERE email = ?").get(email) as { id: string } | undefined;
 if (!user) { console.error(`No account for ${email}`); process.exit(1); }
 const now = new Date().toISOString();

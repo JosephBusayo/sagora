@@ -1,14 +1,29 @@
 import "server-only";
 import fs from "node:fs";
 import path from "node:path";
-import Database from "better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
 
+/**
+ * Local development database.
+ *
+ * Node's own SQLite is used on purpose: it needs no compiler, no Python and no
+ * Visual Studio build tools, so `npm install` works the same on Windows, macOS
+ * and Linux. Production moves to Postgres (one change, in `auth.ts` and here).
+ */
 const dbPath = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "sagora.db");
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
-/** One shared connection for Better Auth and the app's own tables. */
-export const db = new Database(dbPath);
-db.pragma("journal_mode = WAL");
+export const db = new DatabaseSync(dbPath);
+db.exec("PRAGMA journal_mode = WAL");
+db.exec("PRAGMA foreign_keys = ON");
+// Node's SQLite waits 0ms for a lock by default, so two writes at once fail outright.
+// better-sqlite3 waited 5s; keep that, or concurrent requests hit "database is locked".
+db.exec("PRAGMA busy_timeout = 5000");
+
+/** `run` reports changes as a number here and as a bigint elsewhere; normalise it. */
+export function changed(result: { changes: number | bigint }): number {
+  return Number(result.changes);
+}
 
 // App tables. Better Auth's own tables come from `npm run db:migrate`.
 // Production (Postgres) will move these to real migrations.

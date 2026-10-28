@@ -2,6 +2,12 @@
 
 Agricultural service platform for Sierra Leone. Read **PROJECT.md** first: it is the source of truth for scope, rules, decisions and build status.
 
+## Requirements
+
+**Node 22.5 or newer** (`node -v`). Nothing else: no Python, no Visual Studio build tools,
+no compiler. The local database uses Node's own built-in SQLite, so `npm install` is the
+same on Windows, macOS and Linux.
+
 ## Run it locally
 
 ```bash
@@ -62,6 +68,7 @@ To use the real staff review screen instead of step 4, make a second account and
 | `src/lib/guard.ts` | One gate for every workspace page |
 | `src/components/auth/*` | Shared form pieces (fields, code input, buttons) |
 | `src/lib/auth.ts` | Better Auth setup (email + password, emailed codes) |
+| `src/lib/db.ts` | The local database (Node built-in SQLite). Swap here for Postgres |
 | `src/lib/email.ts` | The single place that sends email |
 | `src/app/globals.css` | Design tokens and styles |
 | `e2e/` | Browser tests |
