@@ -14,20 +14,16 @@ export async function acceptQuoteAction(fd: FormData) {
   const farmer = await requireFarmer();
   const quoteId = String(fd.get("quoteId") ?? "");
   const requestId = String(fd.get("requestId") ?? "");
-  const result = acceptQuote(quoteId, farmer.id);
+  const result = await acceptQuote(quoteId, farmer.id);
 
   if (!result.ok) redirect(`/farmer/requests/${requestId}?error=${encodeURIComponent(result.reason)}`);
 
   // Tell the provider their quote was taken. TODO (stage 2): outbox with retries.
-  const row = db
-    .prepare(
-      `SELECT b.email AS email, b.name AS name, r.reference AS reference
+  const row = await db.get(`SELECT b.email AS email, b.name AS name, r.reference AS reference
        FROM quote q JOIN provider_business b ON b.id = q.business_id
-       JOIN service_request r ON r.id = q.request_id WHERE q.id = ?`,
-    )
-    .get(quoteId) as { email: string; name: string; reference: string } | undefined;
+       JOIN service_request r ON r.id = q.request_id WHERE q.id = ?`, quoteId) as { email: string; name: string; reference: string } | undefined;
   if (row?.email) {
-    notify({
+    await notify({
       kind: "quote.accepted",
       dedupeKey: `quote.accepted:${quoteId}`,
       to: row.email,

@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { db } from "./db";
+import { db, type Queries } from "./db";
 
 /**
  * A double-entry ledger.
@@ -44,7 +44,14 @@ export class UnbalancedTransaction extends Error {
  * Posts one balanced transaction. Caller must already be inside a database transaction when
  * this is part of a larger decision (recording a payment, confirming a booking).
  */
-export function post(legs: Leg[], ref: { type: string; id: string }, reversesTxn: string | null = null): string {
+export async function post(
+  legs: Leg[],
+  ref: { type: string; id: string },
+  reversesTxn: string | null = null,
+  // Posting is nearly always part of a larger decision, so the caller hands in its transaction.
+  // Using the shared `db` inside someone else's transaction would wait for a lock it holds.
+  t: Queries = db,
+): Promise<string> {
   const total = legs.reduce((sum, l) => sum + l.amountMinor, 0);
   if (total !== 0) throw new UnbalancedTransaction(total);
   if (legs.some((l) => !Number.isSafeInteger(l.amountMinor))) {
@@ -53,46 +60,40 @@ export function post(legs: Leg[], ref: { type: string; id: string }, reversesTxn
 
   const txnId = randomUUID();
   const now = new Date().toISOString();
-  const insert = db.prepare(
+  const INSERT_LEG =
     `INSERT INTO ledger_entry (id, txn_id, account, amount_minor, memo, ref_type, ref_id, reverses_txn, created_at)
-     VALUES (?,?,?,?,?,?,?,?,?)`,
-  );
+     VALUES (?,?,?,?,?,?,?,?,?)`;
   for (const leg of legs) {
-    insert.run(randomUUID(), txnId, leg.account, leg.amountMinor, leg.memo ?? "", ref.type, ref.id, reversesTxn, now);
+    await t.run(INSERT_LEG, randomUUID(), txnId, leg.account, leg.amountMinor, leg.memo ?? "", ref.type, ref.id, reversesTxn, now);
   }
   return txnId;
 }
 
 /** Undoes a transaction by posting its mirror image. The original stays exactly as it was. */
-export function reverse(txnId: string, reason: string): string {
-  const legs = db
-    .prepare("SELECT account, amount_minor FROM ledger_entry WHERE txn_id=?")
-    .all(txnId) as { account: string; amount_minor: number }[];
+export async function reverse(txnId: string, reason: string, t: Queries = db): Promise<string> {
+  const legs = (await t.all("SELECT account, amount_minor FROM ledger_entry WHERE txn_id=?", txnId)) as { account: string; amount_minor: number }[];
   if (legs.length === 0) throw new Error("Nothing to reverse: no such transaction.");
-  const ref = db.prepare("SELECT ref_type, ref_id FROM ledger_entry WHERE txn_id=? LIMIT 1").get(txnId) as {
+  const ref = (await t.get("SELECT ref_type, ref_id FROM ledger_entry WHERE txn_id=? LIMIT 1", txnId)) as {
     ref_type: string; ref_id: string;
   };
   return post(
     legs.map((l) => ({ account: l.account, amountMinor: -l.amount_minor, memo: reason })),
     { type: ref.ref_type, id: ref.ref_id },
     txnId,
+    t,
   );
 }
 
-export function balance(account: string): number {
-  const row = db.prepare("SELECT COALESCE(SUM(amount_minor), 0) AS total FROM ledger_entry WHERE account=?").get(account) as { total: number };
+export async function balance(account: string, t: Queries = db): Promise<number> {
+  const row = (await t.get("SELECT COALESCE(SUM(amount_minor), 0) AS total FROM ledger_entry WHERE account=?", account)) as { total: number };
   return Number(row.total);
 }
 
 export type LedgerLine = { txnId: string; account: string; amountMinor: number; memo: string; createdAt: string; reversesTxn: string | null };
 
-export function entriesFor(refType: string, refId: string): LedgerLine[] {
-  const rows = db
-    .prepare(
-      `SELECT txn_id, account, amount_minor, memo, created_at, reverses_txn FROM ledger_entry
-       WHERE ref_type=? AND ref_id=? ORDER BY created_at ASC, account ASC`,
-    )
-    .all(refType, refId) as Record<string, string | number | null>[];
+export async function entriesFor(refType: string, refId: string): Promise<LedgerLine[]> {
+  const rows = await db.all(`SELECT txn_id, account, amount_minor, memo, created_at, reverses_txn FROM ledger_entry
+       WHERE ref_type=? AND ref_id=? ORDER BY created_at ASC, account ASC`, refType, refId) as Record<string, string | number | null>[];
   return rows.map((r) => ({
     txnId: String(r.txn_id), account: String(r.account), amountMinor: Number(r.amount_minor),
     memo: String(r.memo), createdAt: String(r.created_at),
@@ -101,7 +102,7 @@ export function entriesFor(refType: string, refId: string): LedgerLine[] {
 }
 
 /** Every account must sum to something explainable; the whole ledger must sum to zero. */
-export function ledgerIsBalanced(): boolean {
-  const row = db.prepare("SELECT COALESCE(SUM(amount_minor), 0) AS total FROM ledger_entry").get() as { total: number };
+export async function ledgerIsBalanced(): Promise<boolean> {
+  const row = await db.get("SELECT COALESCE(SUM(amount_minor), 0) AS total FROM ledger_entry") as { total: number };
   return Number(row.total) === 0;
 }

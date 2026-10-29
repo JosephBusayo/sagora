@@ -21,17 +21,17 @@ export async function reviewBusiness(_prev: FormState, fd: FormData): Promise<Fo
     return { fieldErrors: { note: "Say what needs to change before you send this back." } };
   }
 
-  const b = decide(id, staff.id, decision, note);
+  const b = await decide(id, staff.id, decision, note);
   if (!b) return { error: "This business was already decided. Reload the page." };
 
-  const owner = db.prepare("SELECT email FROM user WHERE id = ?").get(b.userId) as { email: string } | undefined;
+  const owner = await db.get("SELECT email FROM user WHERE id = ?", b.userId) as { email: string } | undefined;
   if (owner) {
     const lines: Record<Decision, string> = {
       approved: `Good news: ${b.name} is approved on Sagora. You can now receive requests.`,
       changes_requested: `We need a few changes to ${b.name} before we can approve it:\n\n${note}\n\nSign in to update your details and submit again.`,
       rejected: `We could not approve ${b.name}.\n\n${note}`,
     };
-    notify({
+    await notify({
       kind: `business.${decision}`,
       dedupeKey: `business.review:${b.id}:${b.reviewedAt ?? ""}`,
       to: owner.email,

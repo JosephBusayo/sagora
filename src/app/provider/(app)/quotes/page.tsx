@@ -25,7 +25,7 @@ const PILL: Record<string, string> = {
 
 export default async function Page() {
   const { user, business } = await requireWorkspace();
-  const quotes = listForBusiness(business.id);
+  const quotes = await listForBusiness(business.id);
 
   return (
     <Shell crumb={{ label: "My quotes", icon: "quotes" }} user={{ name: user.name }}>

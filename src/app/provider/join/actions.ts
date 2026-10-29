@@ -17,7 +17,7 @@ const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String
  */
 export async function acceptInviteAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const token = str(fd, "token");
-  const invite = findInvite(token);
+  const invite = await findInvite(token);
   if (!invite) redirect("/provider/join/expired");
 
   const password = str(fd, "password");
@@ -30,7 +30,7 @@ export async function acceptInviteAction(_prev: FormState, fd: FormData): Promis
   if (Object.keys(fieldErrors).length) return { fieldErrors, values: { name } };
 
   let userId: string;
-  const existing = db.prepare("SELECT id FROM user WHERE email = ?").get(invite.member.email) as { id: string } | undefined;
+  const existing = await db.get("SELECT id FROM user WHERE email = ?", invite.member.email) as { id: string } | undefined;
   if (existing) {
     // Already has a Sagora account: just join, no new account and no password change.
     userId = existing.id;
@@ -45,9 +45,9 @@ export async function acceptInviteAction(_prev: FormState, fd: FormData): Promis
       return { error: "We couldn't create your account. Please try again.", values: { name } };
     }
     // The invite link proves they received the email, so the address is already confirmed.
-    db.prepare("UPDATE user SET emailVerified = 1 WHERE id = ?").run(userId);
+    await db.run("UPDATE user SET emailVerified = 1 WHERE id = ?", userId);
   }
 
-  if (!acceptInvite(token, userId)) redirect("/provider/join/expired");
+  if (!await acceptInvite(token, userId)) redirect("/provider/join/expired");
   redirect("/provider/sign-in?joined=1");
 }

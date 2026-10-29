@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Page({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const invite = token === "expired" ? null : findInvite(token);
+  const invite = token === "expired" ? null : await findInvite(token);
 
   if (!invite) {
     return (

@@ -15,8 +15,8 @@ const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { dateStyle:
  */
 export default async function Page() {
   await requireStaff();
-  const { pending, failed, sent } = counts();
-  const rows = listProblems();
+  const { pending, failed, sent } = await counts();
+  const rows = await listProblems();
 
   return (
     <main className="setup">

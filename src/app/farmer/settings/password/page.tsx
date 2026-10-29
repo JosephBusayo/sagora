@@ -14,7 +14,7 @@ export default async function Page() {
       crumb={{ label: "Settings", icon: "settings" }}
       user={{ name: farmer.name }}
       audience="farmer"
-      unread={unreadCount(farmer)}
+      unread={await unreadCount(farmer)}
     >
       <PageHead title="Password" subtitle="Changing your password signs you out everywhere else." />
       <FarmerPasswordForm />

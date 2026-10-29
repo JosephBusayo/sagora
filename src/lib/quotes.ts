@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { changed, db } from "./db";
+import { db } from "./db";
 import { audit } from "./business";
 import { getById as getRequest } from "./requests";
 import { ensureJobForAgreement } from "./jobs";
@@ -48,32 +48,24 @@ export const isExpired = (q: Quote) => q.status === "sent" && q.validUntil < tod
 export type QuoteInput = { amountMinor: number; includes: string; startDate: string; validUntil: string; note: string };
 
 /** This business's current quote on a request, whatever its state. */
-export function currentQuote(requestId: string, businessId: string): Quote | null {
-  const r = db
-    .prepare("SELECT * FROM quote WHERE request_id=? AND business_id=? ORDER BY version DESC LIMIT 1")
-    .get(requestId, businessId) as Row | undefined;
+export async function currentQuote(requestId: string, businessId: string): Promise<Quote | null> {
+  const r = await db.get("SELECT * FROM quote WHERE request_id=? AND business_id=? ORDER BY version DESC LIMIT 1", requestId, businessId) as Row | undefined;
   return r ? fromRow(r) : null;
 }
 
-export function listForRequest(requestId: string): Quote[] {
-  const rows = db
-    .prepare("SELECT * FROM quote WHERE request_id=? AND status IN ('sent','accepted','not_selected') ORDER BY amount_minor ASC")
-    .all(requestId) as Row[];
+export async function listForRequest(requestId: string): Promise<Quote[]> {
+  const rows = await db.all("SELECT * FROM quote WHERE request_id=? AND status IN ('sent','accepted','not_selected') ORDER BY amount_minor ASC", requestId) as Row[];
   return rows.map(fromRow);
 }
 
-export function listForBusiness(businessId: string): (Quote & { reference: string; service: string; district: string })[] {
-  const rows = db
-    .prepare(
-      `SELECT q.*, r.reference, r.service, r.district FROM quote q JOIN service_request r ON r.id = q.request_id
-       WHERE q.business_id=? AND q.status <> 'superseded' ORDER BY q.created_at DESC`,
-    )
-    .all(businessId) as (Row & { reference: string; service: string; district: string })[];
+export async function listForBusiness(businessId: string): Promise<(Quote & { reference: string; service: string; district: string })[]> {
+  const rows = await db.all(`SELECT q.*, r.reference, r.service, r.district FROM quote q JOIN service_request r ON r.id = q.request_id
+       WHERE q.business_id=? AND q.status <> 'superseded' ORDER BY q.created_at DESC`, businessId) as (Row & { reference: string; service: string; district: string })[];
   return rows.map((r) => ({ ...fromRow(r), reference: r.reference, service: r.service, district: r.district }));
 }
 
-export function getQuote(id: string): Quote | null {
-  const r = db.prepare("SELECT * FROM quote WHERE id=?").get(id) as Row | undefined;
+export async function getQuote(id: string): Promise<Quote | null> {
+  const r = await db.get("SELECT * FROM quote WHERE id=?", id) as Row | undefined;
   return r ? fromRow(r) : null;
 }
 
@@ -83,13 +75,13 @@ export type SendResult = { ok: true; quote: Quote } | { ok: false; reason: strin
  * Sends a quote, or replaces this business's previous one with a new version.
  * The old version is kept and marked superseded, so what the farmer saw is never rewritten.
  */
-export function sendQuote(requestId: string, businessId: string, actorId: string, input: QuoteInput): SendResult {
-  const request = getRequest(requestId);
+export async function sendQuote(requestId: string, businessId: string, actorId: string, input: QuoteInput): Promise<SendResult> {
+  const request = await getRequest(requestId);
   if (!request) return { ok: false, reason: "That request no longer exists." };
   if (request.status === "cancelled") return { ok: false, reason: "That request was withdrawn by the farmer." };
   if (request.status === "completed") return { ok: false, reason: "That request is already finished." };
 
-  const existing = currentQuote(requestId, businessId);
+  const existing = await currentQuote(requestId, businessId);
   if (existing?.status === "accepted") return { ok: false, reason: "Your quote has already been accepted." };
   if (existing?.status === "not_selected") return { ok: false, reason: "The farmer has chosen another provider." };
 
@@ -97,33 +89,22 @@ export function sendQuote(requestId: string, businessId: string, actorId: string
   const id = randomUUID();
   const version = (existing?.version ?? 0) + 1;
 
-  db.exec("BEGIN IMMEDIATE");
-  try {
+  await db.tx(async (t) => {
     // Anything this business sent before is replaced, never edited.
-    db.prepare("UPDATE quote SET status='superseded' WHERE request_id=? AND business_id=? AND status='sent'")
-      .run(requestId, businessId);
-    db.prepare(
-      `INSERT INTO quote (id, request_id, business_id, version, amount_minor, includes, start_date, valid_until, note, created_by, created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-    ).run(id, requestId, businessId, version, input.amountMinor, input.includes, input.startDate, input.validUntil, input.note, actorId, now);
+    await t.run("UPDATE quote SET status='superseded' WHERE request_id=? AND business_id=? AND status='sent'", requestId, businessId);
+    await t.run(`INSERT INTO quote (id, request_id, business_id, version, amount_minor, includes, start_date, valid_until, note, created_by, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`, id, requestId, businessId, version, input.amountMinor, input.includes, input.startDate, input.validUntil, input.note, actorId, now);
     // Once anyone has quoted, the farmer's request says so.
-    db.prepare("UPDATE service_request SET status='quotes_sent', updated_at=? WHERE id=? AND status='awaiting_quotes'")
-      .run(now, requestId);
-    db.exec("COMMIT");
-  } catch (err) {
-    db.exec("ROLLBACK");
-    throw err;
-  }
-  audit(actorId, version === 1 ? "quote.sent" : "quote.revised", id, `v${version} ${input.amountMinor}`);
-  return { ok: true, quote: getQuote(id)! };
+    await t.run("UPDATE service_request SET status='quotes_sent', updated_at=? WHERE id=? AND status='awaiting_quotes'", now, requestId);
+  });
+  await audit(actorId, version === 1 ? "quote.sent" : "quote.revised", id, `v${version} ${input.amountMinor}`);
+  return { ok: true, quote: (await getQuote(id))! };
 }
 
-export function withdrawQuote(requestId: string, businessId: string, actorId: string): boolean {
-  const res = db
-    .prepare("UPDATE quote SET status='withdrawn' WHERE request_id=? AND business_id=? AND status='sent'")
-    .run(requestId, businessId);
-  if (changed(res)) audit(actorId, "quote.withdrawn", requestId);
-  return changed(res) > 0;
+export async function withdrawQuote(requestId: string, businessId: string, actorId: string): Promise<boolean> {
+  const res = await db.run("UPDATE quote SET status='withdrawn' WHERE request_id=? AND business_id=? AND status='sent'", requestId, businessId);
+  if (res.changes) await audit(actorId, "quote.withdrawn", requestId);
+  return res.changes > 0;
 }
 
 export type AcceptResult = { ok: true } | { ok: false; reason: string };
@@ -133,47 +114,41 @@ export type AcceptResult = { ok: true } | { ok: false; reason: string };
  * an agreement, marks the other providers' quotes as not selected, and moves the request on.
  * Re-running it is harmless: the unique request_id on agreement means a second accept fails.
  */
-export function acceptQuote(quoteId: string, farmerId: string): AcceptResult {
-  const quote = getQuote(quoteId);
+export async function acceptQuote(quoteId: string, farmerId: string): Promise<AcceptResult> {
+  const quote = await getQuote(quoteId);
   if (!quote) return { ok: false, reason: "That quote no longer exists." };
 
-  const request = getRequest(quote.requestId);
+  const request = await getRequest(quote.requestId);
   if (!request || request.farmerId !== farmerId) return { ok: false, reason: "That quote is not on your request." };
   if (request.status === "cancelled") return { ok: false, reason: "You withdrew this request." };
   if (quote.status !== "sent") return { ok: false, reason: "That quote is no longer open." };
   if (isExpired(quote)) return { ok: false, reason: "That quote has expired. Ask the provider for a new one." };
 
   const now = new Date().toISOString();
-  db.exec("BEGIN IMMEDIATE");
-  try {
-    const already = db.prepare("SELECT 1 FROM agreement WHERE request_id=?").get(quote.requestId);
-    if (already) {
-      db.exec("ROLLBACK");
-      return { ok: false, reason: "You have already accepted a quote on this request." };
-    }
+  // Accepting is one decision: the frozen agreement, the losing quotes and the request's own
+  // state all move together, or none of them do.
+  const decided = await db.tx<AcceptResult>(async (t) => {
+    const already = await t.get("SELECT 1 FROM agreement WHERE request_id=?", quote.requestId);
+    // Nothing has been written yet, so returning here commits an empty transaction.
+    if (already) return { ok: false, reason: "You have already accepted a quote on this request." };
+
     // The agreement is a frozen copy: later edits to the quote cannot change what was agreed.
-    db.prepare(
-      `INSERT INTO agreement (id, request_id, quote_id, business_id, version, amount_minor, includes, start_date, accepted_by, accepted_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`,
-    ).run(randomUUID(), quote.requestId, quote.id, quote.businessId, quote.version, quote.amountMinor, quote.includes, quote.startDate, farmerId, now);
-    db.prepare("UPDATE quote SET status='accepted' WHERE id=?").run(quote.id);
-    db.prepare("UPDATE quote SET status='not_selected' WHERE request_id=? AND id<>? AND status='sent'")
-      .run(quote.requestId, quote.id);
-    db.prepare("UPDATE service_request SET status='in_progress', updated_at=? WHERE id=?").run(now, quote.requestId);
-    db.exec("COMMIT");
-  } catch (err) {
-    db.exec("ROLLBACK");
-    throw err;
-  }
-  audit(farmerId, "quote.accepted", quote.id, `v${quote.version} ${quote.amountMinor}`);
+    await t.run(`INSERT INTO agreement (id, request_id, quote_id, business_id, version, amount_minor, includes, start_date, accepted_by, accepted_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`, randomUUID(), quote.requestId, quote.id, quote.businessId, quote.version, quote.amountMinor, quote.includes, quote.startDate, farmerId, now);
+    await t.run("UPDATE quote SET status='accepted' WHERE id=?", quote.id);
+    await t.run("UPDATE quote SET status='not_selected' WHERE request_id=? AND id<>? AND status='sent'", quote.requestId, quote.id);
+    await t.run("UPDATE service_request SET status='in_progress', updated_at=? WHERE id=?", now, quote.requestId);
+    return { ok: true };
+  });
+  if (!decided.ok) return decided;
+
+  await audit(farmerId, "quote.accepted", quote.id, `v${quote.version} ${quote.amountMinor}`);
   // The work now exists, unscheduled. Scheduling it commits machines; see lib/jobs.ts.
-  ensureJobForAgreement(quote.requestId, quote.businessId);
+  await ensureJobForAgreement(quote.requestId, quote.businessId);
   return { ok: true };
 }
 
-export function agreementFor(requestId: string): { businessId: string; amountMinor: number; version: number; includes: string; startDate: string } | null {
-  const r = db
-    .prepare("SELECT business_id, amount_minor, version, includes, start_date FROM agreement WHERE request_id=?")
-    .get(requestId) as { business_id: string; amount_minor: number; version: number; includes: string; start_date: string } | undefined;
+export async function agreementFor(requestId: string): Promise<{ businessId: string; amountMinor: number; version: number; includes: string; startDate: string } | null> {
+  const r = await db.get("SELECT business_id, amount_minor, version, includes, start_date FROM agreement WHERE request_id=?", requestId) as { business_id: string; amount_minor: number; version: number; includes: string; start_date: string } | undefined;
   return r ? { businessId: r.business_id, amountMinor: r.amount_minor, version: r.version, includes: r.includes, startDate: r.start_date } : null;
 }

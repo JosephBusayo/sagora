@@ -26,8 +26,8 @@ const STEPS: { icon: IconName; title: string; body: string }[] = [
 export default async function Page() {
   const farmer = await requireFarmer();
   const firstName = farmer.name.trim().split(/\s+/)[0];
-  const requests = listForFarmer(farmer.id).slice(0, 4);
-  const live = bookingsForFarmer(farmer.id).filter((b) =>
+  const requests = (await listForFarmer(farmer.id)).slice(0, 4);
+  const live = (await bookingsForFarmer(farmer.id)).filter((b) =>
     ["scheduled", "in_progress", "work_reported"].includes(b.status),
   );
 
@@ -36,7 +36,7 @@ export default async function Page() {
       crumb={{ label: "Home", icon: "home" }}
       user={{ name: farmer.name }}
       audience="farmer"
-      unread={unreadCount(farmer)}
+      unread={await unreadCount(farmer)}
     >
       <div className="pagehead">
         <div>

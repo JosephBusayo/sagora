@@ -61,9 +61,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
   const { user, business } = await requireWorkspace();
   const sp = await searchParams;
   const page = Number(sp.page ?? "1") || 1;
-  const { rows, pages } = browse({ service: sp.service, district: sp.district, window: sp.window }, page);
+  const { rows, pages } = await browse({ service: sp.service, district: sp.district, window: sp.window }, page);
 
-  const items: RequestRow[] = rows.map((r) => ({
+  const items: RequestRow[] = await Promise.all(rows.map(async (r) => ({
     id: r.id,
     reference: r.reference,
     service: r.service,
@@ -77,8 +77,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
     submittedOn: fmt(r.createdAt.slice(0, 10)),
     status: r.status,
     statusLabel: STATUS_LABEL[r.status as RequestStatus],
-    myQuote: (() => {
-      const q = currentQuote(r.id, business.id);
+    myQuote: await (async () => {
+      const q = await currentQuote(r.id, business.id);
       if (!q) return null;
       return {
         version: q.version,
@@ -93,7 +93,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
         expired: isExpired(q),
       };
     })(),
-  }));
+  })));
 
   const href = (p: number) => {
     const q = new URLSearchParams();

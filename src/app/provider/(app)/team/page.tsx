@@ -10,9 +10,9 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const { user, business, permission } = await requireWorkspace();
-  ensureOwner(business.id, user);
+  await ensureOwner(business.id, user);
 
-  const rows: Row[] = listMembers(business.id).map((m) => ({
+  const rows: Row[] = (await listMembers(business.id)).map((m) => ({
     id: m.id, name: m.name, phone: m.phone, email: m.email,
     role: m.role, roleLabel: roleLabel(m.role),
     permission: m.permission, permissionLabel: permissionLabel(m.permission),

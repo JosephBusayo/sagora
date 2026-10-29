@@ -59,4 +59,5 @@ Not waiting on anyone; just not written yet.
 - **Changing a sign-in email** — needs re-verification; no design exists.
 - **A scheduled drain for the notification outbox** — the queue retries when something triggers it, and staff can drain it by hand at `/staff/outbox`. Nothing runs it on a timer yet; that belongs with hosting.
 - ~~SQL migration files~~ — **done.** The schema is `migrations/*.sql`, applied once each and checksummed. Nothing creates tables at runtime.
-- **The move to Postgres itself** — the schema is ready; the code is not. Every query is synchronous today and every Postgres driver is asynchronous, so moving means an `await` at each call site (about a day). Not blocked by anything but the hosting decision.
+- ~~The async conversion~~ — **done.** Every query is awaited and every transaction is a `db.tx(...)` callback, which is what a connection pool needs. The Postgres move is now one file: `lib/db.ts`.
+- **The Postgres move itself** — waiting only on the Neon account, which waits on Karim's email.

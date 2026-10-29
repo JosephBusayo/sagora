@@ -62,7 +62,7 @@ export const auth = betterAuth({
       rateLimit: { window: 60, max: 3 },
       async sendVerificationOTP({ email, otp, type }) {
         // Saved to the outbox, which then sends. Sign-up never fails because email did.
-        notify({
+        await notify({
           kind: `otp.${type}`,
           to: email,
           subject: SUBJECTS[type],

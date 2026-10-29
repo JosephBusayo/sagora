@@ -52,7 +52,7 @@ export async function saveSetup(_prev: FormState, fd: FormData): Promise<FormSta
     if (raw.phone && !phone) return { fieldErrors: { phone: "Enter a valid Sierra Leone number, for example 76 123 456" }, values };
   }
 
-  const ok = saveBusiness(
+  const ok = await saveBusiness(
     user.id,
     {
       name: raw.name,

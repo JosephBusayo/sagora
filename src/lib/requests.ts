@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { changed, db } from "./db";
+import { db, type Queries } from "./db";
 import { DISTRICTS, SERVICES, audit } from "./business";
 
 /**
@@ -55,11 +55,14 @@ const fromRow = (r: Row): ServiceRequest => ({
 
 export const serviceLabel = (id: string) => SERVICES.find((s) => s.id === id)?.label ?? id;
 
-/** Human reference, as in the design: SG-1048. Allocated inside the insert's transaction. */
-function nextReference(): string {
-  db.prepare("INSERT INTO reference_counter (name, value) VALUES ('request', 1047) ON CONFLICT(name) DO NOTHING").run();
-  db.prepare("UPDATE reference_counter SET value = value + 1 WHERE name = 'request'").run();
-  const row = db.prepare("SELECT value FROM reference_counter WHERE name = 'request'").get() as { value: number };
+/**
+ * Human reference, as in the design: SG-1048. Takes the transaction it must run in, so the
+ * number and the request it belongs to are allocated together or not at all.
+ */
+async function nextReference(t: Queries): Promise<string> {
+  await t.run("INSERT INTO reference_counter (name, value) VALUES ('request', 1047) ON CONFLICT(name) DO NOTHING");
+  await t.run("UPDATE reference_counter SET value = value + 1 WHERE name = 'request'");
+  const row = (await t.get("SELECT value FROM reference_counter WHERE name = 'request'")) as { value: number };
   return `SG-${row.value}`;
 }
 
@@ -76,48 +79,36 @@ export type NewRequest = {
   contactEmail: string;
 };
 
-export function createRequest(farmerId: string | null, input: NewRequest): ServiceRequest {
+export async function createRequest(farmerId: string | null, input: NewRequest): Promise<ServiceRequest> {
   const now = new Date().toISOString();
   const id = randomUUID();
   // One transaction, so a reference is never allocated without the request it belongs to.
-  // node:sqlite has no transaction() helper, so the statements are explicit.
-  db.exec("BEGIN IMMEDIATE");
-  let reference: string;
-  try {
-    reference = nextReference();
-    db.prepare(
-      `INSERT INTO service_request
+  const reference = await db.tx(async (t) => {
+    const next = await nextReference(t);
+    await t.run(`INSERT INTO service_request
         (id, reference, farmer_id, contact_name, contact_phone, contact_email, service, acres,
          preferred_date, alternate_date, district, village, notes, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    ).run(
-      id, reference, farmerId, input.contactName, input.contactPhone, input.contactEmail,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, next, farmerId, input.contactName, input.contactPhone, input.contactEmail,
       input.service, input.acres, input.preferredDate, input.alternateDate, input.district,
-      input.village, input.notes, now, now,
-    );
-    db.exec("COMMIT");
-  } catch (err) {
-    db.exec("ROLLBACK");
-    throw err;
-  }
-  audit(farmerId ?? "guest", "request.created", id, reference);
-  return getById(id)!;
+      input.village, input.notes, now, now);
+    return next;
+  });
+  await audit(farmerId ?? "guest", "request.created", id, reference);
+  return (await getById(id))!;
 }
 
-export function getById(id: string): ServiceRequest | null {
-  const r = db.prepare("SELECT * FROM service_request WHERE id = ?").get(id) as Row | undefined;
+export async function getById(id: string): Promise<ServiceRequest | null> {
+  const r = await db.get("SELECT * FROM service_request WHERE id = ?", id) as Row | undefined;
   return r ? fromRow(r) : null;
 }
 
-export function getByReference(reference: string): ServiceRequest | null {
-  const r = db.prepare("SELECT * FROM service_request WHERE reference = ?").get(reference) as Row | undefined;
+export async function getByReference(reference: string): Promise<ServiceRequest | null> {
+  const r = await db.get("SELECT * FROM service_request WHERE reference = ?", reference) as Row | undefined;
   return r ? fromRow(r) : null;
 }
 
-export function listForFarmer(farmerId: string): ServiceRequest[] {
-  const rows = db
-    .prepare("SELECT * FROM service_request WHERE farmer_id = ? ORDER BY created_at DESC")
-    .all(farmerId) as Row[];
+export async function listForFarmer(farmerId: string): Promise<ServiceRequest[]> {
+  const rows = await db.all("SELECT * FROM service_request WHERE farmer_id = ? ORDER BY created_at DESC", farmerId) as Row[];
   return rows.map(fromRow);
 }
 
@@ -137,7 +128,7 @@ export const PAGE_SIZE = 7;
  * What a provider can browse. Only the farmer's service details are listed: name, phone and
  * email stay out until there is a reason to share them, which is the quote stage.
  */
-export function browse(filters: Filters, page: number): { rows: ServiceRequest[]; total: number; pages: number } {
+export async function browse(filters: Filters, page: number): Promise<{ rows: ServiceRequest[]; total: number; pages: number }> {
   const where: string[] = ["status <> 'cancelled'"];
   const params: (string | number)[] = [];
   if (filters.service && SERVICES.some((s) => s.id === filters.service)) {
@@ -158,23 +149,17 @@ export function browse(filters: Filters, page: number): { rows: ServiceRequest[]
     params.push(today, end);
   }
   const clause = `WHERE ${where.join(" AND ")}`;
-  const total = Number((db.prepare(`SELECT COUNT(*) AS n FROM service_request ${clause}`).get(...params) as { n: number }).n);
+  const total = Number((await db.get(`SELECT COUNT(*) AS n FROM service_request ${clause}`, ...params) as { n: number }).n);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const safePage = Math.min(Math.max(1, page), pages);
-  const rows = db
-    .prepare(`SELECT * FROM service_request ${clause} ORDER BY preferred_date ASC, created_at DESC LIMIT ? OFFSET ?`)
-    .all(...params, PAGE_SIZE, (safePage - 1) * PAGE_SIZE) as Row[];
+  const rows = await db.all(`SELECT * FROM service_request ${clause} ORDER BY preferred_date ASC, created_at DESC LIMIT ? OFFSET ?`, ...params, PAGE_SIZE, (safePage - 1) * PAGE_SIZE) as Row[];
   return { rows: rows.map(fromRow), total, pages };
 }
 
 /** A farmer can withdraw their own request while nobody has started work. */
-export function cancel(farmerId: string, id: string): boolean {
-  const res = db
-    .prepare(
-      `UPDATE service_request SET status='cancelled', updated_at=?
-       WHERE id=? AND farmer_id=? AND status IN ('awaiting_quotes','quotes_sent')`,
-    )
-    .run(new Date().toISOString(), id, farmerId);
-  if (changed(res)) audit(farmerId, "request.cancelled", id);
-  return changed(res) > 0;
+export async function cancel(farmerId: string, id: string): Promise<boolean> {
+  const res = await db.run(`UPDATE service_request SET status='cancelled', updated_at=?
+       WHERE id=? AND farmer_id=? AND status IN ('awaiting_quotes','quotes_sent')`, new Date().toISOString(), id, farmerId);
+  if (res.changes) await audit(farmerId, "request.cancelled", id);
+  return res.changes > 0;
 }

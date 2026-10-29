@@ -24,10 +24,10 @@ function masked(email: string) {
  */
 export default async function Page() {
   const { user, sessionId } = await staffAwaitingCode();
-  if (isVerified(sessionId)) redirect("/staff/payments");
+  if (await isVerified(sessionId)) redirect("/staff/payments");
 
   // The code is sent by opening the screen, so there is nothing to click first.
-  sendCode(sessionId, user);
+  await sendCode(sessionId, user);
 
   return (
     <AuthShell

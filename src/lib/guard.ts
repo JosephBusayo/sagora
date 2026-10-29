@@ -20,19 +20,19 @@ export async function requireWorkspace(): Promise<Workspace> {
   const user = await requireProvider();
 
   // A teammate who accepted an invite belongs to someone else's business.
-  const member = membershipFor(user.id);
+  const member = await membershipFor(user.id);
   if (member) {
     const { db } = await import("./db");
-    const row = db.prepare("SELECT * FROM provider_business WHERE id = ?").get(member.businessId) as { user_id: string } | undefined;
+    const row = await db.get("SELECT * FROM provider_business WHERE id = ?", member.businessId) as { user_id: string } | undefined;
     if (row) {
-      const owned = getBusinessForUser(row.user_id)!;
+      const owned = (await getBusinessForUser(row.user_id))!;
       if (owned.status !== "approved") redirect("/provider/setup");
       return { user, business: owned, role: member.role, permission: member.permission };
     }
   }
 
-  const business = ensureBusiness(user);
+  const business = await ensureBusiness(user);
   if (business.status !== "approved") redirect("/provider/setup");
-  ensureOwner(business.id, user);
+  await ensureOwner(business.id, user);
   return { user, business, role: "owner", permission: "full_access" };
 }

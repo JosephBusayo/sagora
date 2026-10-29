@@ -48,17 +48,34 @@ export default async function Page({
   const sp = await searchParams;
   const tab = TABS.some((t) => t.id === sp.tab) ? sp.tab! : "collect";
 
-  const collect = awaitingPayment();
-  const cases = openCases();
-  const releases = pendingReleases();
-  const books = reconcile();
+  const collect = await awaitingPayment();
+  const cases = await openCases();
+  const releases = await pendingReleases();
+  const books = await reconcile();
+
+  // A component cannot await inside its own JSX, so every per-row query is answered first.
+  const paymentsByRequest = new Map(
+    await Promise.all(collect.map(async (c) => [c.requestId, await paymentsFor(c.requestId)] as const)),
+  );
+  const heldJobs = new Map(
+    await Promise.all(
+      books.heldAfterCompletion.map(async (h) => [h.requestId, await jobForRequest(h.requestId)] as const),
+    ),
+  );
 
   // Jobs the farmer has confirmed and that still hold money: these are the ones to pay out.
-  const payable = collect.filter((c) => {
-    if (!c.booked) return false;
-    const job = jobForRequest(c.requestId);
-    return job?.status === "completed" && !releasesFor(c.requestId).some((r) => r.kind === "payout" && r.status !== "void");
-  });
+  // Each row asks the database two questions, so they are all asked before any rendering.
+  const payable = (
+    await Promise.all(
+      collect.map(async (c) => {
+        if (!c.booked) return null;
+        const job = await jobForRequest(c.requestId);
+        if (job?.status !== "completed") return null;
+        const released = (await releasesFor(c.requestId)).some((r) => r.kind === "payout" && r.status !== "void");
+        return released ? null : c;
+      }),
+    )
+  ).filter((c) => c !== null);
 
   return (
     <main className="setup">
@@ -108,7 +125,7 @@ export default async function Page({
                 <tbody>
                   {collect.map((c) => {
                     const owed = c.amountMinor - c.receivedMinor;
-                    const seen = paymentsFor(c.requestId);
+                    const seen = paymentsByRequest.get(c.requestId) ?? [];
                     return (
                       <tr key={c.requestId}>
                         <td>{c.reference}</td>
@@ -350,7 +367,7 @@ export default async function Page({
             ) : (
               <ul className="plain-list">
                 {books.heldAfterCompletion.map((h) => {
-                  const job = jobForRequest(h.requestId);
+                  const job = heldJobs.get(h.requestId) ?? null;
                   return (
                     <li key={h.requestId}>
                       <span>

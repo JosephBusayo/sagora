@@ -9,7 +9,5 @@ const db = new DatabaseSync(process.env.DATABASE_PATH ?? path.join(process.cwd()
 const user = db.prepare("SELECT id FROM user WHERE email = ?").get(email) as { id: string } | undefined;
 if (!user) { console.error(`No account for ${email}`); process.exit(1); }
 const now = new Date().toISOString();
-const res = db.prepare(
-  "UPDATE provider_business SET status='approved', reviewed_at=?, reviewed_by='dev-script', updated_at=? WHERE user_id=?",
-).run(now, now, user.id);
+const res = db.prepare("UPDATE provider_business SET status='approved', reviewed_at=?, reviewed_by='dev-script', updated_at=? WHERE user_id=?").run(now, now, user.id);
 console.log(res.changes ? `${email} is approved. Sign in to reach the workspace.` : `No business found for ${email}. Finish setup first.`);

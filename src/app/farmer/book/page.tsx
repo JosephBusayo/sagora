@@ -18,7 +18,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
       crumb={{ label: "Book a service", icon: "plus" }}
       user={{ name: farmer.name }}
       audience="farmer"
-      unread={unreadCount(farmer)}
+      unread={await unreadCount(farmer)}
     >
       <PageHead
         title="Book a service"

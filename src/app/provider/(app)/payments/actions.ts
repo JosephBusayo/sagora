@@ -33,7 +33,7 @@ export async function saveDestination(_prev: FormState, fd: FormData): Promise<F
   if (method === "bank" && bank.length < 2) fieldErrors.bank = "Enter the bank name";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
-  const result = setDestination(business.id, user.id, { method, accountName, accountRef, bank });
+  const result = await setDestination(business.id, user.id, { method, accountName, accountRef, bank });
   if (!result.ok) return { error: result.reason, values };
 
   revalidatePath("/provider/payments");

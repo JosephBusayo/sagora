@@ -20,14 +20,14 @@ const when = (iso: string) =>
  */
 export default async function Page() {
   const farmer = await requireFarmer();
-  const rows = transactionsFor(farmer.id);
+  const rows = await transactionsFor(farmer.id);
 
   return (
     <Shell
       crumb={{ label: "Payments", icon: "payments" }}
       user={{ name: farmer.name }}
       audience="farmer"
-      unread={unreadCount(farmer)}
+      unread={await unreadCount(farmer)}
     >
       <PageHead title="Payments" subtitle="Every payment you have made and every refund sent back to you." />
       <>

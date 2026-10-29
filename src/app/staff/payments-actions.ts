@@ -16,16 +16,12 @@ const back = (tab: string, message: string, kind: "ok" | "err" = "ok") =>
   redirect(`/staff/payments?tab=${tab}&${kind}=${encodeURIComponent(message)}`);
 
 /** Who to tell about money, looked up rather than passed in a form. */
-function contactsFor(requestId: string) {
-  return db
-    .prepare(
-      `SELECT r.reference AS reference, r.contact_email AS farmerEmail, b.email AS providerEmail, b.name AS providerName
+async function contactsFor(requestId: string) {
+  return (await db.get(`SELECT r.reference AS reference, r.contact_email AS farmerEmail, b.email AS providerEmail, b.name AS providerName
        FROM service_request r
        LEFT JOIN agreement a ON a.request_id = r.id
        LEFT JOIN provider_business b ON b.id = a.business_id
-       WHERE r.id = ?`,
-    )
-    .get(requestId) as
+       WHERE r.id = ?`, requestId)) as
     | { reference: string; farmerEmail: string | null; providerEmail: string | null; providerName: string | null }
     | undefined;
 }
@@ -36,7 +32,7 @@ export async function recordPaymentAction(fd: FormData) {
   const minor = parseAmount(str(fd, "amount"));
   if (minor === null) back("collect", "Enter an amount like 1,500.00", "err");
 
-  const result = recordPayment(staff.id, {
+  const result = await recordPayment(staff.id, {
     requestId,
     amountMinor: minor as number,
     method: str(fd, "method"),
@@ -45,11 +41,11 @@ export async function recordPaymentAction(fd: FormData) {
   });
   if (!result.ok) back("collect", result.reason, "err");
 
-  const who = contactsFor(requestId);
+  const who = await contactsFor(requestId);
   if (result.ok && result.outcome === "booked" && who) {
     // Booking confirmation is one of the emails the brief requires.
     if (who.farmerEmail) {
-      notify({
+      await notify({
         kind: "booking.confirmed",
         dedupeKey: `booking.confirmed:farmer:${requestId}`,
         to: who.farmerEmail,
@@ -62,7 +58,7 @@ export async function recordPaymentAction(fd: FormData) {
       });
     }
     if (who.providerEmail) {
-      notify({
+      await notify({
         kind: "booking.confirmed",
         dedupeKey: `booking.confirmed:provider:${requestId}`,
         to: who.providerEmail,
@@ -80,7 +76,7 @@ export async function recordPaymentAction(fd: FormData) {
 
 export async function preparePayoutAction(fd: FormData) {
   const staff = await requireStaff();
-  const r = preparePayout(staff.id, str(fd, "requestId"));
+  const r = await preparePayout(staff.id, str(fd, "requestId"));
   revalidatePath("/staff/payments");
   back("releases", r.ok ? "Payout prepared. A second person must approve it." : r.reason, r.ok ? "ok" : "err");
 }
@@ -89,14 +85,14 @@ export async function prepareRefundAction(fd: FormData) {
   const staff = await requireStaff();
   const minor = parseAmount(str(fd, "amount"));
   if (minor === null) back("cases", "Enter an amount like 1,500.00", "err");
-  const r = prepareRefund(staff.id, str(fd, "requestId"), minor as number, str(fd, "reason"));
+  const r = await prepareRefund(staff.id, str(fd, "requestId"), minor as number, str(fd, "reason"));
   revalidatePath("/staff/payments");
   back("releases", r.ok ? "Refund prepared. A second person must approve it." : r.reason, r.ok ? "ok" : "err");
 }
 
 export async function approveReleaseAction(fd: FormData) {
   const staff = await requireStaff();
-  const r = approveRelease(staff.id, str(fd, "id"));
+  const r = await approveRelease(staff.id, str(fd, "id"));
   revalidatePath("/staff/payments");
   back("releases", r.ok ? "Approved. It can now be sent." : r.reason, r.ok ? "ok" : "err");
 }
@@ -105,7 +101,7 @@ export async function reviseReleaseAction(fd: FormData) {
   const staff = await requireStaff();
   const minor = parseAmount(str(fd, "amount"));
   if (minor === null) back("releases", "Enter an amount like 1,500.00", "err");
-  const r = reviseAmount(staff.id, str(fd, "id"), minor as number);
+  const r = await reviseAmount(staff.id, str(fd, "id"), minor as number);
   revalidatePath("/staff/payments");
   back("releases", r.ok ? "Amount changed, so the approval was withdrawn. It needs approving again." : r.reason, r.ok ? "ok" : "err");
 }
@@ -113,15 +109,15 @@ export async function reviseReleaseAction(fd: FormData) {
 export async function markSentAction(fd: FormData) {
   const staff = await requireStaff();
   const id = str(fd, "id");
-  const release = getRelease(id);
-  const r = markSent(staff.id, id, str(fd, "method"), str(fd, "reference"));
+  const release = await getRelease(id);
+  const r = await markSent(staff.id, id, str(fd, "method"), str(fd, "reference"));
   revalidatePath("/staff/payments");
 
   if (r.ok && release) {
-    const who = contactsFor(release.requestId);
+    const who = await contactsFor(release.requestId);
     const to = release.kind === "refund" ? who?.farmerEmail : who?.providerEmail;
     if (to) {
-      notify({
+      await notify({
         kind: `${release.kind}.sent`,
         dedupeKey: `${release.kind}.sent:${id}`,
         to,
@@ -138,14 +134,14 @@ export async function markSentAction(fd: FormData) {
 
 export async function voidReleaseAction(fd: FormData) {
   const staff = await requireStaff();
-  const r = voidRelease(staff.id, str(fd, "id"), str(fd, "reason") || "Cancelled by staff");
+  const r = await voidRelease(staff.id, str(fd, "id"), str(fd, "reason") || "Cancelled by staff");
   revalidatePath("/staff/payments");
   back("releases", r.ok ? "Cancelled." : r.reason, r.ok ? "ok" : "err");
 }
 
 export async function resolveCaseAction(fd: FormData) {
   await requireStaff();
-  const done = resolveCase(str(fd, "id"), str(fd, "resolution") || "Resolved by staff");
+  const done = await resolveCase(str(fd, "id"), str(fd, "resolution") || "Resolved by staff");
   revalidatePath("/staff/payments");
   back("cases", done ? "Case closed." : "That case was already closed.", done ? "ok" : "err");
 }

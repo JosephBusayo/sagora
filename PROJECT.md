@@ -925,3 +925,50 @@ own numbered file when we want them.
 There is no production data anywhere yet, so the simplest thing is to delete `data/sagora.db` and
 run `npm run db:migrate`. An existing dev database keeps working, but its `audit_log` still has
 the old integer id column.
+
+## Build status update (29 Oct 2026): the database goes asynchronous
+
+**Done. 86 browser tests, 35 smoke steps, 47 money checks — all green on the new stack.** This
+is the last thing standing between Sagora and running on Neon.
+
+### Why
+Node's SQLite is synchronous. Every PostgreSQL driver is not. Rather than discover that on the
+day we move, the whole application now talks to the shape Postgres needs — `await db.get(...)`,
+`await db.run(...)`, and transactions as `db.tx(...)`. The promises happen to settle immediately
+today. When the Postgres driver arrives, `lib/db.ts` changes and nothing else does.
+
+Two details exist for the same reason. **Placeholders stay `?`**, so the Postgres adapter can
+rewrite them to `$1, $2` and no call site is touched twice. And **a transaction is a callback,
+not a pair of statements**: on a connection pool every statement in a transaction must run on the
+same connection, which `BEGIN` … `COMMIT` sprinkled through a function cannot guarantee and
+`db.tx(fn)` can. All eleven explicit transactions were rewritten that way.
+
+### The lint rules did the work the compiler could not
+Before touching anything, three type-aware ESLint rules went on: `no-floating-promises`,
+`no-misused-promises`, `await-thenable`.
+
+The compiler finds a missing `await` wherever the value is *used*. It does not find the dangerous
+case: `if (bookingFor(id))` is always true, because a Promise is an object. The lint found three
+of those, and two were real:
+
+| Where | What it would have done |
+| --- | --- |
+| `session.ts` — `if (!isVerified(...))` | **The staff second factor would never have redirected.** Every staff screen, including the finance desk, would open on a password alone |
+| `equipment.ts` — `if (!getAsset(...))` | One provider could read another provider's machine fault history |
+| `outbox.ts` — `if (!id) return` | The duplicate-notification short-circuit never fired |
+
+None of those would have failed a test or shown an error. They are the reason this conversion was
+worth doing with the rules on rather than carefully by eye.
+
+### A deadlock, made loud
+`db.tx` holds the connection for its whole body. A query inside it that reaches for the shared
+`db` instead of the handed-in `t` waits for a lock that body is holding — a hang, with no error
+and no stack. `scheduleJob` had exactly one, and the money checks found it by never finishing.
+
+The shared `db` now **throws** when called during a transaction, naming the fix. A hang became a
+stack trace.
+
+### What is left for the Postgres move
+Genuinely one file. `lib/db.ts` swaps `node:sqlite` for a `pg` pool, `tx` checks out a connection
+instead of taking the queue, and the `?` → `$n` rewrite goes in. Nothing else in the codebase
+knows which database it is talking to.

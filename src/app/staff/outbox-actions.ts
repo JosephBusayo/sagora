@@ -6,7 +6,7 @@ import { drain, retry } from "@/lib/outbox";
 
 export async function retryMessageAction(fd: FormData) {
   await requireStaff();
-  retry(String(fd.get("id") ?? ""));
+  await retry(String(fd.get("id") ?? ""));
   await drain();
   revalidatePath("/staff/outbox");
 }

@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
-import { changed, db } from "./db";
+import { db } from "./db";
 import { notify } from "./outbox";
 import { OTP_LENGTH } from "./auth";
 
@@ -31,12 +31,12 @@ type Row = {
   code_expires_at: string | null; last_sent_at: string | null; verified_until: string | null;
 };
 
-const rowFor = (sessionId: string) =>
-  db.prepare("SELECT * FROM staff_mfa WHERE session_id=?").get(sessionId) as Row | undefined;
+const rowFor = async (sessionId: string) =>
+  (await db.get("SELECT * FROM staff_mfa WHERE session_id=?", sessionId)) as Row | undefined;
 
 /** Has this session already proved a second factor, and is that still good? */
-export function isVerified(sessionId: string): boolean {
-  const r = rowFor(sessionId);
+export async function isVerified(sessionId: string): Promise<boolean> {
+  const r = await rowFor(sessionId);
   return Boolean(r?.verified_until && r.verified_until > iso(now()));
 }
 
@@ -47,8 +47,8 @@ export type SendResult = { ok: true } | { ok: false; reason: string };
  * is reused rather than replaced, so an impatient second click does not invalidate the code
  * already in the person's inbox.
  */
-export function sendCode(sessionId: string, user: { id: string; name: string; email: string }): SendResult {
-  const existing = rowFor(sessionId);
+export async function sendCode(sessionId: string, user: { id: string; name: string; email: string }): Promise<SendResult> {
+  const existing = await rowFor(sessionId);
   // A live code sent moments ago is reused, so an impatient second click does not invalidate
   // the one already in the inbox. A code that is spent, expired or burnt by wrong attempts is
   // replaced whatever the clock says — otherwise asking for a new one would do nothing.
@@ -63,15 +63,13 @@ export function sendCode(sessionId: string, user: { id: string; name: string; em
 
   // randomInt is the cryptographic generator; Math.random is not fit for a credential.
   const code = String(randomInt(0, 10 ** OTP_LENGTH)).padStart(OTP_LENGTH, "0");
-  db.prepare(
-    `INSERT INTO staff_mfa (session_id, user_id, code_hash, attempts, code_expires_at, last_sent_at)
+  await db.run(`INSERT INTO staff_mfa (session_id, user_id, code_hash, attempts, code_expires_at, last_sent_at)
      VALUES (?,?,?,0,?,?)
      ON CONFLICT(session_id) DO UPDATE SET
        code_hash=excluded.code_hash, attempts=0,
-       code_expires_at=excluded.code_expires_at, last_sent_at=excluded.last_sent_at`,
-  ).run(sessionId, user.id, hash(code), iso(plus(CODE_MINUTES * 60_000)), iso(now()));
+       code_expires_at=excluded.code_expires_at, last_sent_at=excluded.last_sent_at`, sessionId, user.id, hash(code), iso(plus(CODE_MINUTES * 60_000)), iso(now()));
 
-  notify({
+  await notify({
     kind: "staff.mfa",
     // Deliberately not deduped: every sign-in needs its own code.
     to: user.email,
@@ -88,8 +86,8 @@ export function sendCode(sessionId: string, user: { id: string; name: string; em
 export type CheckResult = { ok: true } | { ok: false; reason: string };
 
 /** Checks a code. Wrong codes are counted; too many and the code is burned, not the account. */
-export function checkCode(sessionId: string, submitted: string): CheckResult {
-  const r = rowFor(sessionId);
+export async function checkCode(sessionId: string, submitted: string): Promise<CheckResult> {
+  const r = await rowFor(sessionId);
   if (!r || !r.code_hash || !r.code_expires_at) {
     return { ok: false, reason: "That code has expired. Ask for a new one." };
   }
@@ -104,7 +102,7 @@ export function checkCode(sessionId: string, submitted: string): CheckResult {
   const b = Buffer.from(r.code_hash);
   const match = a.length === b.length && timingSafeEqual(a, b);
   if (!match) {
-    db.prepare("UPDATE staff_mfa SET attempts = attempts + 1 WHERE session_id=?").run(sessionId);
+    await db.run("UPDATE staff_mfa SET attempts = attempts + 1 WHERE session_id=?", sessionId);
     const left = MAX_ATTEMPTS - (r.attempts + 1);
     return {
       ok: false,
@@ -113,21 +111,17 @@ export function checkCode(sessionId: string, submitted: string): CheckResult {
   }
 
   // The code is spent the moment it works, so it cannot be replayed.
-  const res = db
-    .prepare(
-      `UPDATE staff_mfa SET code_hash=NULL, code_expires_at=NULL, attempts=0, verified_until=?
-       WHERE session_id=?`,
-    )
-    .run(iso(plus(WINDOW_HOURS * 3_600_000)), sessionId);
-  return changed(res) > 0 ? { ok: true } : { ok: false, reason: "Something went wrong. Try again." };
+  const res = await db.run(`UPDATE staff_mfa SET code_hash=NULL, code_expires_at=NULL, attempts=0, verified_until=?
+       WHERE session_id=?`, iso(plus(WINDOW_HOURS * 3_600_000)), sessionId);
+  return res.changes > 0 ? { ok: true } : { ok: false, reason: "Something went wrong. Try again." };
 }
 
 /** Ends the second factor for this session — on sign-out, or when a password changes. */
-export function clearFor(sessionId: string) {
-  db.prepare("DELETE FROM staff_mfa WHERE session_id=?").run(sessionId);
+export async function clearFor(sessionId: string) {
+  await db.run("DELETE FROM staff_mfa WHERE session_id=?", sessionId);
 }
 
 /** Every session belonging to this user loses it: used when the password changes. */
-export function clearForUser(userId: string) {
-  db.prepare("DELETE FROM staff_mfa WHERE user_id=?").run(userId);
+export async function clearForUser(userId: string) {
+  await db.run("DELETE FROM staff_mfa WHERE user_id=?", userId);
 }

@@ -39,9 +39,8 @@ export async function saveBusinessDetails(_prev: FormState, fd: FormData): Promi
   if (description.length > 500) fieldErrors.description = "Use 500 characters or fewer";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
-  db.prepare("UPDATE provider_business SET name=?, phone=?, email=?, town=?, description=?, updated_at=? WHERE id=?")
-    .run(name, phone, email.toLowerCase(), town, description, new Date().toISOString(), business.id);
-  audit(user.id, "business.details_updated", business.id);
+  await db.run("UPDATE provider_business SET name=?, phone=?, email=?, town=?, description=?, updated_at=? WHERE id=?", name, phone, email.toLowerCase(), town, description, new Date().toISOString(), business.id);
+  await audit(user.id, "business.details_updated", business.id);
   revalidatePath("/provider/settings/business");
   return { notice: "Your business details have been saved." };
 }
@@ -66,8 +65,7 @@ export async function saveAccount(_prev: FormState, fd: FormData): Promise<FormS
   }
   // The email address is deliberately read-only here: changing it has to re-verify,
   // which is a separate flow in the brief and is not designed yet.
-  db.prepare("UPDATE team_member SET name=?, phone=?, updated_at=? WHERE user_id=?")
-    .run(name, phone, new Date().toISOString(), user.id);
+  await db.run("UPDATE team_member SET name=?, phone=?, updated_at=? WHERE user_id=?", name, phone, new Date().toISOString(), user.id);
   revalidatePath("/provider/settings/account");
   return { notice: "Your account details have been saved." };
 }
@@ -100,7 +98,7 @@ export async function changePassword(_prev: FormState, fd: FormData): Promise<Fo
   // Every session ends, including this one, so the person signs in once with the new
   // password and knows for certain that no old device is still signed in. A staff second
   // factor dies with those sessions: a stolen password must not leave a verified browser behind.
-  clearForUser(user.id);
+  await clearForUser(user.id);
   await auth.api.signOut({ headers: await headers() });
   await setNotice("password-changed");
   redirect("/provider/sign-in");

@@ -37,7 +37,7 @@ if (toBeCreated.length === 0 && toBeAdded.length === 0) {
 
 // Everything else lives in /migrations.
 try {
-  const applied = migrate((line) => console.log(line));
+  const applied = await migrate((line) => console.log(line));
   const fresh = applied.filter((a) => !a.already);
   console.log(
     fresh.length === 0

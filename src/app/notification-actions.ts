@@ -23,12 +23,12 @@ const backTo = (role: string | null | undefined, filter: string) => {
 
 export async function markNotificationRead(fd: FormData) {
   const user = await me();
-  markRead(user, String(fd.get("id") ?? ""));
+  await markRead(user, String(fd.get("id") ?? ""));
   redirect(backTo(user.role, String(fd.get("filter") ?? "")));
 }
 
 export async function markAllNotificationsRead(fd: FormData) {
   const user = await me();
-  markAllRead(user);
+  await markAllRead(user);
   redirect(backTo(user.role, String(fd.get("filter") ?? "")));
 }

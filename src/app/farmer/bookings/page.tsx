@@ -40,9 +40,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
   const asked = (await searchParams).tab;
   const tab: BookingTab = BOOKING_TABS.some((t) => t.id === asked) ? (asked as BookingTab) : "upcoming";
 
-  const all = bookingsForFarmer(farmer.id);
+  const all = await bookingsForFarmer(farmer.id);
   const statuses = BOOKING_TABS.find((t) => t.id === tab)!.statuses as readonly string[];
   const rows = all.filter((b) => statuses.includes(b.status));
+  // Whether each job is paid is a query, and a component cannot await inside its own JSX,
+  // so the answers are gathered before anything is rendered.
+  const paidByRequest = new Map(
+    await Promise.all(rows.map(async (b) => [b.requestId, Boolean(await bookingFor(b.requestId))] as const)),
+  );
   const count = (t: (typeof BOOKING_TABS)[number]) =>
     all.filter((b) => (t.statuses as readonly string[]).includes(b.status)).length;
 
@@ -51,7 +56,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
       crumb={{ label: "My bookings", icon: "jobs" }}
       user={{ name: farmer.name }}
       audience="farmer"
-      unread={unreadCount(farmer)}
+      unread={await unreadCount(farmer)}
     >
       <PageHead
         title="My bookings"
@@ -83,7 +88,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
       ) : (
         <div className="equipment-grid">
           {rows.map((b) => {
-            const paid = bookingFor(b.requestId);
+            const paid = paidByRequest.get(b.requestId) ?? false;
             return (
               <article key={b.id} className="asset">
                 <div className="asset__head">

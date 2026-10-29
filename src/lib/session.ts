@@ -36,7 +36,7 @@ export async function requireStaff(): Promise<SessionUser> {
   const s = await auth.api.getSession({ headers: await headers() });
   const u = s?.user as SessionUser | undefined;
   if (!u || !u.emailVerified || u.role !== "staff") redirect("/provider/sign-in");
-  if (!isVerified(s!.session.id)) redirect("/staff/verify");
+  if (!(await isVerified(s!.session.id))) redirect("/staff/verify");
   return u;
 }
 

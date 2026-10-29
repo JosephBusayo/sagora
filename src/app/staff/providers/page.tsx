@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 /** Plain working screen for staff. There is no design for this yet. */
 export default async function Page() {
   await requireStaff();
-  const items = listForReview();
+  const items = await listForReview();
   return (
     <main className="setup">
       <div className="setup__card setup__card--wide">

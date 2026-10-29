@@ -10,7 +10,7 @@ import type { FormState } from "@/lib/auth-flows";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function sendStaffCode(_prev: FormState, _fd: FormData): Promise<FormState> {
   const { user, sessionId } = await staffAwaitingCode();
-  sendCode(sessionId, user);
+  await sendCode(sessionId, user);
   return { notice: `We sent a new code to ${user.email}.` };
 }
 
@@ -21,7 +21,7 @@ export async function verifyStaffCode(_prev: FormState, fd: FormData): Promise<F
     return { fieldErrors: { code: `Enter the ${OTP_LENGTH}-digit code from your email` } };
   }
 
-  const result = checkCode(sessionId, raw);
+  const result = await checkCode(sessionId, raw);
   if (!result.ok) return { fieldErrors: { code: result.reason } };
   redirect("/staff/payments");
 }

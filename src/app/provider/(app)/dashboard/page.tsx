@@ -28,13 +28,13 @@ const fmt = (iso: string | null) =>
 export default async function Page() {
   const { user, business } = await requireWorkspace();
 
-  const quotes = listQuotes(business.id);
-  const jobs = listJobs(business.id);
-  const assets = listAssets(business.id);
-  const money = earningsFor(business.id);
+  const quotes = await listQuotes(business.id);
+  const jobs = await listJobs(business.id);
+  const assets = await listAssets(business.id);
+  const money = await earningsFor(business.id);
 
   // Requests in this provider's districts that they have not quoted on yet.
-  const open = browse({ district: business.district }, 1).rows.filter(
+  const open = (await browse({ district: business.district }, 1)).rows.filter(
     (r) => !quotes.some((q) => q.requestId === r.id),
   );
 
@@ -45,7 +45,10 @@ export default async function Page() {
   const awaitingFarmer = jobs.filter((j) => j.status === "work_reported");
   const disputed = jobs.filter((j) => j.status === "disputed");
   const faulty = assets.filter((a) => a.status === "active" && unavailableReason(a) !== null);
-  const atRisk = jobs.flatMap((j) => atRiskAssets(business.id, j).map((a) => ({ job: j, ...a })));
+  // One query per job, so they are gathered together rather than inside the render.
+  const atRisk = (
+    await Promise.all(jobs.map(async (j) => (await atRiskAssets(business.id, j)).map((a) => ({ job: j, ...a }))))
+  ).flat();
 
   const owedToYou = money.reduce(
     (n, m) => n + (m.release && m.release.status !== "paid" ? m.release.netMinor : 0),
@@ -69,7 +72,7 @@ export default async function Page() {
   ];
 
   return (
-    <Shell crumb={{ label: "Dashboard", icon: "home" }} user={{ name: user.name }} unread={unreadCount(user)}>
+    <Shell crumb={{ label: "Dashboard", icon: "home" }} user={{ name: user.name }} unread={await unreadCount(user)}>
       <div className="pagehead">
         <div>
           <h1 className="pagehead__title">{business.name}</h1>

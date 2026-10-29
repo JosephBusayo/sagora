@@ -22,7 +22,7 @@ export default async function Page() {
       crumb={{ label: "Settings", icon: "settings" }}
       user={{ name: farmer.name }}
       audience="farmer"
-      unread={unreadCount(farmer)}
+      unread={await unreadCount(farmer)}
     >
       <PageHead title="Settings" subtitle="Your account details and how you sign in" />
       <div className="settings-list">

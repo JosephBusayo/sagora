@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const { user, business, permission } = await requireWorkspace();
-  const assets: AssetView[] = listAssets(business.id).map((a) => ({
+  const assets: AssetView[] = (await listAssets(business.id)).map((a) => ({
     id: a.id,
     kind: a.kind,
     kindLabel: kindLabel(a.kind),

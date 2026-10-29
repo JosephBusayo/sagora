@@ -16,11 +16,14 @@ const fmt = (iso: string | null) =>
 
 export default async function Page() {
   const { user, business, permission } = await requireWorkspace();
-  const members = listMembers(business.id);
-  const available = selectableAssets(business.id);
+  const members = await listMembers(business.id);
+  const available = await selectableAssets(business.id);
 
-  const jobs: JobView[] = listJobs(business.id).map((j) => {
-    const names = j.assetIds.map((id) => getAsset(business.id, id)?.name ?? "A machine");
+  const jobs: JobView[] = await Promise.all(
+    (await listJobs(business.id)).map(async (j) => {
+    const names = await Promise.all(
+      j.assetIds.map(async (id) => (await getAsset(business.id, id))?.name ?? "A machine"),
+    );
     return {
       id: j.id,
       reference: j.reference,
@@ -34,7 +37,7 @@ export default async function Page() {
       endDate: fmt(j.endDate),
       assetNames: names,
       operatorName: members.find((m) => m.id === j.operatorId)?.name ?? null,
-      atRisk: atRiskAssets(business.id, j),
+      atRisk: await atRiskAssets(business.id, j),
       reportedAcres: j.reportedAcres,
       workNote: j.workNote,
       concern: j.concern,
@@ -45,15 +48,18 @@ export default async function Page() {
         assetIds: j.assetIds,
       },
     };
-  });
+    }),
+  );
 
   // Machines already on this job stay choosable even if a fault appeared, so the plan is visible.
   const onJobs = new Set(jobs.flatMap((j) => j.schedule.assetIds));
   const assetOptions = [
     ...available.map((a) => ({ id: a.id, label: a.name })),
-    ...[...onJobs]
-      .filter((id) => !available.some((a) => a.id === id))
-      .map((id) => ({ id, label: `${getAsset(business.id, id)?.name ?? "A machine"} (unavailable)` })),
+    ...(await Promise.all(
+      [...onJobs]
+        .filter((id) => !available.some((a) => a.id === id))
+        .map(async (id) => ({ id, label: `${(await getAsset(business.id, id))?.name ?? "A machine"} (unavailable)` })),
+    )),
   ];
 
   return (

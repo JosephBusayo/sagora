@@ -44,11 +44,11 @@ export async function inviteMember(_prev: FormState, fd: FormData): Promise<Form
   const { fieldErrors, values, input } = parse(fd);
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
-  const created = createInvite(business.id, user.id, input);
+  const created = await createInvite(business.id, user.id, input);
   if (!created) return { error: "That person is already on your team or has already been invited.", values };
 
   const base = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
-  notify({
+  await notify({
     kind: "team.invited",
     dedupeKey: `team.invited:${created.id}`,
     to: input.email,
@@ -71,7 +71,7 @@ export async function editMember(_prev: FormState, fd: FormData): Promise<FormSt
   const { fieldErrors, values, input } = parse(fd);
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
-  if (!updateMember(business.id, user.id, id, input)) {
+  if (!await updateMember(business.id, user.id, id, input)) {
     return { error: "We couldn't save those changes.", values };
   }
   revalidatePath("/provider/team");
@@ -81,6 +81,6 @@ export async function editMember(_prev: FormState, fd: FormData): Promise<FormSt
 export async function removeTeamMember(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission !== "full_access") return;
-  removeMember(business.id, user.id, str(fd, "id"));
+  await removeMember(business.id, user.id, str(fd, "id"));
   revalidatePath("/provider/team");
 }

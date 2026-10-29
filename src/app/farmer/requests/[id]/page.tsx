@@ -21,8 +21,8 @@ export const dynamic = "force-dynamic";
 const fmt = (iso: string) =>
   new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
 
-const businessName = (id: string) =>
-  (db.prepare("SELECT name FROM provider_business WHERE id=?").get(id) as { name: string } | undefined)?.name ?? "A provider";
+const businessName = async (id: string) =>
+  ((await db.get("SELECT name FROM provider_business WHERE id=?", id)) as { name: string } | undefined)?.name ?? "A provider";
 
 export default async function Page({ params, searchParams }: {
   params: Promise<{ id: string }>;
@@ -32,23 +32,23 @@ export default async function Page({ params, searchParams }: {
   const { id } = await params;
   const { accepted, error, confirmed, concern } = await searchParams;
 
-  const request = getById(id);
+  const request = await getById(id);
   if (!request || request.farmerId !== farmer.id) notFound(); // never reveal another farmer's request
 
-  const quotes = listForRequest(id);
-  const agreement = agreementFor(id);
-  const job = jobForRequest(id);
-  const booking = bookingFor(id);
-  const payments = paymentsFor(id);
+  const quotes = await listForRequest(id);
+  const agreement = await agreementFor(id);
+  const job = await jobForRequest(id);
+  const booking = await bookingFor(id);
+  const payments = await paymentsFor(id);
   const received = payments.reduce((n, p) => n + p.amountMinor, 0);
-  const refunds = releasesFor(id).filter((r) => r.kind === "refund" && r.status !== "void");
+  const refunds = (await releasesFor(id)).filter((r) => r.kind === "refund" && r.status !== "void");
 
   return (
     <Shell
       crumb={{ label: "My requests", icon: "requests" }}
       user={{ name: farmer.name }}
       audience="farmer"
-      unread={unreadCount(farmer)}
+      unread={await unreadCount(farmer)}
     >
       <>
         <h1 className="pagehead__title">{request.reference}</h1>

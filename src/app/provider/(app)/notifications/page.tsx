@@ -11,10 +11,10 @@ export const dynamic = "force-dynamic";
 export default async function Page({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const { user } = await requireWorkspace();
   const filter: Filter = (await searchParams).filter === "unread" ? "unread" : "all";
-  const notifications = listFor(user, filter);
+  const notifications = await listFor(user, filter);
 
   return (
-    <Shell crumb={{ label: "Notifications", icon: "bell" }} user={{ name: user.name }} unread={unreadCount(user)}>
+    <Shell crumb={{ label: "Notifications", icon: "bell" }} user={{ name: user.name }} unread={await unreadCount(user)}>
       <PageHead
         title="Notifications"
         subtitle="Everything Sagora has sent you. The same messages go to your email."

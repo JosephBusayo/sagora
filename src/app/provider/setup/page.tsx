@@ -32,9 +32,9 @@ const STATUS: Record<Exclude<BusinessStatus, "draft">, { title: string; body: st
 export default async function Page() {
   const user = await requireProvider();
   // A teammate who accepted an invite has no business of their own: send them to the workspace.
-  const owned = getBusinessForUser(user.id);
-  if (!owned && membershipFor(user.id)) redirect("/provider/dashboard");
-  const b = owned ?? ensureBusiness(user);
+  const owned = await getBusinessForUser(user.id);
+  if (!owned && await membershipFor(user.id)) redirect("/provider/dashboard");
+  const b = owned ?? await ensureBusiness(user);
   if (b.status === "approved") redirect("/provider/dashboard");
   const editable = b.status === "draft" || b.status === "changes_requested";
   const info = b.status === "draft" ? null : STATUS[b.status];

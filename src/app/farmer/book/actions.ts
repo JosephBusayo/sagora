@@ -45,7 +45,7 @@ export async function bookService(_prev: FormState, fd: FormData): Promise<FormS
   if (!parsed.success || Object.keys(fieldErrors).length) return { fieldErrors, values };
 
   const d = parsed.data;
-  const created = createRequest(farmer.id, {
+  const created = await createRequest(farmer.id, {
     service: d.service,
     acres: d.acres,
     preferredDate: d.preferredDate,
@@ -60,7 +60,7 @@ export async function bookService(_prev: FormState, fd: FormData): Promise<FormS
 
   // The reference is the farmer's way back to this request, so it goes out by email too.
   // TODO (stage 2): write to an outbox first and retry, so an email outage never loses it.
-  notify({
+  await notify({
     kind: "request.created",
     dedupeKey: `request.created:${created.id}`,
     to: farmer.email,
@@ -78,6 +78,6 @@ export async function bookService(_prev: FormState, fd: FormData): Promise<FormS
 export async function cancelRequest(fd: FormData) {
   const farmer = await requireFarmer();
   const { cancel } = await import("@/lib/requests");
-  cancel(farmer.id, String(fd.get("id") ?? ""));
+  await cancel(farmer.id, String(fd.get("id") ?? ""));
   redirect("/farmer/requests");
 }

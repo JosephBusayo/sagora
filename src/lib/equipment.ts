@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { changed, db } from "./db";
+import { db } from "./db";
 import { audit } from "./business";
 
 /**
@@ -60,10 +60,8 @@ const faultFrom = (r: FaultRow): Fault => ({
   reportedAt: r.reported_at, resolvedAt: r.resolved_at, resolution: r.resolution,
 });
 
-function withFaults(r: Row): Asset {
-  const faults = db
-    .prepare("SELECT * FROM equipment_fault WHERE equipment_id=? AND resolved_at IS NULL ORDER BY reported_at DESC")
-    .all(r.id) as FaultRow[];
+async function withFaults(r: Row): Promise<Asset> {
+  const faults = await db.all("SELECT * FROM equipment_fault WHERE equipment_id=? AND resolved_at IS NULL ORDER BY reported_at DESC", r.id) as FaultRow[];
   return {
     id: r.id, businessId: r.business_id, kind: r.kind, name: r.name, identifier: r.identifier,
     ownership: r.ownership, status: r.status, notes: r.notes, retiredReason: r.retired_reason,
@@ -79,21 +77,20 @@ export function unavailableReason(a: Asset): string | null {
   return null;
 }
 
-export function listAssets(businessId: string): Asset[] {
-  const rows = db
-    .prepare("SELECT * FROM equipment WHERE business_id=? ORDER BY status ASC, kind ASC, created_at ASC")
-    .all(businessId) as Row[];
-  return rows.map(withFaults);
+export async function listAssets(businessId: string): Promise<Asset[]> {
+  const rows = await db.all("SELECT * FROM equipment WHERE business_id=? ORDER BY status ASC, kind ASC, created_at ASC", businessId) as Row[];
+  return Promise.all(rows.map(withFaults));
 }
 
-export function getAsset(businessId: string, id: string): Asset | null {
-  const r = db.prepare("SELECT * FROM equipment WHERE id=? AND business_id=?").get(id, businessId) as Row | undefined;
+export async function getAsset(businessId: string, id: string): Promise<Asset | null> {
+  const r = await db.get("SELECT * FROM equipment WHERE id=? AND business_id=?", id, businessId) as Row | undefined;
   return r ? withFaults(r) : null;
 }
 
 /** What a job may actually be given: active, with no blocking fault open. */
-export function selectableAssets(businessId: string): Asset[] {
-  return listAssets(businessId).filter((a) => unavailableReason(a) === null);
+export async function selectableAssets(businessId: string): Promise<Asset[]> {
+  const assets = await listAssets(businessId);
+  return assets.filter((a) => unavailableReason(a) === null);
 }
 
 export type AssetInput = { kind: string; name: string; identifier: string; ownership: "owned" | "leased"; notes: string };
@@ -102,75 +99,56 @@ export type AssetInput = { kind: string; name: string; identifier: string; owner
  * Adds one machine. Two machines with the same name are two machines: nothing is merged,
  * because they are different physical objects with different histories.
  */
-export function addAsset(businessId: string, actorId: string, input: AssetInput): Asset {
+export async function addAsset(businessId: string, actorId: string, input: AssetInput): Promise<Asset> {
   const now = new Date().toISOString();
   const id = randomUUID();
-  db.prepare(
-    `INSERT INTO equipment (id, business_id, kind, name, identifier, ownership, notes, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?)`,
-  ).run(id, businessId, input.kind, input.name, input.identifier, input.ownership, input.notes, now, now);
-  audit(actorId, "equipment.added", id, `${input.kind} ${input.name}`);
-  return getAsset(businessId, id)!;
+  await db.run(`INSERT INTO equipment (id, business_id, kind, name, identifier, ownership, notes, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?)`, id, businessId, input.kind, input.name, input.identifier, input.ownership, input.notes, now, now);
+  await audit(actorId, "equipment.added", id, `${input.kind} ${input.name}`);
+  return (await getAsset(businessId, id))!;
 }
 
-export function updateAsset(businessId: string, actorId: string, id: string, input: AssetInput): boolean {
-  const res = db
-    .prepare(
-      `UPDATE equipment SET kind=?, name=?, identifier=?, ownership=?, notes=?, updated_at=?
-       WHERE id=? AND business_id=? AND status='active'`,
-    )
-    .run(input.kind, input.name, input.identifier, input.ownership, input.notes, new Date().toISOString(), id, businessId);
-  if (changed(res)) audit(actorId, "equipment.updated", id);
-  return changed(res) > 0;
+export async function updateAsset(businessId: string, actorId: string, id: string, input: AssetInput): Promise<boolean> {
+  const res = await db.run(`UPDATE equipment SET kind=?, name=?, identifier=?, ownership=?, notes=?, updated_at=?
+       WHERE id=? AND business_id=? AND status='active'`, input.kind, input.name, input.identifier, input.ownership, input.notes, new Date().toISOString(), id, businessId);
+  if (res.changes) await audit(actorId, "equipment.updated", id);
+  return res.changes > 0;
 }
 
 /** Retiring keeps the record and its history; it only stops the asset being chosen again. */
-export function retireAsset(businessId: string, actorId: string, id: string, reason: string): boolean {
-  const res = db
-    .prepare("UPDATE equipment SET status='retired', retired_reason=?, updated_at=? WHERE id=? AND business_id=? AND status='active'")
-    .run(reason, new Date().toISOString(), id, businessId);
-  if (changed(res)) audit(actorId, "equipment.retired", id, reason);
-  return changed(res) > 0;
+export async function retireAsset(businessId: string, actorId: string, id: string, reason: string): Promise<boolean> {
+  const res = await db.run("UPDATE equipment SET status='retired', retired_reason=?, updated_at=? WHERE id=? AND business_id=? AND status='active'", reason, new Date().toISOString(), id, businessId);
+  if (res.changes) await audit(actorId, "equipment.retired", id, reason);
+  return res.changes > 0;
 }
 
-export function restoreAsset(businessId: string, actorId: string, id: string): boolean {
-  const res = db
-    .prepare("UPDATE equipment SET status='active', retired_reason='', updated_at=? WHERE id=? AND business_id=? AND status='retired'")
-    .run(new Date().toISOString(), id, businessId);
-  if (changed(res)) audit(actorId, "equipment.restored", id);
-  return changed(res) > 0;
+export async function restoreAsset(businessId: string, actorId: string, id: string): Promise<boolean> {
+  const res = await db.run("UPDATE equipment SET status='active', retired_reason='', updated_at=? WHERE id=? AND business_id=? AND status='retired'", new Date().toISOString(), id, businessId);
+  if (res.changes) await audit(actorId, "equipment.restored", id);
+  return res.changes > 0;
 }
 
 /* ------------------------------------------------------------------ faults */
 
-export function reportFault(businessId: string, actorId: string, equipmentId: string, severity: "blocking" | "minor", description: string): boolean {
-  if (!getAsset(businessId, equipmentId)) return false; // never touch another provider's machine
-  db.prepare(
-    "INSERT INTO equipment_fault (id, equipment_id, severity, description, reported_by, reported_at) VALUES (?,?,?,?,?,?)",
-  ).run(randomUUID(), equipmentId, severity, description, actorId, new Date().toISOString());
-  audit(actorId, "equipment.fault_reported", equipmentId, severity);
+export async function reportFault(businessId: string, actorId: string, equipmentId: string, severity: "blocking" | "minor", description: string): Promise<boolean> {
+  if (!(await getAsset(businessId, equipmentId))) return false; // never touch another provider's machine
+  await db.run("INSERT INTO equipment_fault (id, equipment_id, severity, description, reported_by, reported_at) VALUES (?,?,?,?,?,?)", randomUUID(), equipmentId, severity, description, actorId, new Date().toISOString());
+  await audit(actorId, "equipment.fault_reported", equipmentId, severity);
   return true;
 }
 
-export function resolveFault(businessId: string, actorId: string, faultId: string, resolution: string): boolean {
-  const row = db
-    .prepare(
-      `SELECT f.id FROM equipment_fault f JOIN equipment e ON e.id = f.equipment_id
-       WHERE f.id=? AND e.business_id=? AND f.resolved_at IS NULL`,
-    )
-    .get(faultId, businessId) as { id: string } | undefined;
+export async function resolveFault(businessId: string, actorId: string, faultId: string, resolution: string): Promise<boolean> {
+  const row = await db.get(`SELECT f.id FROM equipment_fault f JOIN equipment e ON e.id = f.equipment_id
+       WHERE f.id=? AND e.business_id=? AND f.resolved_at IS NULL`, faultId, businessId) as { id: string } | undefined;
   if (!row) return false;
-  db.prepare("UPDATE equipment_fault SET resolved_at=?, resolved_by=?, resolution=? WHERE id=?")
-    .run(new Date().toISOString(), actorId, resolution, faultId);
-  audit(actorId, "equipment.fault_resolved", faultId, resolution);
+  await db.run("UPDATE equipment_fault SET resolved_at=?, resolved_by=?, resolution=? WHERE id=?", new Date().toISOString(), actorId, resolution, faultId);
+  await audit(actorId, "equipment.fault_resolved", faultId, resolution);
   return true;
 }
 
 /** Everything ever recorded against one machine, newest first. Nothing is removed. */
-export function faultHistory(businessId: string, equipmentId: string): Fault[] {
-  if (!getAsset(businessId, equipmentId)) return [];
-  const rows = db
-    .prepare("SELECT * FROM equipment_fault WHERE equipment_id=? ORDER BY reported_at DESC")
-    .all(equipmentId) as FaultRow[];
+export async function faultHistory(businessId: string, equipmentId: string): Promise<Fault[]> {
+  if (!(await getAsset(businessId, equipmentId))) return [];
+  const rows = await db.all("SELECT * FROM equipment_fault WHERE equipment_id=? ORDER BY reported_at DESC", equipmentId) as FaultRow[];
   return rows.map(faultFrom);
 }

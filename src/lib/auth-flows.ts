@@ -65,8 +65,8 @@ function isRateLimited(err: unknown) {
   return err instanceof APIError && (err.statusCode === 429 || String(err.status) === "TOO_MANY_REQUESTS");
 }
 
-function roleOf(email: string): string | null {
-  const row = db.prepare("SELECT role FROM user WHERE email = ?").get(email) as { role?: string } | undefined;
+async function roleOf(email: string): Promise<string | null> {
+  const row = (await db.get("SELECT role FROM user WHERE email = ?", email)) as { role?: string } | undefined;
   return row?.role ?? null;
 }
 
@@ -122,7 +122,7 @@ export async function signUp(audience: Audience, fd: FormData, nameLabel: string
   }
 
   // `role` is never settable from the client, so a farmer account is marked here.
-  if (audience === "farmer") db.prepare("UPDATE user SET role = 'farmer' WHERE email = ?").run(email);
+  if (audience === "farmer") await db.run("UPDATE user SET role = 'farmer' WHERE email = ?", email);
 
   await setPending({ email, purpose: "verify", audience });
   redirect(r.verify);
@@ -154,7 +154,7 @@ export async function signIn(audience: Audience, fd: FormData): Promise<FormStat
     redirect(r.verify);
   }
   // Someone may sign in on the wrong screen: send them where their account belongs.
-  redirect(homeForRole(roleOf(email)));
+  redirect(homeForRole(await roleOf(email)));
 }
 
 /* ---------------------------------------------------------- forgot password */
@@ -197,7 +197,7 @@ export async function verifyCode(fd: FormData): Promise<FormState> {
 
   if (pending.purpose === "verify") {
     await clearPending();
-    redirect(homeForRole(roleOf(pending.email))); // verified and signed in
+    redirect(homeForRole(await roleOf(pending.email))); // verified and signed in
   }
   await setPending({ ...pending, code });
   redirect(r.reset);
@@ -255,7 +255,7 @@ export async function signOutTo(audience: Audience) {
   // The staff second factor belongs to the session, so signing out must end it too — otherwise
   // the next person to sign in on this machine inherits a browser that is already verified.
   const s = await auth.api.getSession({ headers: await headers() });
-  if (s?.session.id) clearFor(s.session.id);
+  if (s?.session.id) await clearFor(s.session.id);
   await auth.api.signOut({ headers: await headers() });
   redirect(ROUTES[audience].signIn);
 }

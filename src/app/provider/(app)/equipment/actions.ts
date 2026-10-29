@@ -39,9 +39,9 @@ export async function saveAsset(_prev: FormState, fd: FormData): Promise<FormSta
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
   if (id) {
-    if (!updateAsset(business.id, user.id, id, input)) return { error: "That machine can no longer be changed.", values };
+    if (!await updateAsset(business.id, user.id, id, input)) return { error: "That machine can no longer be changed.", values };
   } else {
-    addAsset(business.id, user.id, input);
+    await addAsset(business.id, user.id, input);
   }
   revalidatePath("/provider/equipment");
   return { notice: id ? "Machine updated." : `${input.name} added to your equipment.` };
@@ -50,14 +50,14 @@ export async function saveAsset(_prev: FormState, fd: FormData): Promise<FormSta
 export async function retireAssetAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
-  retireAsset(business.id, user.id, str(fd, "id"), str(fd, "reason") || "No reason given");
+  await retireAsset(business.id, user.id, str(fd, "id"), str(fd, "reason") || "No reason given");
   revalidatePath("/provider/equipment");
 }
 
 export async function restoreAssetAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
-  restoreAsset(business.id, user.id, str(fd, "id"));
+  await restoreAsset(business.id, user.id, str(fd, "id"));
   revalidatePath("/provider/equipment");
 }
 
@@ -74,7 +74,7 @@ export async function reportFaultAction(_prev: FormState, fd: FormData): Promise
   if (description.length > 400) fieldErrors.description = "Use 400 characters or fewer";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values: { severity, description } };
 
-  if (!reportFault(business.id, user.id, equipmentId, severity as "blocking" | "minor", description)) {
+  if (!await reportFault(business.id, user.id, equipmentId, severity as "blocking" | "minor", description)) {
     return { error: "That machine is not on your register." };
   }
   revalidatePath("/provider/equipment");
@@ -88,6 +88,6 @@ export async function reportFaultAction(_prev: FormState, fd: FormData): Promise
 export async function resolveFaultAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
-  resolveFault(business.id, user.id, str(fd, "faultId"), str(fd, "resolution") || "Fixed");
+  await resolveFault(business.id, user.id, str(fd, "faultId"), str(fd, "resolution") || "Fixed");
   revalidatePath("/provider/equipment");
 }

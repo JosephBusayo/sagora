@@ -8,25 +8,21 @@ import { db } from "@/lib/db";
 
 const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String(fd.get(k)).trim() : "");
 
-function providerEmail(requestId: string) {
-  return db
-    .prepare(
-      `SELECT b.email AS email, r.reference AS reference FROM job j
+async function providerEmail(requestId: string) {
+  return (await db.get(`SELECT b.email AS email, r.reference AS reference FROM job j
        JOIN provider_business b ON b.id = j.business_id
-       JOIN service_request r ON r.id = j.request_id WHERE j.request_id = ?`,
-    )
-    .get(requestId) as { email: string; reference: string } | undefined;
+       JOIN service_request r ON r.id = j.request_id WHERE j.request_id = ?`, requestId)) as { email: string; reference: string } | undefined;
 }
 
 export async function confirmDeliveryAction(fd: FormData) {
   const farmer = await requireFarmer();
   const requestId = str(fd, "requestId");
-  const result = confirmDelivery(farmer.id, requestId);
+  const result = await confirmDelivery(farmer.id, requestId);
   if (!result.ok) redirect(`/farmer/requests/${requestId}?error=${encodeURIComponent(result.reason)}`);
 
-  const row = providerEmail(requestId);
+  const row = await providerEmail(requestId);
   if (row?.email) {
-    notify({
+    await notify({
       kind: "job.confirmed",
       dedupeKey: `job.confirmed:${requestId}`,
       to: row.email,
@@ -40,12 +36,12 @@ export async function confirmDeliveryAction(fd: FormData) {
 export async function raiseConcernAction(fd: FormData) {
   const farmer = await requireFarmer();
   const requestId = str(fd, "requestId");
-  const result = raiseConcern(farmer.id, requestId, str(fd, "concern"));
+  const result = await raiseConcern(farmer.id, requestId, str(fd, "concern"));
   if (!result.ok) redirect(`/farmer/requests/${requestId}?error=${encodeURIComponent(result.reason)}`);
 
-  const row = providerEmail(requestId);
+  const row = await providerEmail(requestId);
   if (row?.email) {
-    notify({
+    await notify({
       kind: "job.concern",
       dedupeKey: `job.concern:${requestId}`,
       to: row.email,

@@ -17,14 +17,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ f
       crumb={{ label: "Notifications", icon: "bell" }}
       user={{ name: farmer.name }}
       audience="farmer"
-      unread={unreadCount(farmer)}
+      unread={await unreadCount(farmer)}
     >
       <PageHead
         title="Notifications"
         subtitle="Quotes, bookings and payments on your requests. The same messages go to your email."
       />
       <NotificationList
-        notifications={listFor(farmer, filter)}
+        notifications={await listFor(farmer, filter)}
         filter={filter}
         basePath="/farmer/notifications"
         markReadAction={markNotificationRead}

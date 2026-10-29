@@ -41,7 +41,7 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   if (raw.note.length > 500) fieldErrors.note = "Use 500 characters or fewer";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
-  const result = sendQuote(requestId, business.id, user.id, {
+  const result = await sendQuote(requestId, business.id, user.id, {
     amountMinor: amountMinor!,
     includes: raw.includes,
     startDate: raw.startDate,
@@ -51,10 +51,10 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   if (!result.ok) return { error: result.reason, values };
 
   // TODO (stage 2): save to an outbox first and retry, so a quote is never lost to an email outage.
-  const request = getById(requestId);
+  const request = await getById(requestId);
   if (request?.contactEmail) {
     const isRevision = result.quote.version > 1;
-    notify({
+    await notify({
       kind: isRevision ? "quote.revised" : "quote.sent",
       dedupeKey: `quote:${result.quote.id}`,
       to: request.contactEmail,
@@ -76,7 +76,7 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
 export async function withdrawQuoteAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
-  withdrawQuote(String(fd.get("requestId") ?? ""), business.id, user.id);
+  await withdrawQuote(String(fd.get("requestId") ?? ""), business.id, user.id);
   revalidatePath("/provider/quotes");
   revalidatePath("/provider/requests");
 }
@@ -84,8 +84,6 @@ export async function withdrawQuoteAction(fd: FormData) {
 /** Used by the modal to show this business's existing quote without exposing other providers'. */
 export async function myQuoteFor(requestId: string) {
   const { business } = await requireWorkspace();
-  const row = db
-    .prepare("SELECT * FROM quote WHERE request_id=? AND business_id=? ORDER BY version DESC LIMIT 1")
-    .get(requestId, business.id) as { amount_minor: number; includes: string; start_date: string; valid_until: string; note: string; status: string; version: number } | undefined;
+  const row = await db.get("SELECT * FROM quote WHERE request_id=? AND business_id=? ORDER BY version DESC LIMIT 1", requestId, business.id) as { amount_minor: number; includes: string; start_date: string; valid_until: string; note: string; status: string; version: number } | undefined;
   return row ?? null;
 }

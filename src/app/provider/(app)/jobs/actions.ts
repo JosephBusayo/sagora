@@ -26,7 +26,7 @@ export async function scheduleJobAction(_prev: FormState, fd: FormData): Promise
   if (assetIds.length === 0) fieldErrors.assetIds = "Choose at least one machine";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
-  const result = scheduleJob(business.id, user.id, jobId, { startDate, endDate, operatorId, assetIds });
+  const result = await scheduleJob(business.id, user.id, jobId, { startDate, endDate, operatorId, assetIds });
   if (!result.ok) return { error: result.reason, values };
 
   revalidatePath("/provider/jobs");
@@ -36,7 +36,7 @@ export async function scheduleJobAction(_prev: FormState, fd: FormData): Promise
 export async function startWorkAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
-  startWork(business.id, user.id, str(fd, "jobId"));
+  await startWork(business.id, user.id, str(fd, "jobId"));
   revalidatePath("/provider/jobs");
 }
 
@@ -52,19 +52,15 @@ export async function reportWorkAction(_prev: FormState, fd: FormData): Promise<
   if (note.length > 400) fieldErrors.note = "Use 400 characters or fewer";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values: { acres: str(fd, "acres"), note } };
 
-  if (!reportWork(business.id, user.id, jobId, acres, note)) {
+  if (!await reportWork(business.id, user.id, jobId, acres, note)) {
     return { error: "That job is not ready for a work report." };
   }
 
   // The farmer decides whether this counts as delivered. Silence is not consent.
-  const row = db
-    .prepare(
-      `SELECT r.contact_email AS email, r.reference AS reference FROM job j
-       JOIN service_request r ON r.id = j.request_id WHERE j.id = ?`,
-    )
-    .get(jobId) as { email: string; reference: string } | undefined;
+  const row = await db.get(`SELECT r.contact_email AS email, r.reference AS reference FROM job j
+       JOIN service_request r ON r.id = j.request_id WHERE j.id = ?`, jobId) as { email: string; reference: string } | undefined;
   if (row?.email) {
-    notify({
+    await notify({
       kind: "job.work_reported",
       dedupeKey: `job.reported:${jobId}:${acres}`,
       to: row.email,

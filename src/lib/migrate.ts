@@ -21,8 +21,8 @@ const DIR = path.join(process.cwd(), "migrations");
 
 const checksum = (sql: string) => createHash("sha256").update(sql.replace(/\r\n/g, "\n")).digest("hex");
 
-function ensureTable() {
-  db.exec(`
+async function ensureTable() {
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       name TEXT PRIMARY KEY,
       checksum TEXT NOT NULL,
@@ -31,11 +31,10 @@ function ensureTable() {
   `);
 }
 
-export function pending(): string[] {
-  ensureTable();
-  const done = new Set(
-    (db.prepare("SELECT name FROM schema_migrations").all() as { name: string }[]).map((r) => r.name),
-  );
+export async function pending(): Promise<string[]> {
+  await ensureTable();
+  const rows = await db.all<{ name: string }>("SELECT name FROM schema_migrations");
+  const done = new Set(rows.map((r) => r.name));
   return files().filter((f) => !done.has(f));
 }
 
@@ -44,13 +43,11 @@ function files(): string[] {
   return fs.readdirSync(DIR).filter((f) => f.endsWith(".sql")).sort();
 }
 
-export function migrate(log: (line: string) => void = () => {}): Applied[] {
-  ensureTable();
+export async function migrate(log: (line: string) => void = () => {}): Promise<Applied[]> {
+  await ensureTable();
 
-  const recorded = new Map(
-    (db.prepare("SELECT name, checksum FROM schema_migrations").all() as { name: string; checksum: string }[])
-      .map((r) => [r.name, r.checksum] as const),
-  );
+  const rows = await db.all<{ name: string; checksum: string }>("SELECT name, checksum FROM schema_migrations");
+  const recorded = new Map(rows.map((r) => [r.name, r.checksum] as const));
 
   const results: Applied[] = [];
   for (const name of files()) {
@@ -72,14 +69,18 @@ export function migrate(log: (line: string) => void = () => {}): Applied[] {
     }
 
     log(`applying ${name}`);
-    db.exec("BEGIN IMMEDIATE");
     try {
-      db.exec(sql);
-      db.prepare("INSERT INTO schema_migrations (name, checksum, applied_at) VALUES (?,?,?)")
-        .run(name, sum, new Date().toISOString());
-      db.exec("COMMIT");
+      await db.tx(async (t) => {
+        // A migration file is many statements, so it goes in whole rather than one at a time.
+        await t.exec(sql);
+        await t.run(
+          "INSERT INTO schema_migrations (name, checksum, applied_at) VALUES (?,?,?)",
+          name,
+          sum,
+          new Date().toISOString(),
+        );
+      });
     } catch (err) {
-      db.exec("ROLLBACK");
       throw new Error(`${name} failed and was rolled back: ${(err as Error).message}`);
     }
     results.push({ name, already: false });

@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { changed, db } from "./db";
+import { db, type Queries } from "./db";
 import { audit } from "./business";
 import { getAsset, unavailableReason } from "./equipment";
 // jobs reads service_request as well as its own tables, so the module that owns it is loaded
@@ -54,8 +54,8 @@ type Row = {
   confirmed_at: string | null; concern: string;
 };
 
-function fromRow(r: Row): Job {
-  const ids = db.prepare("SELECT equipment_id FROM job_asset WHERE job_id=?").all(r.id) as { equipment_id: string }[];
+async function fromRow(r: Row): Promise<Job> {
+  const ids = await db.all("SELECT equipment_id FROM job_asset WHERE job_id=?", r.id) as { equipment_id: string }[];
   return {
     id: r.id, requestId: r.request_id, businessId: r.business_id, status: r.status,
     startDate: r.start_date, endDate: r.end_date, operatorId: r.operator_id,
@@ -65,48 +65,41 @@ function fromRow(r: Row): Job {
 }
 
 /** Created the moment a quote is accepted, so the work exists before anyone schedules it. */
-export function ensureJobForAgreement(requestId: string, businessId: string): Job {
-  const existing = db.prepare("SELECT * FROM job WHERE request_id=?").get(requestId) as Row | undefined;
+export async function ensureJobForAgreement(requestId: string, businessId: string): Promise<Job> {
+  const existing = await db.get("SELECT * FROM job WHERE request_id=?", requestId) as Row | undefined;
   if (existing) return fromRow(existing);
   const now = new Date().toISOString();
   const id = randomUUID();
-  db.prepare("INSERT OR IGNORE INTO job (id, request_id, business_id, created_at, updated_at) VALUES (?,?,?,?,?)")
-    .run(id, requestId, businessId, now, now);
-  return fromRow(db.prepare("SELECT * FROM job WHERE request_id=?").get(requestId) as Row);
+  await db.run("INSERT OR IGNORE INTO job (id, request_id, business_id, created_at, updated_at) VALUES (?,?,?,?,?)", id, requestId, businessId, now, now);
+  return fromRow(await db.get("SELECT * FROM job WHERE request_id=?", requestId) as Row);
 }
 
-export function getJob(businessId: string, id: string): Job | null {
-  const r = db.prepare("SELECT * FROM job WHERE id=? AND business_id=?").get(id, businessId) as Row | undefined;
+export async function getJob(businessId: string, id: string): Promise<Job | null> {
+  const r = await db.get("SELECT * FROM job WHERE id=? AND business_id=?", id, businessId) as Row | undefined;
   return r ? fromRow(r) : null;
 }
 
-export function jobForRequest(requestId: string): Job | null {
-  const r = db.prepare("SELECT * FROM job WHERE request_id=?").get(requestId) as Row | undefined;
+export async function jobForRequest(requestId: string): Promise<Job | null> {
+  const r = await db.get("SELECT * FROM job WHERE request_id=?", requestId) as Row | undefined;
   return r ? fromRow(r) : null;
 }
 
-export function listJobs(businessId: string): (Job & { reference: string; service: string; district: string; village: string; acres: number })[] {
-  const rows = db
-    .prepare(
-      `SELECT j.*, r.reference, r.service, r.district, r.village, r.acres
+export async function listJobs(businessId: string): Promise<(Job & { reference: string; service: string; district: string; village: string; acres: number })[]> {
+  const rows = await db.all(`SELECT j.*, r.reference, r.service, r.district, r.village, r.acres
        FROM job j JOIN service_request r ON r.id = j.request_id
-       WHERE j.business_id=? ORDER BY COALESCE(j.start_date, '9999') ASC, j.created_at ASC`,
-    )
-    .all(businessId) as (Row & { reference: string; service: string; district: string; village: string; acres: number })[];
-  return rows.map((r) => ({ ...fromRow(r), reference: r.reference, service: r.service, district: r.district, village: r.village, acres: r.acres }));
+       WHERE j.business_id=? ORDER BY COALESCE(j.start_date, '9999') ASC, j.created_at ASC`, businessId) as (Row & { reference: string; service: string; district: string; village: string; acres: number })[];
+  return Promise.all(
+    rows.map(async (r) => ({ ...(await fromRow(r)), reference: r.reference, service: r.service, district: r.district, village: r.village, acres: r.acres })),
+  );
 }
 
 /** Every job an asset is committed to that overlaps the window, ignoring one job being edited. */
-export function clashesFor(equipmentId: string, start: string, end: string, exceptJobId: string | null) {
-  return db
-    .prepare(
-      `SELECT j.id, r.reference, j.start_date, j.end_date
+export async function clashesFor(equipmentId: string, start: string, end: string, exceptJobId: string | null, t: Queries = db) {
+  return await t.all(`SELECT j.id, r.reference, j.start_date, j.end_date
        FROM job_asset a JOIN job j ON j.id = a.job_id JOIN service_request r ON r.id = j.request_id
        WHERE a.equipment_id = ? AND j.status IN (${HOLDING.map(() => "?").join(",")})
          AND j.id <> COALESCE(?, '')
-         AND j.start_date <= ? AND j.end_date >= ?`,
-    )
-    .all(equipmentId, ...HOLDING, exceptJobId, end, start) as { id: string; reference: string; start_date: string; end_date: string }[];
+         AND j.start_date <= ? AND j.end_date >= ?`, equipmentId, ...HOLDING, exceptJobId, end, start) as { id: string; reference: string; start_date: string; end_date: string }[];
 }
 
 export type ScheduleInput = { startDate: string; endDate: string; operatorId: string | null; assetIds: string[] };
@@ -116,67 +109,62 @@ export type ScheduleResult = { ok: true } | { ok: false; reason: string };
  * Commits machines and an operator to a window. The clash check runs inside the transaction,
  * so two schedules racing for the same plough cannot both succeed.
  */
-export function scheduleJob(businessId: string, actorId: string, jobId: string, input: ScheduleInput): ScheduleResult {
-  const job = getJob(businessId, jobId);
+export async function scheduleJob(businessId: string, actorId: string, jobId: string, input: ScheduleInput): Promise<ScheduleResult> {
+  const job = await getJob(businessId, jobId);
   if (!job) return { ok: false, reason: "That job is not yours." };
   if (["completed", "cancelled", "disputed"].includes(job.status)) return { ok: false, reason: "That job is finished." };
   if (input.endDate < input.startDate) return { ok: false, reason: "The end date must be on or after the start date." };
   if (input.assetIds.length === 0) return { ok: false, reason: "Choose at least one machine." };
 
+  // Names are collected here, before the transaction: a lookup inside it would go through the
+  // shared connection that the transaction itself is holding.
+  const names = new Map<string, string>();
   for (const id of input.assetIds) {
-    const asset = getAsset(businessId, id);
+    const asset = await getAsset(businessId, id);
     if (!asset) return { ok: false, reason: "One of those machines is not on your register." };
     const why = unavailableReason(asset);
     if (why) return { ok: false, reason: `${asset.name} cannot be used: ${why.toLowerCase()}.` };
+    names.set(id, asset.name);
   }
 
-  db.exec("BEGIN IMMEDIATE");
-  try {
+  // The clash check and the commitment are one decision: two schedules racing for the same
+  // plough must not both pass the check and then both write.
+  const result = await db.tx<ScheduleResult>(async (t) => {
     for (const id of input.assetIds) {
-      const clash = clashesFor(id, input.startDate, input.endDate, jobId)[0];
+      const clash = (await clashesFor(id, input.startDate, input.endDate, jobId, t))[0];
       if (clash) {
-        db.exec("ROLLBACK");
-        const asset = getAsset(businessId, id)!;
+        // Nothing written yet, so returning commits an empty transaction.
         return {
           ok: false,
-          reason: `${asset.name} is already committed to ${clash.reference} from ${clash.start_date} to ${clash.end_date}.`,
+          reason: `${names.get(id)} is already committed to ${clash.reference} from ${clash.start_date} to ${clash.end_date}.`,
         };
       }
     }
-    db.prepare("DELETE FROM job_asset WHERE job_id=?").run(jobId);
-    const insert = db.prepare("INSERT INTO job_asset (job_id, equipment_id) VALUES (?,?)");
-    for (const id of input.assetIds) insert.run(jobId, id);
-    db.prepare(
-      `UPDATE job SET start_date=?, end_date=?, operator_id=?, status=CASE WHEN status='unscheduled' THEN 'scheduled' ELSE status END, updated_at=?
-       WHERE id=? AND business_id=?`,
-    ).run(input.startDate, input.endDate, input.operatorId, new Date().toISOString(), jobId, businessId);
-    db.exec("COMMIT");
-  } catch (err) {
-    db.exec("ROLLBACK");
-    throw err;
-  }
-  audit(actorId, "job.scheduled", jobId, `${input.startDate}..${input.endDate}`);
+    await t.run("DELETE FROM job_asset WHERE job_id=?", jobId);
+    const INSERT_ASSET = "INSERT INTO job_asset (job_id, equipment_id) VALUES (?,?)";
+    for (const id of input.assetIds) await t.run(INSERT_ASSET, jobId, id);
+    await t.run(`UPDATE job SET start_date=?, end_date=?, operator_id=?, status=CASE WHEN status='unscheduled' THEN 'scheduled' ELSE status END, updated_at=?
+       WHERE id=? AND business_id=?`, input.startDate, input.endDate, input.operatorId, new Date().toISOString(), jobId, businessId);
+    return { ok: true };
+  });
+  if (!result.ok) return result;
+
+  await audit(actorId, "job.scheduled", jobId, `${input.startDate}..${input.endDate}`);
   return { ok: true };
 }
 
-export function startWork(businessId: string, actorId: string, jobId: string): boolean {
-  const res = db
-    .prepare("UPDATE job SET status='in_progress', updated_at=? WHERE id=? AND business_id=? AND status='scheduled'")
-    .run(new Date().toISOString(), jobId, businessId);
-  if (changed(res)) audit(actorId, "job.started", jobId);
-  return changed(res) > 0;
+export async function startWork(businessId: string, actorId: string, jobId: string): Promise<boolean> {
+  const res = await db.run("UPDATE job SET status='in_progress', updated_at=? WHERE id=? AND business_id=? AND status='scheduled'", new Date().toISOString(), jobId, businessId);
+  if (res.changes) await audit(actorId, "job.started", jobId);
+  return res.changes > 0;
 }
 
 /** The provider says what was done. This is a claim, not a delivery: the farmer decides that. */
-export function reportWork(businessId: string, actorId: string, jobId: string, acres: number, note: string): boolean {
-  const res = db
-    .prepare(
-      `UPDATE job SET status='work_reported', reported_acres=?, work_note=?, reported_at=?, updated_at=?
-       WHERE id=? AND business_id=? AND status IN ('scheduled','in_progress')`,
-    )
-    .run(acres, note, new Date().toISOString(), new Date().toISOString(), jobId, businessId);
-  if (changed(res)) audit(actorId, "job.work_reported", jobId, `${acres} acres`);
-  return changed(res) > 0;
+export async function reportWork(businessId: string, actorId: string, jobId: string, acres: number, note: string): Promise<boolean> {
+  const res = await db.run(`UPDATE job SET status='work_reported', reported_acres=?, work_note=?, reported_at=?, updated_at=?
+       WHERE id=? AND business_id=? AND status IN ('scheduled','in_progress')`, acres, note, new Date().toISOString(), new Date().toISOString(), jobId, businessId);
+  if (res.changes) await audit(actorId, "job.work_reported", jobId, `${acres} acres`);
+  return res.changes > 0;
 }
 
 /* --------------------------------------------------------------- the farmer */
@@ -184,42 +172,31 @@ export function reportWork(businessId: string, actorId: string, jobId: string, a
 export type FarmerDecision = { ok: true } | { ok: false; reason: string };
 
 /** Silence is not consent: only the farmer's explicit confirmation completes a job. */
-export function confirmDelivery(farmerId: string, requestId: string): FarmerDecision {
-  const row = db
-    .prepare(
-      `SELECT j.id FROM job j JOIN service_request r ON r.id = j.request_id
-       WHERE j.request_id=? AND r.farmer_id=? AND j.status='work_reported'`,
-    )
-    .get(requestId, farmerId) as { id: string } | undefined;
+export async function confirmDelivery(farmerId: string, requestId: string): Promise<FarmerDecision> {
+  const row = await db.get(`SELECT j.id FROM job j JOIN service_request r ON r.id = j.request_id
+       WHERE j.request_id=? AND r.farmer_id=? AND j.status='work_reported'`, requestId, farmerId) as { id: string } | undefined;
   if (!row) return { ok: false, reason: "There is nothing to confirm on this request yet." };
-  db.prepare("UPDATE job SET status='completed', confirmed_at=?, updated_at=? WHERE id=?")
-    .run(new Date().toISOString(), new Date().toISOString(), row.id);
-  db.prepare("UPDATE service_request SET status='completed', updated_at=? WHERE id=?")
-    .run(new Date().toISOString(), requestId);
-  audit(farmerId, "job.confirmed", row.id);
+  await db.run("UPDATE job SET status='completed', confirmed_at=?, updated_at=? WHERE id=?", new Date().toISOString(), new Date().toISOString(), row.id);
+  await db.run("UPDATE service_request SET status='completed', updated_at=? WHERE id=?", new Date().toISOString(), requestId);
+  await audit(farmerId, "job.confirmed", row.id);
   return { ok: true };
 }
 
-export function raiseConcern(farmerId: string, requestId: string, concern: string): FarmerDecision {
-  const row = db
-    .prepare(
-      `SELECT j.id FROM job j JOIN service_request r ON r.id = j.request_id
-       WHERE j.request_id=? AND r.farmer_id=? AND j.status='work_reported'`,
-    )
-    .get(requestId, farmerId) as { id: string } | undefined;
+export async function raiseConcern(farmerId: string, requestId: string, concern: string): Promise<FarmerDecision> {
+  const row = await db.get(`SELECT j.id FROM job j JOIN service_request r ON r.id = j.request_id
+       WHERE j.request_id=? AND r.farmer_id=? AND j.status='work_reported'`, requestId, farmerId) as { id: string } | undefined;
   if (!row) return { ok: false, reason: "There is nothing to raise a concern about yet." };
   if (concern.trim().length < 4) return { ok: false, reason: "Say what the problem is." };
-  db.prepare("UPDATE job SET status='disputed', concern=?, updated_at=? WHERE id=?")
-    .run(concern.trim(), new Date().toISOString(), row.id);
-  audit(farmerId, "job.concern_raised", row.id, concern.trim());
+  await db.run("UPDATE job SET status='disputed', concern=?, updated_at=? WHERE id=?", concern.trim(), new Date().toISOString(), row.id);
+  await audit(farmerId, "job.concern_raised", row.id, concern.trim());
   return { ok: true };
 }
 
 /** Machines on this job that cannot currently work, so the job can be flagged without losing it. */
-export function atRiskAssets(businessId: string, job: Job): { name: string; why: string }[] {
+export async function atRiskAssets(businessId: string, job: Job): Promise<{ name: string; why: string }[]> {
   const out: { name: string; why: string }[] = [];
   for (const id of job.assetIds) {
-    const asset = getAsset(businessId, id);
+    const asset = await getAsset(businessId, id);
     if (!asset) continue;
     const why = unavailableReason(asset);
     if (why) out.push({ name: asset.name, why });
@@ -236,36 +213,36 @@ export type FarmerBooking = Job & {
  * What the farmer calls a booking: work they have agreed to, with the provider's name attached.
  * Their own requests only — the farmer id comes from the session, never from a form.
  */
-export function bookingsForFarmer(farmerId: string): FarmerBooking[] {
-  const rows = db
-    .prepare(
-      `SELECT j.*, r.reference, r.service, r.district, r.village, r.acres,
+export async function bookingsForFarmer(farmerId: string): Promise<FarmerBooking[]> {
+  const rows = await db.all(`SELECT j.*, r.reference, r.service, r.district, r.village, r.acres,
               b.name AS business_name, b.phone AS business_phone, a.amount_minor
        FROM job j
        JOIN service_request r ON r.id = j.request_id
        JOIN provider_business b ON b.id = j.business_id
        LEFT JOIN agreement a ON a.request_id = j.request_id
        WHERE r.farmer_id = ?
-       ORDER BY COALESCE(j.start_date, '9999') ASC, j.created_at DESC`,
-    )
-    .all(farmerId) as (Row & {
+       ORDER BY COALESCE(j.start_date, '9999') ASC, j.created_at DESC`, farmerId) as (Row & {
       reference: string; service: string; district: string; village: string; acres: number;
       business_name: string; business_phone: string; amount_minor: number | null;
     })[];
 
-  return rows.map((r) => {
-    const job = fromRow(r);
-    const names = job.assetIds.map((id) => {
-      const a = db.prepare("SELECT name FROM equipment WHERE id=?").get(id) as { name: string } | undefined;
-      return a?.name ?? "A machine";
-    });
-    return {
-      ...job,
-      reference: r.reference, service: r.service, district: r.district, village: r.village, acres: r.acres,
-      businessName: r.business_name, businessPhone: r.business_phone,
-      amountMinor: Number(r.amount_minor ?? 0), assetNames: names,
-    };
-  });
+  return Promise.all(
+    rows.map(async (r) => {
+      const job = await fromRow(r);
+      const names = await Promise.all(
+        job.assetIds.map(async (id) => {
+          const a = (await db.get("SELECT name FROM equipment WHERE id=?", id)) as { name: string } | undefined;
+          return a?.name ?? "A machine";
+        }),
+      );
+      return {
+        ...job,
+        reference: r.reference, service: r.service, district: r.district, village: r.village, acres: r.acres,
+        businessName: r.business_name, businessPhone: r.business_phone,
+        amountMinor: Number(r.amount_minor ?? 0), assetNames: names,
+      };
+    }),
+  );
 }
 
 /** The four tabs the design gives the farmer's bookings list. */

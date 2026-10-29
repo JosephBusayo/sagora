@@ -18,14 +18,14 @@ const fmt = (iso: string) =>
 export default async function Page({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
   const farmer = await requireFarmer();
   const justCreated = (await searchParams).new;
-  const rows = listForFarmer(farmer.id);
+  const rows = await listForFarmer(farmer.id);
 
   return (
     <Shell
       crumb={{ label: "My requests", icon: "requests" }}
       user={{ name: farmer.name }}
       audience="farmer"
-      unread={unreadCount(farmer)}
+      unread={await unreadCount(farmer)}
     >
       <PageHead title="My requests" subtitle="Everything you have asked for, and what has come back." />
       <>

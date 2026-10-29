@@ -78,53 +78,38 @@ function toNotification(r: Row): Notification {
 
 const LIMIT = 50;
 
-export function listFor(user: { id: string; email: string }, filter: Filter = "all"): Notification[] {
-  const rows = db
-    .prepare(
-      `SELECT o.id, o.subject, o.body, o.kind, o.created_at, o.status, r.read_at
+export async function listFor(user: { id: string; email: string }, filter: Filter = "all"): Promise<Notification[]> {
+  const rows = await db.all(`SELECT o.id, o.subject, o.body, o.kind, o.created_at, o.status, r.read_at
        FROM notification_outbox o
        LEFT JOIN notification_read r ON r.notification_id = o.id AND r.user_id = ?
        WHERE o.recipient = ? AND ${secretFilter}
          ${filter === "unread" ? "AND r.read_at IS NULL" : ""}
        ORDER BY o.created_at DESC
-       LIMIT ${LIMIT}`,
-    )
-    .all(user.id, user.email, ...SECRET_KINDS) as Row[];
+       LIMIT ${LIMIT}`, user.id, user.email, ...SECRET_KINDS) as Row[];
   return rows.map(toNotification);
 }
 
-export function unreadCount(user: { id: string; email: string }): number {
-  const row = db
-    .prepare(
-      `SELECT COUNT(*) AS n FROM notification_outbox o
+export async function unreadCount(user: { id: string; email: string }): Promise<number> {
+  const row = await db.get(`SELECT COUNT(*) AS n FROM notification_outbox o
        LEFT JOIN notification_read r ON r.notification_id = o.id AND r.user_id = ?
-       WHERE o.recipient = ? AND r.read_at IS NULL AND ${secretFilter}`,
-    )
-    .get(user.id, user.email, ...SECRET_KINDS) as { n: number };
+       WHERE o.recipient = ? AND r.read_at IS NULL AND ${secretFilter}`, user.id, user.email, ...SECRET_KINDS) as { n: number };
   return Number(row.n);
 }
 
 /** Marks one as read. The id is checked against this person's own mail, not trusted from a form. */
-export function markRead(user: { id: string; email: string }, notificationId: string): boolean {
-  const owned = db
-    .prepare("SELECT 1 AS ok FROM notification_outbox WHERE id=? AND recipient=?")
-    .get(notificationId, user.email) as { ok: number } | undefined;
+export async function markRead(user: { id: string; email: string }, notificationId: string): Promise<boolean> {
+  const owned = await db.get("SELECT 1 AS ok FROM notification_outbox WHERE id=? AND recipient=?", notificationId, user.email) as { ok: number } | undefined;
   if (!owned) return false;
-  db.prepare("INSERT OR IGNORE INTO notification_read (user_id, notification_id, read_at) VALUES (?,?,?)")
-    .run(user.id, notificationId, new Date().toISOString());
+  await db.run("INSERT OR IGNORE INTO notification_read (user_id, notification_id, read_at) VALUES (?,?,?)", user.id, notificationId, new Date().toISOString());
   return true;
 }
 
-export function markAllRead(user: { id: string; email: string }): number {
-  const rows = db
-    .prepare(
-      `SELECT o.id FROM notification_outbox o
+export async function markAllRead(user: { id: string; email: string }): Promise<number> {
+  const rows = await db.all(`SELECT o.id FROM notification_outbox o
        LEFT JOIN notification_read r ON r.notification_id = o.id AND r.user_id = ?
-       WHERE o.recipient = ? AND r.read_at IS NULL AND ${secretFilter}`,
-    )
-    .all(user.id, user.email, ...SECRET_KINDS) as { id: string }[];
+       WHERE o.recipient = ? AND r.read_at IS NULL AND ${secretFilter}`, user.id, user.email, ...SECRET_KINDS) as { id: string }[];
   const now = new Date().toISOString();
-  const insert = db.prepare("INSERT OR IGNORE INTO notification_read (user_id, notification_id, read_at) VALUES (?,?,?)");
-  for (const r of rows) insert.run(user.id, r.id, now);
+  const SQL = "INSERT OR IGNORE INTO notification_read (user_id, notification_id, read_at) VALUES (?,?,?)";
+  for (const r of rows) await db.run(SQL, user.id, r.id, now);
   return rows.length;
 }

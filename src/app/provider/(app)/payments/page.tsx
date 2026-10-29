@@ -15,8 +15,8 @@ const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "
 
 export default async function Page() {
   const { user, business, permission } = await requireWorkspace();
-  const rows = earningsFor(business.id);
-  const destination = destinationFor(business.id);
+  const rows = await earningsFor(business.id);
+  const destination = await destinationFor(business.id);
 
   const agreed = rows.reduce((n, r) => n + r.amountMinor, 0);
   const paidOut = rows.reduce((n, r) => n + (r.release?.status === "paid" ? r.release.netMinor : 0), 0);
