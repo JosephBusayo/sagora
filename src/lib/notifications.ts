@@ -100,7 +100,7 @@ export async function unreadCount(user: { id: string; email: string }): Promise<
 export async function markRead(user: { id: string; email: string }, notificationId: string): Promise<boolean> {
   const owned = await db.get("SELECT 1 AS ok FROM notification_outbox WHERE id=? AND recipient=?", notificationId, user.email) as { ok: number } | undefined;
   if (!owned) return false;
-  await db.run("INSERT OR IGNORE INTO notification_read (user_id, notification_id, read_at) VALUES (?,?,?)", user.id, notificationId, new Date().toISOString());
+  await db.run("INSERT INTO notification_read (user_id, notification_id, read_at) VALUES (?,?,?) ON CONFLICT DO NOTHING", user.id, notificationId, new Date().toISOString());
   return true;
 }
 
@@ -109,7 +109,7 @@ export async function markAllRead(user: { id: string; email: string }): Promise<
        LEFT JOIN notification_read r ON r.notification_id = o.id AND r.user_id = ?
        WHERE o.recipient = ? AND r.read_at IS NULL AND ${secretFilter}`, user.id, user.email, ...SECRET_KINDS) as { id: string }[];
   const now = new Date().toISOString();
-  const SQL = "INSERT OR IGNORE INTO notification_read (user_id, notification_id, read_at) VALUES (?,?,?)";
+  const SQL = "INSERT INTO notification_read (user_id, notification_id, read_at) VALUES (?,?,?) ON CONFLICT DO NOTHING";
   for (const r of rows) await db.run(SQL, user.id, r.id, now);
   return rows.length;
 }

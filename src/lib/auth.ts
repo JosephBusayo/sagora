@@ -21,8 +21,8 @@ export const auth = betterAuth({
   appName: "Sagora",
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
   secret: process.env.BETTER_AUTH_SECRET,
-  // SQLite keeps local development free and simple. Production moves to Postgres:
-  // swap this one line for a `pg` Pool (Better Auth supports both).
+  // Whichever driver lib/db.ts chose: a `pg` Pool when DATABASE_URL is set, Node's SQLite
+  // otherwise. Better Auth takes either and manages its own four tables.
   database: authConnection,
 
   emailAndPassword: {

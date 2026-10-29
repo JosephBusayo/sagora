@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { openTestDb } from "./testdb";
+import { testAll, testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -60,11 +60,9 @@ async function makeProvider(browser: Browser, p: typeof A) {
   await page.getByLabel("Ploughing").check();
   await page.getByLabel("Town or village").fill("Makeni");
   await page.getByRole("button", { name: "Submit for review" }).click();
-  const db = openTestDb();
-  const u = db.prepare("SELECT id FROM user WHERE email=?").get(p.email) as { id: string };
+  const u = await testGet(`SELECT id FROM "user" WHERE email=?`, p.email) as { id: string };
   const now = new Date().toISOString();
-  db.prepare("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?").run(now, now, u.id);
-  db.close();
+  await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);
   await ctx.close();
 }
 async function signIn(page: Page, email: string, password: string) {
@@ -158,12 +156,8 @@ test("replacing a quote makes a new version and keeps the old one", async ({ pag
   await signIn(page, A.email, A.password);
   await quote(page, reference, { amount: "1,350.00", includes: "Tractor, plough and operator", start: 20, until: 14 });
   await expect(page.getByText("Quote updated (version 2).")).toBeVisible();
-
-  const db = openTestDb();
-  const rows = db.prepare(
-    "SELECT version, amount_minor, status FROM quote WHERE request_id=(SELECT id FROM service_request WHERE reference=?) ORDER BY version",
-  ).all(reference) as { version: number; amount_minor: number; status: string }[];
-  db.close();
+  const rows = await testAll(
+    "SELECT version, amount_minor, status FROM quote WHERE request_id=(SELECT id FROM service_request WHERE reference=?) ORDER BY version", reference) as { version: number; amount_minor: number; status: string }[];
   expect(rows).toHaveLength(2);
   expect(rows[0]).toMatchObject({ version: 1, amount_minor: 150000, status: "superseded" });
   expect(rows[1]).toMatchObject({ version: 2, amount_minor: 135000, status: "sent" });
@@ -204,11 +198,8 @@ test("the farmer compares both quotes and accepts one", async ({ page, browser }
 });
 
 test("the accepted version is frozen, and the provider cannot change it", async ({ page }) => {
-  const db = openTestDb();
-  const ag = db.prepare(
-    "SELECT amount_minor, version FROM agreement WHERE request_id=(SELECT id FROM service_request WHERE reference=?)",
-  ).get(reference) as { amount_minor: number; version: number };
-  db.close();
+  const ag = await testGet(
+    "SELECT amount_minor, version FROM agreement WHERE request_id=(SELECT id FROM service_request WHERE reference=?)", reference) as { amount_minor: number; version: number };
   expect(ag).toMatchObject({ amount_minor: 120050, version: 1 });
 
   // The winning provider sees it as accepted and gets no form.
@@ -250,12 +241,8 @@ test("an expired quote cannot be accepted", async ({ page, browser }) => {
   await signIn(page, A.email, A.password);
   await quote(page, ref2, { amount: "900.00", includes: "Tractor and operator", start: 30, until: 10 });
   await expect(page.getByText("Quote sent to the farmer.")).toBeVisible();
-
-  const db = openTestDb();
-  db.prepare(
-    "UPDATE quote SET valid_until='2020-01-01' WHERE request_id=(SELECT id FROM service_request WHERE reference=?)",
-  ).run(ref2);
-  db.close();
+  await testRun(
+    "UPDATE quote SET valid_until='2020-01-01' WHERE request_id=(SELECT id FROM service_request WHERE reference=?)", ref2);
 
   const f2 = await fresh(browser);
   await signInFarmer(f2.page);
@@ -276,10 +263,7 @@ test("one farmer cannot open another farmer's request", async ({ page, browser }
   await other.page.getByLabel("Password", { exact: true }).fill("nosy-pass-2026");
   await other.page.getByRole("button", { name: "Create account" }).click();
   await enterCode(other.page, email);
-
-  const db = openTestDb();
-  const r = db.prepare("SELECT id FROM service_request WHERE reference=?").get(reference) as { id: string };
-  db.close();
+  const r = await testGet("SELECT id FROM service_request WHERE reference=?", reference) as { id: string };
   const res = await other.page.goto(`/farmer/requests/${r.id}`);
   expect(res!.status()).toBe(404);
   await other.ctx.close();

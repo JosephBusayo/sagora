@@ -2,43 +2,27 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { Pool, type PoolClient } from "pg";
+import { toPgPlaceholders } from "./sql";
 
 /**
- * The database, behind an asynchronous interface.
+ * The database, behind one asynchronous interface with two drivers behind it.
  *
- * Node's own SQLite is used in development on purpose: it needs no compiler, no Python and no
- * Visual Studio build tools, so `npm install` works the same on Windows, macOS and Linux.
+ * **Set `DATABASE_URL` and it is PostgreSQL. Leave it unset and it is SQLite**, in a file under
+ * ./data. Development stays on SQLite on purpose: it needs no compiler, no Python and no Visual
+ * Studio build tools, so `npm install` and `npm run dev` work the same on Windows, macOS and
+ * Linux with nothing running in the background. Production sets the URL.
  *
- * It is also synchronous, and every PostgreSQL driver is not. Rather than leave that difference
- * to be discovered at the end, the whole application already talks to the shape Postgres needs:
- * `await db.get(...)`, `await db.run(...)`, and transactions as `db.tx(...)`. The promises
- * below happen to settle immediately. When the Postgres driver arrives, this file changes and
- * nothing else does.
- *
- * Two details that exist for the same reason:
- *  - **Placeholders stay `?`.** The Postgres adapter will rewrite them to $1, $2 … so that no
- *    call site has to be touched twice.
- *  - **A transaction is a callback, not a pair of statements.** On a connection pool every
- *    statement in a transaction has to run on the same connection, which `BEGIN` … `COMMIT`
- *    sprinkled through a function cannot guarantee and `db.tx(fn)` can.
+ * Everything above this file is identical either way:
+ *  - **Placeholders are `?`.** The Postgres driver rewrites them to $1, $2 … so no call site is
+ *    written twice, and nobody has to remember which dialect they are in.
+ *  - **A transaction is a callback.** On a connection pool every statement in a transaction must
+ *    run on the same connection, which `BEGIN` … `COMMIT` scattered through a function cannot
+ *    guarantee and `db.tx(fn)` can.
+ *  - **`run` reports `changes`**, whichever driver counted them.
  */
 
-const dbPath = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "sagora.db");
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-
-const connection = new DatabaseSync(dbPath);
-connection.exec("PRAGMA journal_mode = WAL");
-connection.exec("PRAGMA foreign_keys = ON");
-// Node's SQLite waits 0ms for a lock by default, so two writes at once fail outright.
-// better-sqlite3 waited 5s; keep that, or concurrent requests hit "database is locked".
-connection.exec("PRAGMA busy_timeout = 5000");
-
-/**
- * The real connection, for Better Auth alone: it needs the driver object itself, not the
- * interface below. Better Auth owns and migrates its own four tables. On Postgres it will be
- * handed its own pool, which is also when it stops sharing this connection's transactions.
- */
-export const authConnection = connection;
+const url = process.env.DATABASE_URL?.trim();
 
 /** What a statement reports back. `changes` is a number here and a bigint elsewhere. */
 export type RunResult = { changes: number };
@@ -59,14 +43,211 @@ export type Database = Queries & {
   tx<T>(fn: (t: Queries) => Promise<T>): Promise<T>;
 };
 
-/** Values this driver accepts. Booleans are not among them, so they go in as 0 and 1. */
-type Bound = string | number | bigint | null | Uint8Array;
-const bind = (params: unknown[]): Bound[] =>
+/**
+ * Values a driver accepts.
+ *
+ * The two engines differ here, which is why binding is per-driver: Postgres has a real boolean
+ * type and Better Auth's `emailVerified` column uses it, while SQLite has no booleans at all and
+ * stores 1 and 0. Sending 1 to a Postgres boolean column fails outright, so each driver converts
+ * for itself and the call sites write `true`.
+ */
+type Bound = string | number | bigint | boolean | null | Uint8Array;
+const normalise = (p: unknown): Bound => (p === undefined ? null : (p as Bound));
+const bindPg = (params: unknown[]): Bound[] => params.map(normalise);
+const bindSqlite = (params: unknown[]): Bound[] =>
   params.map((p) => {
-    if (p === undefined || p === null) return null;
-    if (typeof p === "boolean") return p ? 1 : 0;
-    return p as Bound;
+    const v = normalise(p);
+    return typeof v === "boolean" ? (v ? 1 : 0) : v;
   });
+
+/* --------------------------------------------------------------- Postgres */
+
+function postgresDriver(connectionString: string): { db: Database; auth: Pool } {
+  // Neon and every other managed host require TLS. `sslmode=require` in the URL covers it;
+  // this is the belt to that braces, and is ignored for a plain local server.
+  const pool = new Pool({
+    connectionString,
+    ssl: /\blocalhost\b|\b127\.0\.0\.1\b/.test(connectionString) ? undefined : { rejectUnauthorized: true },
+  });
+
+  const queriesOn = (run: (sql: string, values: Bound[]) => Promise<{ rows: unknown[]; rowCount: number | null }>): Queries => ({
+    async get<T>(sql: string, ...params: unknown[]) {
+      const r = await run(toPgPlaceholders(sql), bindPg(params));
+      return r.rows[0] as T | undefined;
+    },
+    async all<T>(sql: string, ...params: unknown[]) {
+      const r = await run(toPgPlaceholders(sql), bindPg(params));
+      return r.rows as T[];
+    },
+    async run(sql: string, ...params: unknown[]) {
+      const r = await run(toPgPlaceholders(sql), bindPg(params));
+      return { changes: r.rowCount ?? 0 };
+    },
+    async exec(sql: string) {
+      await run(sql, []);
+    },
+  });
+
+  const db: Database = {
+    ...queriesOn((sql, values) => pool.query(sql, values.length ? values : undefined)),
+    async tx<T>(fn: (t: Queries) => Promise<T>): Promise<T> {
+      // One connection for the whole transaction. This is the reason tx takes a callback.
+      const client: PoolClient = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        try {
+          const result = await fn(queriesOn((sql, values) => client.query(sql, values.length ? values : undefined)));
+          await client.query("COMMIT");
+          return result;
+        } catch (err) {
+          await client.query("ROLLBACK");
+          throw err;
+        }
+      } finally {
+        client.release();
+      }
+    },
+  };
+
+  return { db, auth: pool };
+}
+
+/* ----------------------------------------------------------------- SQLite */
+
+function sqliteDriver(file: string): { db: Database; auth: DatabaseSync } {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const connection = new DatabaseSync(file);
+  connection.exec("PRAGMA journal_mode = WAL");
+  connection.exec("PRAGMA foreign_keys = ON");
+  // Node's SQLite waits 0ms for a lock by default, so two writes at once fail outright.
+  // better-sqlite3 waited 5s; keep that, or concurrent requests hit "database is locked".
+  connection.exec("PRAGMA busy_timeout = 5000");
+
+  /**
+   * SQLite here is one connection, and a transaction on it belongs to whoever opened it. Because
+   * the body of `tx` may await, another request's query could otherwise land in the middle of
+   * someone else's transaction and be committed or rolled back with it. So operations queue: a
+   * transaction holds the queue for its whole body, which is exactly what a dedicated connection
+   * does on Postgres. Everything underneath is synchronous, so the queue costs nothing.
+   */
+  let queue: Promise<unknown> = Promise.resolve();
+  function serial<T>(work: () => T): Promise<T> {
+    const next = queue.then(work, work);
+    queue = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+  function take(): Promise<() => void> {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const mine = queue.then(
+      () => release,
+      () => release,
+    );
+    queue = mine.then(() => held);
+    return mine;
+  }
+
+  /**
+   * True while a transaction holds the queue. Reaching for the shared `db` from inside a
+   * transaction body would wait for a lock that body is holding: a deadlock, and a silent one —
+   * the request simply never answers. So it throws instead, naming the fix. Postgres has no
+   * equivalent problem, because there the pool simply hands out another connection.
+   */
+  let inTransaction = false;
+  function refuseInsideTransaction(sql: string): never {
+    throw new Error(
+      "A query used the shared `db` from inside db.tx(...), which would deadlock.\n" +
+        "Use the `t` handed to the transaction body, or move the query outside it.\n" +
+        `Query: ${sql.trim().split("\n")[0]}`,
+    );
+  }
+
+  const direct: Queries = {
+    async get<T>(sql: string, ...params: unknown[]) {
+      return connection.prepare(sql).get(...(bindSqlite(params) as never[])) as T | undefined;
+    },
+    async all<T>(sql: string, ...params: unknown[]) {
+      return connection.prepare(sql).all(...(bindSqlite(params) as never[])) as T[];
+    },
+    async run(sql: string, ...params: unknown[]) {
+      const r = connection.prepare(sql).run(...(bindSqlite(params) as never[]));
+      return { changes: Number(r.changes) };
+    },
+    async exec(sql: string) {
+      connection.exec(sql);
+    },
+  };
+
+  const db: Database = {
+    get<T>(sql: string, ...params: unknown[]) {
+      if (inTransaction) refuseInsideTransaction(sql);
+      return serial(() => connection.prepare(sql).get(...(bindSqlite(params) as never[])) as T | undefined);
+    },
+    all<T>(sql: string, ...params: unknown[]) {
+      if (inTransaction) refuseInsideTransaction(sql);
+      return serial(() => connection.prepare(sql).all(...(bindSqlite(params) as never[])) as T[]);
+    },
+    run(sql: string, ...params: unknown[]) {
+      if (inTransaction) refuseInsideTransaction(sql);
+      return serial(() => {
+        const r = connection.prepare(sql).run(...(bindSqlite(params) as never[]));
+        return { changes: Number(r.changes) };
+      });
+    },
+    async exec(sql: string) {
+      if (inTransaction) refuseInsideTransaction(sql);
+      await serial(() => connection.exec(sql));
+    },
+    async tx<T>(fn: (t: Queries) => Promise<T>): Promise<T> {
+      const release = await take();
+      inTransaction = true;
+      try {
+        // IMMEDIATE takes the write lock up front: a check followed by a write — "is this machine
+        // free, then commit it" — must not let another writer in between.
+        connection.exec("BEGIN IMMEDIATE");
+        try {
+          const result = await fn(direct);
+          connection.exec("COMMIT");
+          return result;
+        } catch (err) {
+          connection.exec("ROLLBACK");
+          throw err;
+        }
+      } finally {
+        inTransaction = false;
+        release();
+      }
+    },
+  };
+
+  return { db, auth: connection };
+}
+
+/* ------------------------------------------------------------------ wiring */
+
+const driver = url
+  ? postgresDriver(url)
+  : sqliteDriver(process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "sagora.db"));
+
+/** Which engine is in use. Shown by the migration script so nobody migrates the wrong database. */
+export const engine: "postgres" | "sqlite" = url ? "postgres" : "sqlite";
+
+/** Where it is, with any password removed — safe to print. */
+export const describe = (): string =>
+  url ? `postgres ${new URL(url).host}${new URL(url).pathname}` : `sqlite ${process.env.DATABASE_PATH ?? "data/sagora.db"}`;
+
+/**
+ * The driver object itself, for Better Auth alone: it takes a `pg` Pool or a DatabaseSync and
+ * manages its own four tables. Application code uses `db`.
+ */
+export const authConnection = driver.auth;
+
+const inner = driver.db;
 
 /**
  * The schema is not created from application code: it lives in /migrations, applied by
@@ -77,126 +258,42 @@ const bind = (params: unknown[]): Bound[] =>
  * at all — a fresh clone, CI, a deploy host — and a build must never need one.
  */
 let checked = false;
-function assertMigrated() {
+async function assertMigrated() {
   if (checked) return;
-  checked = true;
-  if (process.env.SAGORA_SKIP_SCHEMA_CHECK === "1") return;
-  const ready = connection
-    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'")
-    .get();
-  if (!ready) {
-    throw new Error(`This database has no schema. Run \`npm run db:migrate\` first.\nDatabase file: ${dbPath}`);
+  if (process.env.SAGORA_SKIP_SCHEMA_CHECK === "1") {
+    checked = true;
+    return;
   }
-}
-
-/* -------------------------------------------------------------------------- */
-
-/**
- * SQLite here is one connection, and a transaction on it belongs to whoever opened it. Because
- * the body of `tx` may await, another request's query could otherwise land in the middle of
- * someone else's transaction and be committed or rolled back with it. So operations queue: a
- * transaction holds the queue for its whole body, which is exactly what a dedicated connection
- * does on Postgres. Everything underneath is synchronous, so the queue costs nothing.
- */
-let queue: Promise<unknown> = Promise.resolve();
-
-/**
- * True while a transaction holds the queue. Reaching for the shared `db` from inside a
- * transaction body would wait for a lock that body is holding: a deadlock, and a silent one —
- * the request simply never answers. So it throws instead, naming the fix.
- */
-let inTransaction = false;
-function refuseInsideTransaction(sql: string): never {
-  throw new Error(
-    "A query used the shared `db` from inside db.tx(...), which would deadlock.\n" +
-      "Use the `t` handed to the transaction body, or move the query outside it.\n" +
-      `Query: ${sql.trim().split("\n")[0]}`,
+  const row = await inner.get<{ found: unknown }>(
+    engine === "postgres"
+      ? "SELECT to_regclass('public.schema_migrations') AS found"
+      : "SELECT name AS found FROM sqlite_master WHERE type='table' AND name='schema_migrations'",
   );
+  if (!row?.found) {
+    throw new Error(`This database has no schema. Run \`npm run db:migrate\` first.\nDatabase: ${describe()}`);
+  }
+  checked = true;
 }
-function serial<T>(work: () => T): Promise<T> {
-  const next = queue.then(work, work);
-  queue = next.then(
-    () => undefined,
-    () => undefined,
-  );
-  return next;
-}
-
-const direct: Queries = {
-  async get<T>(sql: string, ...params: unknown[]) {
-    return connection.prepare(sql).get(...bind(params)) as T | undefined;
-  },
-  async all<T>(sql: string, ...params: unknown[]) {
-    return connection.prepare(sql).all(...bind(params)) as T[];
-  },
-  async run(sql: string, ...params: unknown[]) {
-    const r = connection.prepare(sql).run(...bind(params));
-    return { changes: Number(r.changes) };
-  },
-  async exec(sql: string) {
-    connection.exec(sql);
-  },
-};
 
 export const db: Database = {
-  get<T>(sql: string, ...params: unknown[]) {
-    assertMigrated();
-    if (inTransaction) refuseInsideTransaction(sql);
-    return serial(() => connection.prepare(sql).get(...bind(params)) as T | undefined);
+  async get<T>(sql: string, ...params: unknown[]) {
+    await assertMigrated();
+    return inner.get<T>(sql, ...params);
   },
-  all<T>(sql: string, ...params: unknown[]) {
-    assertMigrated();
-    if (inTransaction) refuseInsideTransaction(sql);
-    return serial(() => connection.prepare(sql).all(...bind(params)) as T[]);
+  async all<T>(sql: string, ...params: unknown[]) {
+    await assertMigrated();
+    return inner.all<T>(sql, ...params);
   },
-  run(sql: string, ...params: unknown[]) {
-    assertMigrated();
-    if (inTransaction) refuseInsideTransaction(sql);
-    return serial(() => {
-      const r = connection.prepare(sql).run(...bind(params));
-      return { changes: Number(r.changes) };
-    });
+  async run(sql: string, ...params: unknown[]) {
+    await assertMigrated();
+    return inner.run(sql, ...params);
   },
   async exec(sql: string) {
-    assertMigrated();
-    if (inTransaction) refuseInsideTransaction(sql);
-    await serial(() => connection.exec(sql));
+    await assertMigrated();
+    return inner.exec(sql);
   },
-  async tx<T>(fn: (t: Queries) => Promise<T>): Promise<T> {
-    assertMigrated();
-    // Take the queue for the whole transaction, then run the body against the connection
-    // directly so its own statements do not queue behind themselves.
-    const release = await take();
-    inTransaction = true;
-    try {
-      // IMMEDIATE takes the write lock up front: a check followed by a write — "is this machine
-      // free, then commit it" — must not let another writer in between.
-      connection.exec("BEGIN IMMEDIATE");
-      try {
-        const result = await fn(direct);
-        connection.exec("COMMIT");
-        return result;
-      } catch (err) {
-        connection.exec("ROLLBACK");
-        throw err;
-      }
-    } finally {
-      inTransaction = false;
-      release();
-    }
+  async tx<T>(fn: (t: Queries) => Promise<T>) {
+    await assertMigrated();
+    return inner.tx(fn);
   },
 };
-
-/** Waits for the queue, then holds it until the returned function is called. */
-function take(): Promise<() => void> {
-  let release!: () => void;
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const mine = queue.then(
-    () => release,
-    () => release,
-  );
-  queue = mine.then(() => held);
-  return mine;
-}

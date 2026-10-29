@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { openTestDb } from "./testdb";
+import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -64,9 +64,7 @@ async function makeStaff(who: { business: string; phone: string; email: string; 
   await s.page.getByRole("button", { name: "Create account" }).click();
   await enterCode(s.page, who.email);
   await s.ctx.close();
-  const db = openTestDb();
-  db.prepare("UPDATE user SET role='staff' WHERE email=?").run(who.email);
-  db.close();
+  await testRun(`UPDATE "user" SET role='staff' WHERE email=?`, who.email);
 }
 
 /** A job the farmer has agreed to and the provider has scheduled a machine for. */
@@ -168,11 +166,9 @@ test.beforeAll(async ({ browser }) => {
   await p.page.getByLabel("Ploughing").check();
   await p.page.getByLabel("Town or village").fill("Makeni");
   await p.page.getByRole("button", { name: "Submit for review" }).click();
-  const db = openTestDb();
-  const u = db.prepare("SELECT id FROM user WHERE email=?").get(PROV.email) as { id: string };
+  const u = await testGet(`SELECT id FROM "user" WHERE email=?`, PROV.email) as { id: string };
   const now = new Date().toISOString();
-  db.prepare("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?").run(now, now, u.id);
-  db.close();
+  await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);
 
   await p.page.goto("/provider/equipment");
   await p.page.getByRole("button", { name: "Add equipment" }).click();
@@ -266,18 +262,15 @@ test("the farmer sees payment and booking as two separate things", async ({ page
 test("money arriving after the machine is taken opens a case instead of overbooking", async ({ page }) => {
   // The machine is moved onto the other job for the same dates, behind the scenes, the way a
   // breakdown or a hand-edited plan would do it.
-  const db = openTestDb();
-  const a = db.prepare("SELECT id FROM service_request WHERE reference=?").get(refA) as { id: string };
-  const b = db.prepare("SELECT id FROM service_request WHERE reference=?").get(refB) as { id: string };
-  const jobA = db.prepare("SELECT id, start_date, end_date FROM job WHERE request_id=?").get(a.id) as {
+  const a = await testGet("SELECT id FROM service_request WHERE reference=?", refA) as { id: string };
+  const b = await testGet("SELECT id FROM service_request WHERE reference=?", refB) as { id: string };
+  const jobA = await testGet("SELECT id, start_date, end_date FROM job WHERE request_id=?", a.id) as {
     id: string; start_date: string; end_date: string;
   };
-  const jobB = db.prepare("SELECT id FROM job WHERE request_id=?").get(b.id) as { id: string };
-  const asset = db.prepare("SELECT equipment_id FROM job_asset WHERE job_id=?").get(jobA.id) as { equipment_id: string };
-  db.prepare("UPDATE job SET status='scheduled', start_date=?, end_date=? WHERE id=?")
-    .run(jobA.start_date, jobA.end_date, jobB.id);
-  db.prepare("INSERT OR IGNORE INTO job_asset (job_id, equipment_id) VALUES (?,?)").run(jobB.id, asset.equipment_id);
-  db.close();
+  const jobB = await testGet("SELECT id FROM job WHERE request_id=?", b.id) as { id: string };
+  const asset = await testGet("SELECT equipment_id FROM job_asset WHERE job_id=?", jobA.id) as { equipment_id: string };
+  await testRun("UPDATE job SET status='scheduled', start_date=?, end_date=? WHERE id=?", jobA.start_date, jobA.end_date, jobB.id);
+  await testRun("INSERT INTO job_asset (job_id, equipment_id) VALUES (?,?) ON CONFLICT DO NOTHING", jobB.id, asset.equipment_id);
 
   await signIn(page, CLERK, "provider");
   await passStaffCheck(page, CLERK.email);
@@ -396,12 +389,8 @@ test("changing where money goes withdraws an approval that has not been sent", a
   await row.getByLabel("Receipt or transaction reference").fill(`MM-${run}-C1`);
   await row.getByRole("button", { name: "Record it" }).click();
   await expect(page.getByRole("status")).toContainText("Paid in full and booked");
-
-  const db = openTestDb();
-  const c = db.prepare("SELECT id FROM service_request WHERE reference=?").get(refC) as { id: string };
-  db.prepare("UPDATE job SET status='completed', reported_acres=3, confirmed_at=? WHERE request_id=?")
-    .run(new Date().toISOString(), c.id);
-  db.close();
+  const c = await testGet("SELECT id FROM service_request WHERE reference=?", refC) as { id: string };
+  await testRun("UPDATE job SET status='completed', reported_acres=3, confirmed_at=? WHERE request_id=?", new Date().toISOString(), c.id);
 
   await page.goto("/staff/payments?tab=releases");
   const ready = page.locator("section.staff__item").filter({ hasText: "Ready to pay out" });

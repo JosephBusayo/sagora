@@ -66,7 +66,7 @@ export async function ensureBusiness(user: { id: string; name: string; email: st
   if (existing) return existing;
   const now = new Date().toISOString();
   const id = randomUUID();
-  await db.run("INSERT OR IGNORE INTO provider_business (id, user_id, name, phone, email, created_at, updated_at) VALUES (?,?,?,?,?,?,?)", id, user.id, user.businessName ?? user.name, user.phone ?? "", user.email, now, now);
+  await db.run("INSERT INTO provider_business (id, user_id, name, phone, email, created_at, updated_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT DO NOTHING", id, user.id, user.businessName ?? user.name, user.phone ?? "", user.email, now, now);
   return (await getBusinessForUser(user.id))!;
 }
 
@@ -77,9 +77,9 @@ export async function saveBusiness(userId: string, input: BusinessInput, submit:
   const now = new Date().toISOString();
   const res = await db.run(`UPDATE provider_business
          SET name=?, phone=?, email=?, district=?, town=?, services=?, description=?, updated_at=?,
-             status = CASE WHEN ? THEN 'submitted' ELSE status END,
-             submitted_at = CASE WHEN ? THEN ? ELSE submitted_at END,
-             review_note = CASE WHEN ? THEN '' ELSE review_note END
+             status = CASE WHEN ? = 1 THEN 'submitted' ELSE status END,
+             submitted_at = CASE WHEN ? = 1 THEN ? ELSE submitted_at END,
+             review_note = CASE WHEN ? = 1 THEN '' ELSE review_note END
        WHERE user_id=? AND status IN ('draft','changes_requested')`, input.name, input.phone, input.email, input.district, input.town, JSON.stringify(input.services), input.description, now,
       submit ? 1 : 0, submit ? 1 : 0, now, submit ? 1 : 0, userId,);
   if (res.changes === 0) return false;
@@ -91,7 +91,7 @@ export async function saveBusiness(userId: string, input: BusinessInput, submit:
 /* ------------------------------------------------------------ staff review */
 
 export async function listForReview(): Promise<(Business & { ownerEmail: string })[]> {
-  const rows = await db.all(`SELECT b.*, u.email AS owner_email FROM provider_business b JOIN user u ON u.id = b.user_id
+  const rows = await db.all(`SELECT b.*, u.email AS owner_email FROM provider_business b JOIN "user" u ON u.id = b.user_id
        WHERE b.status = 'submitted' ORDER BY b.submitted_at ASC`,) as (Row & { owner_email: string })[];
   return rows.map((r) => ({ ...fromRow(r), ownerEmail: r.owner_email }));
 }

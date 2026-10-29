@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { openTestDb } from "./testdb";
+import { testGet } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -44,10 +44,8 @@ async function fresh(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
   return { ctx, page: await ctx.newPage() };
 }
-const roleOf = (email: string) => {
-  const db = openTestDb();
-  const r = db.prepare("SELECT role FROM user WHERE email=?").get(email) as { role: string } | undefined;
-  db.close();
+const roleOf = async (email: string) => {
+  const r = await testGet(`SELECT role FROM "user" WHERE email=?`, email) as { role: string } | undefined;
   return r?.role;
 };
 
@@ -79,7 +77,7 @@ test("farmer signs up, verifies, and reaches the farmer home as a farmer account
   await enterCode(page, F.email);
   await expect(page).toHaveURL(/\/farmer\/home$/);
   await expect(page.getByRole("heading", { name: "Welcome, Aminata" })).toBeVisible();
-  expect(roleOf(F.email)).toBe("farmer");
+  expect(await roleOf(F.email)).toBe("farmer");
 });
 
 test("a farmer cannot reach the provider workspace or the staff screen", async ({ page }) => {

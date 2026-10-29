@@ -24,7 +24,7 @@ export async function reviewBusiness(_prev: FormState, fd: FormData): Promise<Fo
   const b = await decide(id, staff.id, decision, note);
   if (!b) return { error: "This business was already decided. Reload the page." };
 
-  const owner = await db.get("SELECT email FROM user WHERE id = ?", b.userId) as { email: string } | undefined;
+  const owner = await db.get(`SELECT email FROM "user" WHERE id = ?`, b.userId) as { email: string } | undefined;
   if (owner) {
     const lines: Record<Decision, string> = {
       approved: `Good news: ${b.name} is approved on Sagora. You can now receive requests.`,

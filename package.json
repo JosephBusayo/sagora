@@ -17,9 +17,11 @@
   },
   "dependencies": {
     "@central-icons-react/round-filled-radius-2-stroke-2": "^1.2.22",
+    "@types/pg": "^8.23.1",
     "better-auth": "^1.7.14",
     "geist": "^1.8.2",
     "next": "16.4.3",
+    "pg": "^8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",

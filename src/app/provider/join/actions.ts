@@ -30,7 +30,7 @@ export async function acceptInviteAction(_prev: FormState, fd: FormData): Promis
   if (Object.keys(fieldErrors).length) return { fieldErrors, values: { name } };
 
   let userId: string;
-  const existing = await db.get("SELECT id FROM user WHERE email = ?", invite.member.email) as { id: string } | undefined;
+  const existing = await db.get(`SELECT id FROM "user" WHERE email = ?`, invite.member.email) as { id: string } | undefined;
   if (existing) {
     // Already has a Sagora account: just join, no new account and no password change.
     userId = existing.id;
@@ -45,7 +45,7 @@ export async function acceptInviteAction(_prev: FormState, fd: FormData): Promis
       return { error: "We couldn't create your account. Please try again.", values: { name } };
     }
     // The invite link proves they received the email, so the address is already confirmed.
-    await db.run("UPDATE user SET emailVerified = 1 WHERE id = ?", userId);
+    await db.run(`UPDATE "user" SET "emailVerified" = ? WHERE id = ?`, true, userId);
   }
 
   if (!await acceptInvite(token, userId)) redirect("/provider/join/expired");

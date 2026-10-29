@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { openTestDb } from "./testdb";
+import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -55,12 +55,10 @@ async function signIn(page: Page, email: string, password: string) {
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).not.toHaveURL(/sign-in/); // the session cookie is set by the redirect
 }
-function approve(email: string) {
-  const db = openTestDb();
-  const u = db.prepare("SELECT id FROM user WHERE email=?").get(email) as { id: string };
+async function approve(email: string) {
+  const u = await testGet(`SELECT id FROM "user" WHERE email=?`, email) as { id: string };
   const now = new Date().toISOString();
-  db.prepare("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?").run(now, now, u.id);
-  db.close();
+  await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);
 }
 async function fresh(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
@@ -85,7 +83,7 @@ test("once approved, the workspace opens on the designed screens", async ({ page
   await page.getByLabel("Ploughing").check();
   await page.getByLabel("Town or village").fill("Makeni");
   await page.getByRole("button", { name: "Submit for review" }).click();
-  approve(OWNER.email);
+  await approve(OWNER.email);
 
   await page.goto("/provider/settings");
   await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();

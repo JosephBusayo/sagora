@@ -24,6 +24,9 @@ if (!process.env.BETTER_AUTH_SECRET) {
 const { getMigrations } = await import("better-auth/db/migration");
 const { auth } = await import("../src/lib/auth");
 const { migrate } = await import("../src/lib/migrate");
+const { describe } = await import("../src/lib/db");
+
+console.log(`Database: ${describe()}`);
 
 // Better Auth owns user, session, account and verification, and manages them itself.
 const { toBeCreated, toBeAdded, runMigrations } = await getMigrations(auth.options);

@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { openTestDb } from "./testdb";
+import { testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -135,9 +135,7 @@ test("staff asks for changes, provider fixes and resubmits, staff approves", asy
   // Make a second verified account and promote it to staff, as an operator would.
   const s = await fresh(browser);
   await registerAndVerify(s.page, S);
-  const db = openTestDb();
-  db.prepare("UPDATE user SET role='staff' WHERE email=?").run(S.email);
-  db.close();
+  await testRun(`UPDATE "user" SET role='staff' WHERE email=?`, S.email);
   await s.page.goto("/provider/sign-in");
   await s.page.getByLabel("Email").fill(S.email);
   await s.page.getByLabel("Password", { exact: true }).fill(S.password);

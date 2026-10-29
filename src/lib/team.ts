@@ -40,8 +40,9 @@ const INVITE_DAYS = 7;
 /** The owner row is created once, from the business itself, so the table is never empty. */
 export async function ensureOwner(businessId: string, user: { id: string; name: string; email: string; phone?: string | null }) {
   const now = new Date().toISOString();
-  await db.run(`INSERT OR IGNORE INTO team_member (id, business_id, user_id, name, phone, email, role, permission, status, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,'owner','full_access','active',?,?)`, randomUUID(), businessId, user.id, user.name, user.phone ?? "", user.email, now, now);
+  await db.run(`INSERT INTO team_member (id, business_id, user_id, name, phone, email, role, permission, status, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,'owner','full_access','active',?,?)
+     ON CONFLICT DO NOTHING`, randomUUID(), businessId, user.id, user.name, user.phone ?? "", user.email, now, now);
 }
 
 export async function listMembers(businessId: string): Promise<Member[]> {

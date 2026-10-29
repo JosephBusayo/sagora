@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { openTestDb } from "./testdb";
+import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -81,11 +81,9 @@ test.beforeAll(async ({ browser }) => {
   await p.page.getByLabel("Ploughing").check();
   await p.page.getByLabel("Town or village").fill("Kenema Town");
   await p.page.getByRole("button", { name: "Submit for review" }).click();
-  const db = openTestDb();
-  const u = db.prepare("SELECT id FROM user WHERE email=?").get(PROV.email) as { id: string };
+  const u = await testGet(`SELECT id FROM "user" WHERE email=?`, PROV.email) as { id: string };
   const now = new Date().toISOString();
-  db.prepare("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?").run(now, now, u.id);
-  db.close();
+  await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);
   await p.ctx.close();
 });
 

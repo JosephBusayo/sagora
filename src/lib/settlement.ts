@@ -200,7 +200,7 @@ export async function prepareRefund(preparerId: string, requestId: string, amoun
   if (amountMinor > held) {
     return { ok: false, reason: "That is more than the money still held against this job." };
   }
-  const farmer = await db.get(`SELECT u.name AS name, u.email AS email FROM service_request r JOIN user u ON u.id = r.farmer_id WHERE r.id=?`, requestId) as { name: string; email: string } | undefined;
+  const farmer = await db.get(`SELECT u.name AS name, u.email AS email FROM service_request r JOIN "user" u ON u.id = r.farmer_id WHERE r.id=?`, requestId) as { name: string; email: string } | undefined;
 
   const id = randomUUID();
   try {

@@ -66,7 +66,7 @@ function isRateLimited(err: unknown) {
 }
 
 async function roleOf(email: string): Promise<string | null> {
-  const row = (await db.get("SELECT role FROM user WHERE email = ?", email)) as { role?: string } | undefined;
+  const row = (await db.get(`SELECT role FROM "user" WHERE email = ?`, email)) as { role?: string } | undefined;
   return row?.role ?? null;
 }
 
@@ -122,7 +122,7 @@ export async function signUp(audience: Audience, fd: FormData, nameLabel: string
   }
 
   // `role` is never settable from the client, so a farmer account is marked here.
-  if (audience === "farmer") await db.run("UPDATE user SET role = 'farmer' WHERE email = ?", email);
+  if (audience === "farmer") await db.run(`UPDATE "user" SET role = 'farmer' WHERE email = ?`, email);
 
   await setPending({ email, purpose: "verify", audience });
   redirect(r.verify);

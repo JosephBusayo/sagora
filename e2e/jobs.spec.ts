@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { openTestDb } from "./testdb";
+import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -125,11 +125,9 @@ test.beforeAll(async ({ browser }) => {
   await p.page.getByLabel("Ploughing").check();
   await p.page.getByLabel("Town or village").fill("Makeni");
   await p.page.getByRole("button", { name: "Submit for review" }).click();
-  const db = openTestDb();
-  const u = db.prepare("SELECT id FROM user WHERE email=?").get(PROV.email) as { id: string };
+  const u = await testGet(`SELECT id FROM "user" WHERE email=?`, PROV.email) as { id: string };
   const now = new Date().toISOString();
-  db.prepare("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?").run(now, now, u.id);
-  db.close();
+  await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);
 
   await p.page.goto("/provider/equipment");
   for (const [kind, name] of [["tractor", "Green Tractor"], ["plough", "Shared Plough"]]) {
@@ -285,11 +283,8 @@ test("a farmer can raise a concern instead of confirming", async ({ page, browse
 
 test("a teammate with view-only access cannot schedule or report", async ({ page }) => {
   // The server refuses even when the buttons are not rendered.
-  const db = openTestDb();
-  const job = db.prepare(
-    "SELECT id FROM job WHERE request_id=(SELECT id FROM service_request WHERE reference=?)",
-  ).get(refA) as { id: string };
-  db.close();
+  const job = await testGet(
+    "SELECT id FROM job WHERE request_id=(SELECT id FROM service_request WHERE reference=?)", refA) as { id: string };
   expect(job.id).toBeTruthy();
 
   await signInProvider(page);

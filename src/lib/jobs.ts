@@ -70,7 +70,7 @@ export async function ensureJobForAgreement(requestId: string, businessId: strin
   if (existing) return fromRow(existing);
   const now = new Date().toISOString();
   const id = randomUUID();
-  await db.run("INSERT OR IGNORE INTO job (id, request_id, business_id, created_at, updated_at) VALUES (?,?,?,?,?)", id, requestId, businessId, now, now);
+  await db.run("INSERT INTO job (id, request_id, business_id, created_at, updated_at) VALUES (?,?,?,?,?) ON CONFLICT DO NOTHING", id, requestId, businessId, now, now);
   return fromRow(await db.get("SELECT * FROM job WHERE request_id=?", requestId) as Row);
 }
 

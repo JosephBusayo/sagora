@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { openTestDb } from "./testdb";
+import { testAll, testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -63,12 +63,9 @@ async function passStaffCheck(page: Page, email: string, landing: string) {
   throw new Error(`staff verification never completed for ${email}`);
 }
 
-function outboxRows(kindLike: string) {
-  const db = openTestDb();
-  const rows = db.prepare(
-    "SELECT kind, status, attempts, recipient, dedupe_key FROM notification_outbox WHERE kind LIKE ? ORDER BY created_at",
-  ).all(kindLike) as { kind: string; status: string; attempts: number; recipient: string; dedupe_key: string | null }[];
-  db.close();
+async function outboxRows(kindLike: string) {
+  const rows = await testAll(
+    "SELECT kind, status, attempts, recipient, dedupe_key FROM notification_outbox WHERE kind LIKE ? ORDER BY created_at", kindLike) as { kind: string; status: string; attempts: number; recipient: string; dedupe_key: string | null }[];
   return rows;
 }
 
@@ -85,7 +82,7 @@ test("a notification is saved before it is sent, and recorded as sent", async ({
 
   // The verification email exists as an outbox row, not just a side effect.
   await latestCode(FARMER.email);
-  const rows = outboxRows("otp.%").filter((r) => r.recipient === FARMER.email);
+  const rows = (await outboxRows("otp.%")).filter((r) => r.recipient === FARMER.email);
   expect(rows.length).toBeGreaterThan(0);
   expect(rows[0].status).toBe("sent");
   expect(rows[0].attempts).toBe(1);
@@ -111,22 +108,19 @@ test("the same event queued twice only sends once", async ({ page }) => {
   const reference = (await page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
 
   // One row, with a dedupe key tied to the request.
-  const rows = outboxRows("request.created").filter((r) => r.recipient === FARMER.email);
+  const rows = (await outboxRows("request.created")).filter((r) => r.recipient === FARMER.email);
   expect(rows).toHaveLength(1);
   expect(rows[0].dedupe_key).toBeTruthy();
 
   // Queue the identical event again: the unique dedupe key keeps it to one.
-  const db = openTestDb();
   let threw = false;
   try {
-    db.prepare(
+    await testRun(
       `INSERT INTO notification_outbox (id, recipient, subject, body, kind, dedupe_key, next_attempt_at, created_at)
-       VALUES ('dup-test', ?, 'dup', 'dup', 'request.created', ?, ?, ?)`,
-    ).run(FARMER.email, rows[0].dedupe_key, new Date().toISOString(), new Date().toISOString());
+       VALUES ('dup-test', ?, 'dup', 'dup', 'request.created', ?, ?, ?)`, FARMER.email, rows[0].dedupe_key, new Date().toISOString(), new Date().toISOString());
   } catch {
     threw = true;
   }
-  db.close();
   expect(threw).toBe(true);
   expect(reference).toMatch(/SG-\d+/);
 });
@@ -134,13 +128,10 @@ test("the same event queued twice only sends once", async ({ page }) => {
 test("a failing send keeps the work, retries, and shows in the staff queue", async ({ page, browser }) => {
   // A message that cannot be delivered: the dev outbox writes anywhere, so simulate a failed
   // send by putting a row straight into the queue as already given up.
-  const db = openTestDb();
   const now = new Date().toISOString();
-  db.prepare(
+  await testRun(
     `INSERT INTO notification_outbox (id, recipient, subject, body, kind, status, attempts, last_error, next_attempt_at, created_at)
-     VALUES (?,?,?,?,?,'failed',5,'Email provider rejected the message (500)',?,?)`,
-  ).run(`fail-${run}`, "unreachable@example.com", "Quote ready", "body", "quote.sent", now, now);
-  db.close();
+     VALUES (?,?,?,?,?,'failed',5,'Email provider rejected the message (500)',?,?)`, `fail-${run}`, "unreachable@example.com", "Quote ready", "body", "quote.sent", now, now);
 
   // Staff account, promoted.
   const s = await fresh(browser);
@@ -151,9 +142,7 @@ test("a failing send keeps the work, retries, and shows in the staff queue", asy
   await s.page.getByLabel("Password", { exact: true }).fill(STAFF.pass);
   await s.page.getByRole("button", { name: "Create account" }).click();
   await enterCode(s.page, STAFF.email);
-  const db2 = openTestDb();
-  db2.prepare("UPDATE user SET role='staff' WHERE email=?").run(STAFF.email);
-  db2.close();
+  await testRun(`UPDATE "user" SET role='staff' WHERE email=?`, STAFF.email);
 
   await s.page.goto("/provider/sign-in");
   await s.page.getByLabel("Email").fill(STAFF.email);
@@ -171,10 +160,7 @@ test("a failing send keeps the work, retries, and shows in the staff queue", asy
   // Staff can push it back into the queue; it sends this time.
   await row.getByRole("button", { name: "Try again" }).click();
   await expect(s.page.getByRole("row").filter({ hasText: "unreachable@example.com" })).toHaveCount(0);
-
-  const db3 = openTestDb();
-  const after = db3.prepare("SELECT status FROM notification_outbox WHERE id=?").get(`fail-${run}`) as { status: string };
-  db3.close();
+  const after = await testGet("SELECT status FROM notification_outbox WHERE id=?", `fail-${run}`) as { status: string };
   expect(after.status).toBe("sent");
   await s.ctx.close();
   await page.goto("/farmer/sign-in");

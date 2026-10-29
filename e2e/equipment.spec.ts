@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { openTestDb } from "./testdb";
+import { testAll, testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -78,11 +78,9 @@ test.beforeAll(async ({ browser }) => {
   await page.getByLabel("Ploughing").check();
   await page.getByLabel("Town or village").fill("Makeni");
   await page.getByRole("button", { name: "Submit for review" }).click();
-  const db = openTestDb();
-  const u = db.prepare("SELECT id FROM user WHERE email=?").get(P.email) as { id: string };
+  const u = await testGet(`SELECT id FROM "user" WHERE email=?`, P.email) as { id: string };
   const now = new Date().toISOString();
-  db.prepare("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?").run(now, now, u.id);
-  db.close();
+  await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);
   await ctx.close();
 });
 
@@ -119,12 +117,9 @@ test("two identical machines stay distinct", async ({ page }) => {
   await expect(card(page, "Massey Ferguson 375")).toHaveCount(2);
   await expect(page.getByText("AAA-111")).toBeVisible();
   await expect(page.getByText("BBB-222")).toBeVisible();
-
-  const db = openTestDb();
-  const rows = db.prepare(
+  const rows = await testAll(
     "SELECT identifier FROM equipment WHERE name='Massey Ferguson 375' ORDER BY identifier",
-  ).all() as { identifier: string }[];
-  db.close();
+  ) as { identifier: string }[];
   expect(rows.map((r) => r.identifier)).toEqual(["AAA-111", "BBB-222"]);
 });
 
@@ -174,12 +169,10 @@ test("fixing a fault returns the machine to service and keeps the record", async
   await expect(card(page, "Three furrow plough").getByText("Available")).toBeVisible();
 
   // The fault is resolved, not deleted: the machine's history survives.
-  const db = openTestDb();
-  const rows = db.prepare(
+  const rows = await testAll(
     `SELECT f.description, f.resolved_at FROM equipment_fault f JOIN equipment e ON e.id=f.equipment_id
      WHERE e.name='Three furrow plough'`,
-  ).all() as { description: string; resolved_at: string | null }[];
-  db.close();
+  ) as { description: string; resolved_at: string | null }[];
   expect(rows).toHaveLength(1);
   expect(rows[0].description).toContain("Hydraulic leak");
   expect(rows[0].resolved_at).not.toBeNull();
@@ -199,9 +192,7 @@ test("a retired machine stays readable but cannot be chosen", async ({ page }) =
   await expect(retired.getByText("Available")).toHaveCount(0);
 
   // It is gone from what a job may be given, but the row is untouched.
-  const db = openTestDb();
-  const row = db.prepare("SELECT status FROM equipment WHERE name='Rice harvester'").get() as { status: string };
-  db.close();
+  const row = await testGet("SELECT status FROM equipment WHERE name='Rice harvester'") as { status: string };
   expect(row.status).toBe("retired");
 
   // And it can come back.
@@ -226,11 +217,9 @@ test("one provider cannot see or touch another provider's machines", async ({ br
   await o.page.getByLabel("Ploughing").check();
   await o.page.getByLabel("Town or village").fill("Koidu");
   await o.page.getByRole("button", { name: "Submit for review" }).click();
-  const db = openTestDb();
-  const u = db.prepare("SELECT id FROM user WHERE email=?").get(other.email) as { id: string };
+  const u = await testGet(`SELECT id FROM "user" WHERE email=?`, other.email) as { id: string };
   const now = new Date().toISOString();
-  db.prepare("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?").run(now, now, u.id);
-  db.close();
+  await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);
 
   await o.page.goto("/provider/equipment");
   await expect(o.page.getByText("No machines on your register yet.")).toBeVisible();

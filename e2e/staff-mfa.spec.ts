@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { openTestDb } from "./testdb";
+import { testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -65,9 +65,7 @@ test.beforeAll(async ({ browser }) => {
   await s.page.getByRole("button", { name: "Create account" }).click();
   await enterCode(s.page, STAFF.email);
   await s.ctx.close();
-  const db = openTestDb();
-  db.prepare("UPDATE user SET role='staff' WHERE email=?").run(STAFF.email);
-  db.close();
+  await testRun(`UPDATE "user" SET role='staff' WHERE email=?`, STAFF.email);
 });
 
 test("a password alone does not open the staff screens", async ({ page }) => {

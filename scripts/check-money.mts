@@ -45,8 +45,8 @@ const inDays = (n: number) => new Date(Date.now() + n * 86400000).toISOString().
 
 async function user(name: string, role = "farmer") {
   const id = randomUUID();
-  await db.run(`INSERT INTO user (id, name, email, emailVerified, role, createdAt, updatedAt)
-     VALUES (?,?,?,1,?,?,?)`, id, name, `${id}@example.test`, role, now, now);
+  await db.run(`INSERT INTO "user" (id, name, email, "emailVerified", role, "createdAt", "updatedAt")
+     VALUES (?,?,?,?,?,?,?)`, id, name, `${id}@example.test`, true, role, now, now);
   return id;
 }
 async function business(ownerId: string, name: string) {
