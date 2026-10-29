@@ -15,25 +15,6 @@ import { sendEmail } from "./email";
  * back the thing that caused it.
  */
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS notification_outbox (
-  id TEXT PRIMARY KEY,
-  recipient TEXT NOT NULL,
-  subject TEXT NOT NULL,
-  body TEXT NOT NULL,
-  kind TEXT NOT NULL,
-  dedupe_key TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent','failed')),
-  attempts INTEGER NOT NULL DEFAULT 0,
-  last_error TEXT NOT NULL DEFAULT '',
-  next_attempt_at TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  sent_at TEXT
-);
-CREATE UNIQUE INDEX IF NOT EXISTS outbox_dedupe ON notification_outbox (dedupe_key) WHERE dedupe_key IS NOT NULL;
-CREATE INDEX IF NOT EXISTS outbox_due ON notification_outbox (status, next_attempt_at);
-`);
-
 /** Give up after this many tries and hand it to the staff queue. */
 const MAX_ATTEMPTS = 5;
 

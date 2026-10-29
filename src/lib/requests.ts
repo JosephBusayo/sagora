@@ -11,31 +11,6 @@ import { DISTRICTS, SERVICES, audit } from "./business";
  * That line is a rule from the brief and the reason the states below never say "Pending".
  */
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS service_request (
-  id TEXT PRIMARY KEY,
-  reference TEXT NOT NULL UNIQUE,
-  farmer_id TEXT,
-  contact_name TEXT NOT NULL DEFAULT '',
-  contact_phone TEXT NOT NULL DEFAULT '',
-  contact_email TEXT NOT NULL DEFAULT '',
-  service TEXT NOT NULL,
-  acres REAL NOT NULL,
-  preferred_date TEXT NOT NULL,
-  alternate_date TEXT,
-  district TEXT NOT NULL,
-  village TEXT NOT NULL DEFAULT '',
-  notes TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'awaiting_quotes'
-    CHECK (status IN ('awaiting_quotes','quotes_sent','in_progress','completed','cancelled')),
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS service_request_farmer ON service_request (farmer_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS service_request_browse ON service_request (status, district, service, preferred_date);
-CREATE TABLE IF NOT EXISTS reference_counter (name TEXT PRIMARY KEY, value INTEGER NOT NULL);
-`);
-
 export type RequestStatus = "awaiting_quotes" | "quotes_sent" | "in_progress" | "completed" | "cancelled";
 
 /** Plain words, never a bare "Pending" (brief rule). */

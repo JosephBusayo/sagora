@@ -13,23 +13,6 @@ import { db } from "./db";
  * leaves both the error and the correction visible — which is the point of a ledger.
  */
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS ledger_entry (
-  id TEXT PRIMARY KEY,
-  txn_id TEXT NOT NULL,
-  account TEXT NOT NULL,
-  amount_minor INTEGER NOT NULL,
-  memo TEXT NOT NULL DEFAULT '',
-  ref_type TEXT NOT NULL DEFAULT '',
-  ref_id TEXT NOT NULL DEFAULT '',
-  reverses_txn TEXT,
-  created_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS ledger_account ON ledger_entry (account);
-CREATE INDEX IF NOT EXISTS ledger_txn ON ledger_entry (txn_id);
-CREATE INDEX IF NOT EXISTS ledger_ref ON ledger_entry (ref_type, ref_id);
-`);
-
 /**
  * Account names are structured strings rather than a table, because every account here is
  * derived from something that already exists (a request, a business).

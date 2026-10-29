@@ -885,3 +885,43 @@ and broken equipment; when it is empty it says so in words rather than showing a
 Only two Figma things, and both are blocked on an answer rather than on work: the provider-side
 **Payments — OTP** screen (nobody has said what it protects) and **Reports**, which has no frame
 at all. Help & support is a placeholder for the same reason.
+
+## Build status update (29 Oct 2026): the schema moves to migration files
+
+**Done, and it closes the oldest gap in WAITING-ON.** Until now every table was created by
+whichever TypeScript module owned it, at import time. That is what caused the bug a day earlier:
+a farmer's home screen failed on a brand-new database because it read the `agreement` table from
+a module that never loaded the one that created it. The fix then was a plaster. This is the cure.
+
+### How it works
+`migrations/001_init.sql` holds the whole schema — 20 tables and their indexes. `npm run
+db:migrate` runs Better Auth's own tables first, then applies every numbered file in order.
+
+The rules are the boring ones that make migrations worth having:
+
+- **Once each.** Applied files are recorded in `schema_migrations` with a checksum.
+- **All or nothing.** Each file runs in its own transaction, so a half-applied migration cannot exist.
+- **An applied file may never be edited.** Changing one is a hard error with an explanation, not
+  a warning — two databases claiming the same version and not matching is the worst thing that
+  can happen to a schema.
+- **Nothing creates tables at runtime.** `db.exec` DDL is gone from all twelve lib files.
+
+### Written for Postgres, running on SQLite
+Both engines accept every line. That ruled out SQLite's `AUTOINCREMENT` and Postgres's `SERIAL`,
+so `audit_log` now takes its id from the application like every other table — the one deliberate
+schema change in this work. Foreign keys are **not** in this file: adding them would change
+behaviour, and a migration that also changes behaviour is one nobody can review. They get their
+own numbered file when we want them.
+
+### Two guards worth knowing about
+- A database that has never been migrated now says *"This database has no schema. Run `npm run
+  db:migrate` first"* on its first query, instead of failing with "no such table: quote" halfway
+  through a page.
+- That check happens on first **use**, not on import, because `next build` loads these modules on
+  machines that have no database at all — a fresh clone, CI, a deploy host. A build must never
+  need a database. The first attempt got this wrong and broke the build, which is how we know.
+
+### If you have an old local database
+There is no production data anywhere yet, so the simplest thing is to delete `data/sagora.db` and
+run `npm run db:migrate`. An existing dev database keeps working, but its `audit_log` still has
+the old integer id column.

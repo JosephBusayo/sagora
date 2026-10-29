@@ -16,19 +16,6 @@ import { OTP_LENGTH } from "./auth";
  * forgotten session on a shared machine stops being a way in overnight.
  */
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS staff_mfa (
-  session_id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  code_hash TEXT,
-  attempts INTEGER NOT NULL DEFAULT 0,
-  code_expires_at TEXT,
-  last_sent_at TEXT,
-  verified_until TEXT
-);
-CREATE INDEX IF NOT EXISTS staff_mfa_user ON staff_mfa (user_id);
-`);
-
 const CODE_MINUTES = 10;
 const WINDOW_HOURS = 12;
 const MAX_ATTEMPTS = 5;

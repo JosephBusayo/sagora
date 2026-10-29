@@ -24,34 +24,6 @@ import "./requests";
  * payments in stage 4. Until then a scheduled job carries no money guarantee and says so.
  */
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS job (
-  id TEXT PRIMARY KEY,
-  request_id TEXT NOT NULL UNIQUE,
-  business_id TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'unscheduled'
-    CHECK (status IN ('unscheduled','scheduled','in_progress','work_reported','completed','disputed','cancelled')),
-  start_date TEXT,
-  end_date TEXT,
-  operator_id TEXT,
-  work_note TEXT NOT NULL DEFAULT '',
-  reported_acres REAL,
-  reported_at TEXT,
-  confirmed_at TEXT,
-  concern TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS job_business ON job (business_id, status);
-
-CREATE TABLE IF NOT EXISTS job_asset (
-  job_id TEXT NOT NULL,
-  equipment_id TEXT NOT NULL,
-  PRIMARY KEY (job_id, equipment_id)
-);
-CREATE INDEX IF NOT EXISTS job_asset_equipment ON job_asset (equipment_id);
-`);
-
 export type JobStatus = "unscheduled" | "scheduled" | "in_progress" | "work_reported" | "completed" | "disputed" | "cancelled";
 
 /** Specific states, never a bare "Pending" (brief rule). */

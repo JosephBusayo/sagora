@@ -24,46 +24,6 @@ import { getById as getRequest } from "./requests";
  *    not confirmed' case. Never overbook silently."
  */
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS payment (
-  id TEXT PRIMARY KEY,
-  request_id TEXT NOT NULL,
-  amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
-  method TEXT NOT NULL,
-  external_ref TEXT NOT NULL,
-  source TEXT NOT NULL DEFAULT 'manual',
-  psp_verified INTEGER NOT NULL DEFAULT 0,
-  note TEXT NOT NULL DEFAULT '',
-  recorded_by TEXT NOT NULL,
-  recorded_at TEXT NOT NULL
-);
--- The receipt reference is the idempotency key: the same payment cannot be recorded twice.
-CREATE UNIQUE INDEX IF NOT EXISTS payment_external_ref ON payment (source, external_ref);
-CREATE INDEX IF NOT EXISTS payment_request ON payment (request_id);
-
-CREATE TABLE IF NOT EXISTS booking (
-  id TEXT PRIMARY KEY,
-  request_id TEXT NOT NULL UNIQUE,
-  job_id TEXT NOT NULL,
-  business_id TEXT NOT NULL,
-  amount_minor INTEGER NOT NULL,
-  confirmed_at TEXT NOT NULL,
-  confirmed_by TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS exception_case (
-  id TEXT PRIMARY KEY,
-  request_id TEXT NOT NULL,
-  kind TEXT NOT NULL,
-  detail TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved')),
-  opened_at TEXT NOT NULL,
-  resolved_at TEXT,
-  resolution TEXT NOT NULL DEFAULT ''
-);
-CREATE INDEX IF NOT EXISTS case_open ON exception_case (status, opened_at);
-`);
-
 export const METHODS = [
   { id: "mobile_money", label: "Mobile money" },
   { id: "bank", label: "Bank transfer" },

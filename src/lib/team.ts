@@ -3,28 +3,6 @@ import { randomBytes, randomUUID, createHash } from "node:crypto";
 import { changed, db } from "./db";
 import { audit } from "./business";
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS team_member (
-  id TEXT PRIMARY KEY,
-  business_id TEXT NOT NULL,
-  user_id TEXT,
-  name TEXT NOT NULL,
-  phone TEXT NOT NULL DEFAULT '',
-  email TEXT NOT NULL,
-  role TEXT NOT NULL,
-  permission TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'invited'
-    CHECK (status IN ('invited','active','removed')),
-  invite_hash TEXT,
-  invite_expires_at TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE UNIQUE INDEX IF NOT EXISTS team_member_business_email
-  ON team_member (business_id, email) WHERE status <> 'removed';
-CREATE INDEX IF NOT EXISTS team_member_invite ON team_member (invite_hash);
-`);
-
 /** Roles and permissions come from the Team design's two dropdowns. */
 export const ROLES = [
   { id: "owner", label: "Owner" },

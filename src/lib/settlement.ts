@@ -34,45 +34,6 @@ export function feeFor(grossMinor: number, completedJobsSoFar: number): number {
   return Math.floor((grossMinor * FEE_POLICY.pilotPercent) / 100);
 }
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS release (
-  id TEXT PRIMARY KEY,
-  kind TEXT NOT NULL CHECK (kind IN ('payout','refund')),
-  request_id TEXT NOT NULL,
-  beneficiary TEXT NOT NULL,
-  beneficiary_label TEXT NOT NULL,
-  gross_minor INTEGER NOT NULL CHECK (gross_minor > 0),
-  fee_minor INTEGER NOT NULL DEFAULT 0,
-  net_minor INTEGER NOT NULL,
-  reason TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'prepared'
-    CHECK (status IN ('prepared','approved','paid','void')),
-  method TEXT NOT NULL DEFAULT '',
-  external_ref TEXT NOT NULL DEFAULT '',
-  prepared_by TEXT NOT NULL,
-  prepared_at TEXT NOT NULL,
-  approved_by TEXT,
-  approved_at TEXT,
-  paid_at TEXT,
-  owed_txn TEXT,
-  paid_txn TEXT
-);
--- One live release of a kind per request: a second payout cannot be prepared alongside the first.
-CREATE UNIQUE INDEX IF NOT EXISTS release_live
-  ON release (kind, request_id) WHERE status IN ('prepared','approved','paid');
-CREATE INDEX IF NOT EXISTS release_queue ON release (status, prepared_at);
-
-CREATE TABLE IF NOT EXISTS payout_destination (
-  business_id TEXT PRIMARY KEY,
-  method TEXT NOT NULL,
-  account_name TEXT NOT NULL,
-  account_ref TEXT NOT NULL,
-  bank TEXT NOT NULL DEFAULT '',
-  updated_by TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-`);
-
 export type Destination = { method: string; accountName: string; accountRef: string; bank: string; updatedAt: string };
 
 export function destinationFor(businessId: string): Destination | null {

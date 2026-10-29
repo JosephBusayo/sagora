@@ -15,36 +15,6 @@ import { audit } from "./business";
  *    unavailable while it is open, and the fault stays on the record once resolved.
  */
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS equipment (
-  id TEXT PRIMARY KEY,
-  business_id TEXT NOT NULL,
-  kind TEXT NOT NULL,
-  name TEXT NOT NULL,
-  identifier TEXT NOT NULL DEFAULT '',
-  ownership TEXT NOT NULL DEFAULT 'owned' CHECK (ownership IN ('owned','leased')),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','retired')),
-  notes TEXT NOT NULL DEFAULT '',
-  retired_reason TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS equipment_business ON equipment (business_id, status, kind);
-
-CREATE TABLE IF NOT EXISTS equipment_fault (
-  id TEXT PRIMARY KEY,
-  equipment_id TEXT NOT NULL,
-  severity TEXT NOT NULL CHECK (severity IN ('blocking','minor')),
-  description TEXT NOT NULL,
-  reported_by TEXT NOT NULL,
-  reported_at TEXT NOT NULL,
-  resolved_by TEXT,
-  resolved_at TEXT,
-  resolution TEXT NOT NULL DEFAULT ''
-);
-CREATE INDEX IF NOT EXISTS fault_equipment ON equipment_fault (equipment_id, resolved_at);
-`);
-
 /** Kinds come from the services on offer: something that pulls, and something it pulls. */
 export const KINDS = [
   { id: "tractor", label: "Tractor" },

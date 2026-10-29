@@ -26,7 +26,7 @@ $env:CENTRAL_LICENSE_KEY="your-key"
 ```bash
 npm install
 cp .env.example .env.local      # then set BETTER_AUTH_SECRET (openssl rand -hex 32)
-npm run db:migrate              # creates the local SQLite database in ./data
+npm run db:migrate              # creates the local SQLite database in ./data and applies /migrations
 npm run dev                     # http://localhost:3000  -> provider sign-in
 ```
 
@@ -89,6 +89,21 @@ up, books work, provider signs up, staff approves them, provider quotes, farmer 
 Each step prints OK or FAIL; a failure saves a screenshot to a `sagora-smoke` folder in your system temp directory. It refuses to run if something is already using port 3200, rather than driving the
 wrong server.
 
+## Changing the database schema
+
+The schema lives in `migrations/`, as numbered SQL files. Nothing creates tables at runtime.
+
+To change it, add the next numbered file — never edit one that has already run. The runner
+records a checksum of every file it applies and refuses to continue if one of them changes,
+because two databases that claim the same version must be the same shape.
+
+```
+migrations/002_add_whatever.sql     # then:
+npm run db:migrate
+```
+
+The files are written so both SQLite (today) and PostgreSQL (later) accept them.
+
 ## Where things live
 
 | Path | What |
@@ -102,7 +117,9 @@ wrong server.
 | `src/lib/guard.ts` | One gate for every workspace page |
 | `src/components/auth/*` | Shared form pieces (fields, code input, buttons) |
 | `src/lib/auth.ts` | Better Auth setup (email + password, emailed codes) |
-| `src/lib/db.ts` | The local database (Node built-in SQLite). Swap here for Postgres |
+| `migrations/*.sql` | The schema, as numbered files. The only place tables are created |
+| `src/lib/migrate.ts` | Applies them in order, once each, and refuses an edited one |
+| `src/lib/db.ts` | The database connection (Node built-in SQLite). Swap here for Postgres |
 | `src/lib/email.ts` | The single place that sends email |
 | `src/components/app/Icon.tsx` | The icon set. One place maps names to Central Icons |
 | `src/app/globals.css` | Design tokens and styles |

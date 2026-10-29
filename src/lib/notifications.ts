@@ -18,16 +18,6 @@ import "./outbox";
  *  - anything the person is not the recipient of. The query is by their own email, always.
  */
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS notification_read (
-  user_id TEXT NOT NULL,
-  notification_id TEXT NOT NULL,
-  read_at TEXT NOT NULL,
-  PRIMARY KEY (user_id, notification_id)
-);
-CREATE INDEX IF NOT EXISTS notification_read_user ON notification_read (user_id);
-`);
-
 /** Kinds that must never appear on screen, because their body is a credential. */
 const SECRET_KINDS = ["otp", "staff.mfa", "verification", "reset"];
 const secretFilter = SECRET_KINDS.map(() => "o.kind NOT LIKE ? || '%'").join(" AND ");

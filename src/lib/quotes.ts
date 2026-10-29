@@ -14,27 +14,6 @@ import { ensureJobForAgreement } from "./jobs";
  * decision come in stage 4.
  */
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS quote (
-  id TEXT PRIMARY KEY,
-  request_id TEXT NOT NULL,
-  business_id TEXT NOT NULL,
-  version INTEGER NOT NULL,
-  amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
-  includes TEXT NOT NULL DEFAULT '',
-  start_date TEXT NOT NULL,
-  valid_until TEXT NOT NULL,
-  note TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'sent'
-    CHECK (status IN ('sent','superseded','withdrawn','accepted','not_selected')),
-  created_by TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-CREATE UNIQUE INDEX IF NOT EXISTS quote_version ON quote (request_id, business_id, version);
-CREATE INDEX IF NOT EXISTS quote_request ON quote (request_id, status);
-CREATE INDEX IF NOT EXISTS quote_business ON quote (business_id, created_at DESC);
-`);
-
 export type QuoteStatus = "sent" | "superseded" | "withdrawn" | "accepted" | "not_selected";
 
 export const QUOTE_STATUS_LABEL: Record<QuoteStatus, string> = {

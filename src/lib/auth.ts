@@ -2,7 +2,7 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { emailOTP } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
-import { db } from "./db";
+import { authConnection } from "./db";
 import { notify } from "./outbox";
 
 /** Length of every emailed code. The design shows seven boxes. */
@@ -23,7 +23,7 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   // SQLite keeps local development free and simple. Production moves to Postgres:
   // swap this one line for a `pg` Pool (Better Auth supports both).
-  database: db,
+  database: authConnection,
 
   emailAndPassword: {
     enabled: true,

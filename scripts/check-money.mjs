@@ -24,5 +24,5 @@ function run(args) {
 }
 
 // The user table comes from Better Auth's own migration, so create it the same way the app does.
-run(["tsx", "--conditions", "react-server", "scripts/migrate.ts"]);
+run(["tsx", "--conditions", "react-server", "scripts/migrate.mts"]);
 run(["tsx", "--conditions", "react-server", "scripts/check-money.mts"]);

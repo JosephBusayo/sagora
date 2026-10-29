@@ -49,8 +49,10 @@ function fromRow(r: Row): Business {
 }
 
 export function audit(actorId: string, action: string, entityId: string, detail = "") {
-  db.prepare("INSERT INTO audit_log (at, actor_id, action, entity, entity_id, detail) VALUES (?,?,?,?,?,?)").run(
-    new Date().toISOString(), actorId, action, "provider_business", entityId, detail,
+  // The id comes from here rather than from the database, so the same schema works on SQLite
+  // and on Postgres without one of them needing AUTOINCREMENT and the other SERIAL.
+  db.prepare("INSERT INTO audit_log (id, at, actor_id, action, entity, entity_id, detail) VALUES (?,?,?,?,?,?,?)").run(
+    randomUUID(), new Date().toISOString(), actorId, action, "provider_business", entityId, detail,
   );
 }
 

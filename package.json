@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:migrate": "tsx --conditions react-server --env-file=.env.local scripts/migrate.ts",
+    "db:migrate": "tsx --conditions react-server --env-file=.env.local scripts/migrate.mts",
     "typecheck": "tsc --noEmit",
     "test:e2e": "node scripts/e2e.mjs",
     "staff:make": "tsx --env-file=.env.local scripts/make-staff.ts",
