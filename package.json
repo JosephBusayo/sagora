@@ -13,7 +13,9 @@
     "staff:make": "tsx --env-file-if-exists=.env.local scripts/make-staff.ts",
     "dev:approve": "tsx --env-file-if-exists=.env.local scripts/dev-approve.ts",
     "smoke": "node scripts/smoke.mjs",
-    "check:money": "node scripts/check-money.mjs"
+    "check:money": "node scripts/check-money.mjs",
+    "db:reset": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/reset.mts",
+    "check:sql": "node scripts/check-sql.mjs"
   },
   "dependencies": {
     "@central-icons-react/round-filled-radius-2-stroke-2": "^1.2.22",

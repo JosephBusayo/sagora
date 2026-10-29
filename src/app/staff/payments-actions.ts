@@ -17,7 +17,12 @@ const back = (tab: string, message: string, kind: "ok" | "err" = "ok") =>
 
 /** Who to tell about money, looked up rather than passed in a form. */
 async function contactsFor(requestId: string) {
-  return (await db.get(`SELECT r.reference AS reference, r.contact_email AS farmerEmail, b.email AS providerEmail, b.name AS providerName
+  // The quotes around the aliases are not decoration. Postgres folds an unquoted identifier to
+  // lower case, so an unquoted alias arrives flattened — "farmeremail" rather than the name the
+  // code reads — and the value comes back undefined. Here that would mean the booking
+  // confirmation quietly never sends while the screen still says the job is booked.
+  // `npm run check:sql` fails the build if one of these loses its quotes again.
+  return (await db.get(`SELECT r.reference AS reference, r.contact_email AS "farmerEmail", b.email AS "providerEmail", b.name AS "providerName"
        FROM service_request r
        LEFT JOIN agreement a ON a.request_id = r.id
        LEFT JOIN provider_business b ON b.id = a.business_id

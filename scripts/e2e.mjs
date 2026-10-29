@@ -5,8 +5,12 @@ import fs from "node:fs";
 import path from "node:path";
 
 const DB = "data/test.db";
-for (const f of [DB, `${DB}-wal`, `${DB}-shm`, "data/dev-outbox.jsonl"]) {
-  fs.rmSync(path.join(process.cwd(), f), { force: true });
+const postgres = Boolean(process.env.DATABASE_URL);
+
+// The outbox is a file either way; the database is a file only on sqlite.
+fs.rmSync(path.join(process.cwd(), "data/dev-outbox.jsonl"), { force: true });
+if (!postgres) {
+  for (const f of [DB, `${DB}-wal`, `${DB}-shm`]) fs.rmSync(path.join(process.cwd(), f), { force: true });
 }
 
 function run(cmd, args, env) {
@@ -14,6 +18,12 @@ function run(cmd, args, env) {
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
+const tsx = ["tsx", "--conditions", "react-server", "--env-file-if-exists=.env.local"];
+
+run("node", ["scripts/check-sql.mjs"]);
 run("npx", ["next", "build"]);
-run("npx", ["tsx", "--conditions", "react-server", "--env-file-if-exists=.env.local", "scripts/migrate.mts"], { DATABASE_PATH: DB });
+run("npx", [...tsx, "scripts/migrate.mts"], { DATABASE_PATH: DB });
+// Postgres has no file to delete, so the tables are emptied instead. The tests assume a
+// database with nothing in it: leftover accounts from a previous run change what they see.
+if (postgres) run("npx", [...tsx, "scripts/reset.mts", "--yes"], { DATABASE_PATH: DB });
 run("npx", ["playwright", "test"]);

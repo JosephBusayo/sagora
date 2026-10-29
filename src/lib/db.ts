@@ -2,7 +2,7 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { Pool, type PoolClient } from "pg";
+import { Pool, types as pgTypes, type PoolClient } from "pg";
 import { toPgPlaceholders } from "./sql";
 
 /**
@@ -63,6 +63,28 @@ const bindSqlite = (params: unknown[]): Bound[] =>
 /* --------------------------------------------------------------- Postgres */
 
 function postgresDriver(connectionString: string): { db: Database; auth: Pool } {
+  // COUNT(*) and SUM(x) come back as Postgres `bigint`, and the driver hands bigints over as
+  // *strings* so that values beyond JavaScript's safe range are not quietly rounded. SQLite
+  // returns plain numbers for the same queries, and every call site above here expects a
+  // number: left alone, `paid + amount` would join two strings end to end rather than add
+  // them, which in a ledger is the worst kind of bug — silent and wrong.
+  //
+  // So bigints are converted here, once, and the conversion refuses rather than rounds. The
+  // ceiling is about nine quadrillion, and amounts are held in minor units: that is roughly
+  // ninety trillion Leones in one sum, which this would have to be a different business to
+  // reach. If it ever is reached, this throws and says so instead of losing the cents.
+  const INT8 = 20;
+  pgTypes.setTypeParser(INT8, (value: string) => {
+    const n = Number(value);
+    if (!Number.isSafeInteger(n)) {
+      throw new Error(
+        `A total from the database (${value}) is too large to hold exactly as a number. ` +
+          "Refusing it rather than rounding it: amounts must stay exact.",
+      );
+    }
+    return n;
+  });
+
   // Neon and every other managed host require TLS. `sslmode=require` in the URL covers it;
   // this is the belt to that braces, and is ignored for a plain local server.
   const pool = new Pool({
@@ -230,6 +252,30 @@ function sqliteDriver(file: string): { db: Database; auth: DatabaseSync } {
 
 /* ------------------------------------------------------------------ wiring */
 
+/**
+ * A deployed site has no writable disk, so the SQLite fallback cannot work there: it would keep
+ * sign-ups inside the deployment and lose them on the next one, or fail at the first write with
+ * a read-only-file-system error that says nothing about the real mistake. So a production server
+ * that was started without DATABASE_URL refuses to start at all, and says why.
+ *
+ * This is at import rather than on first query because Better Auth is handed the raw connection
+ * and queries it directly, which a check inside this file's own wrapper would never see.
+ *
+ * Two exemptions. `next build` sets NEXT_PHASE and loads this file on machines that have no
+ * database — a fresh clone, CI, the deploy host — and a build must never need one.
+ * SAGORA_TEST_OUTBOX marks the browser tests, which run a production build against SQLite on
+ * purpose.
+ */
+const building = process.env.NEXT_PHASE === "phase-production-build";
+if (!url && process.env.NODE_ENV === "production" && !building && process.env.SAGORA_TEST_OUTBOX !== "1") {
+  throw new Error(
+    "DATABASE_URL is not set.\n\n" +
+      "A deployed Sagora must point at PostgreSQL: the SQLite fallback is for local development " +
+      "only, and a hosted site has no disk to keep it on. Set DATABASE_URL in the host's " +
+      "environment settings to the connection string from Neon, then deploy again.",
+  );
+}
+
 const driver = url
   ? postgresDriver(url)
   : sqliteDriver(process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "sagora.db"));
@@ -260,6 +306,7 @@ const inner = driver.db;
 let checked = false;
 async function assertMigrated() {
   if (checked) return;
+
   if (process.env.SAGORA_SKIP_SCHEMA_CHECK === "1") {
     checked = true;
     return;

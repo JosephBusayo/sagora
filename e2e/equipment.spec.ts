@@ -165,6 +165,10 @@ test("fixing a fault returns the machine to service and keeps the record", async
   const plough = card(page, "Three furrow plough");
   await expect(plough.getByText("Out of service")).toBeVisible();
   await plough.getByRole("button", { name: "Mark fixed" }).click();
+  // Wait for the screen to catch up before reloading. Reloading straight after the click races
+  // the server action, and against a database on the other end of a network the reload wins:
+  // the page comes back built from the row as it was, and never updates again.
+  await expect(plough.getByText("Available")).toBeVisible();
   await page.reload();
   await expect(card(page, "Three furrow plough").getByText("Available")).toBeVisible();
 
@@ -184,6 +188,7 @@ test("a retired machine stays readable but cannot be chosen", async ({ page }) =
   const harvester = card(page, "Rice harvester");
   await harvester.getByRole("button", { name: /Actions for Rice harvester/ }).click();
   await harvester.getByRole("menuitem", { name: "Retire" }).click();
+  await expect(card(page, "Rice harvester").getByText("Retired", { exact: true })).toBeVisible();
   await page.reload();
 
   const retired = card(page, "Rice harvester");
@@ -198,6 +203,7 @@ test("a retired machine stays readable but cannot be chosen", async ({ page }) =
   // And it can come back.
   await retired.getByRole("button", { name: /Actions for Rice harvester/ }).click();
   await retired.getByRole("menuitem", { name: "Bring back into service" }).click();
+  await expect(card(page, "Rice harvester").getByText("Available")).toBeVisible();
   await page.reload();
   await expect(card(page, "Rice harvester").getByText("Available")).toBeVisible();
 });

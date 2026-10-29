@@ -23,6 +23,9 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 60_000,
     env: {
+      // DATABASE_URL set in the environment runs the whole suite on Postgres instead; the
+      // sqlite file is then ignored, so both can be named without them fighting.
+      ...(process.env.DATABASE_URL ? { DATABASE_URL: process.env.DATABASE_URL } : {}),
       DATABASE_PATH: "data/test.db",
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
       BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-123456",

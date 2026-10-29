@@ -226,6 +226,9 @@ test("work reported is not delivery: the farmer must confirm", async ({ page, br
   await signInProvider(page);
   await page.goto("/provider/jobs");
   await jobCard(page, refA).getByRole("button", { name: "Start work" }).click();
+  // Let the action land before reloading: a reload fired straight after the click races it, and
+  // against a remote database the reload wins and renders the job as it was.
+  await expect(jobCard(page, refA).getByText("Work started")).toBeVisible();
   await page.reload();
   await expect(jobCard(page, refA).getByText("Work started")).toBeVisible();
 
