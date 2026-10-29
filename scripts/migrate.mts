@@ -7,6 +7,20 @@
 // are dynamic rather than at the top.
 process.env.SAGORA_SKIP_SCHEMA_CHECK = "1";
 
+// .env.local is optional as far as the command line is concerned, so say plainly what is
+// missing rather than letting Better Auth fail later with something cryptic.
+if (!process.env.BETTER_AUTH_SECRET) {
+  console.error(
+    "BETTER_AUTH_SECRET is not set, so sign-in cannot work.\n\n" +
+      "Create your local settings file and put a random value in it:\n" +
+      "  Windows (cmd):  copy .env.example .env.local\n" +
+      "  macOS / Linux:  cp .env.example .env.local\n\n" +
+      "Then generate a secret and paste it after BETTER_AUTH_SECRET=\n" +
+      '  node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+  );
+  process.exit(1);
+}
+
 const { getMigrations } = await import("better-auth/db/migration");
 const { auth } = await import("../src/lib/auth");
 const { migrate } = await import("../src/lib/migrate");

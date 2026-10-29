@@ -25,7 +25,7 @@ function step(cmd, args, extra) {
 }
 
 step("npx", ["next", "build"]);
-step("npx", ["tsx", "--conditions", "react-server", "--env-file=.env.local", "scripts/migrate.mts"]);
+step("npx", ["tsx", "--conditions", "react-server", "--env-file-if-exists=.env.local", "scripts/migrate.mts"]);
 
 // Refuse to run against something else already on the port: driving another server
 // (pointing at another database) looks like a hang rather than a clear failure.

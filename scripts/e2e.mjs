@@ -15,5 +15,5 @@ function run(cmd, args, env) {
 }
 
 run("npx", ["next", "build"]);
-run("npx", ["tsx", "--conditions", "react-server", "--env-file=.env.local", "scripts/migrate.mts"], { DATABASE_PATH: DB });
+run("npx", ["tsx", "--conditions", "react-server", "--env-file-if-exists=.env.local", "scripts/migrate.mts"], { DATABASE_PATH: DB });
 run("npx", ["playwright", "test"]);

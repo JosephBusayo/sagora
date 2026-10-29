@@ -23,17 +23,44 @@ $env:CENTRAL_LICENSE_KEY="your-key"
 
 ## Run it locally
 
+**Windows (Command Prompt):**
+
+```
+npm install
+copy .env.example .env.local
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Paste that value after `BETTER_AUTH_SECRET=` in `.env.local`, then:
+
+```
+npm run db:migrate
+npm run dev
+```
+
+**macOS / Linux:**
+
 ```bash
 npm install
-cp .env.example .env.local      # then set BETTER_AUTH_SECRET (openssl rand -hex 32)
-npm run db:migrate              # creates the local SQLite database in ./data and applies /migrations
-npm run dev                     # http://localhost:3000  -> provider sign-in
+cp .env.example .env.local
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # paste into .env.local
+npm run db:migrate
+npm run dev
 ```
+
+`db:migrate` creates the SQLite database in `./data` and applies everything in `/migrations`.
+`dev` serves <http://localhost:3000>, which opens on the provider sign-in screen.
 
 With no `RESEND_API_KEY`, emails are not sent. They are written to `data/dev-outbox.jsonl`, which is where you read verification codes while developing:
 
 ```bash
 tail -n 1 data/dev-outbox.jsonl
+```
+
+On Windows (cmd), open `data\dev-outbox.jsonl` in Notepad, or:
+
+```
+powershell -Command "Get-Content data\dev-outbox.jsonl -Tail 1"
 ```
 
 ## Checks
