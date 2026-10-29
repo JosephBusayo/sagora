@@ -335,12 +335,57 @@ await step("The books balance at the end of all of it", s.page, async () => {
   await s.page.screenshot({ path: path.join(OUT, "13-reconciliation.png"), fullPage: true });
 });
 
+await step("The farmer app has its own sidebar and screens", f.page, async () => {
+  for (const [url, text] of [
+    ["/farmer/home", "How it works"],
+    ["/farmer/bookings", "My bookings"],
+    ["/farmer/payments", "Transaction ID"],
+    ["/farmer/notifications", "Notifications"],
+    ["/farmer/settings", "Sign out of Sagora"],
+    ["/farmer/settings/account", "First and last name"],
+  ]) {
+    await f.page.goto(url);
+    await f.page.getByText(text).first().waitFor({ timeout: 8000 });
+  }
+  await f.page.goto("/farmer/home");
+  await f.page.waitForLoadState("networkidle");
+  await f.page.screenshot({ path: path.join(OUT, "14-farmer-home.png"), fullPage: true });
+});
+await step("The booked job shows under the farmer's bookings", f.page, async () => {
+  await f.page.goto("/farmer/bookings?tab=completed");
+  await f.page.getByText(reference).first().waitFor({ timeout: 8000 });
+  await f.page.screenshot({ path: path.join(OUT, "15-farmer-bookings.png"), fullPage: true });
+});
+await step("Both sides see the same events in their notifications", f.page, async () => {
+  await f.page.goto("/farmer/notifications");
+  await f.page.getByText(`${reference} is booked`).first().waitFor({ timeout: 8000 });
+  await f.page.screenshot({ path: path.join(OUT, "16-farmer-notifications.png"), fullPage: true });
+
+  await p.page.goto("/provider/notifications");
+  await p.page.getByText("was accepted").first().waitFor({ timeout: 8000 });
+});
+await step("A verification code never appears in the notification list", f.page, async () => {
+  await f.page.goto("/farmer/notifications");
+  const text = await f.page.locator("main").innerText();
+  if (/\bcode is \d{7}\b/.test(text)) throw new Error("a one-time code is on screen");
+  if (/verification/i.test(text)) throw new Error("a verification email is in the list");
+});
+await step("The provider dashboard counts real work, not invented numbers", p.page, async () => {
+  await p.page.goto("/provider/dashboard");
+  await p.page.getByText("Needs attention").waitFor({ timeout: 8000 });
+  await p.page.getByText("Money on its way to you").waitFor();
+  await p.page.waitForLoadState("networkidle");
+  await p.page.screenshot({ path: path.join(OUT, "17-provider-dashboard.png"), fullPage: true });
+});
+
 /* ------------------------------------------------------------- the rest */
 
 await step("Provider settings, team, jobs and account screens open", p.page, async () => {
   for (const [url, heading] of [
+    ["/provider/dashboard", null],
     ["/provider/jobs", "Jobs"],
     ["/provider/payments", "Payments"],
+    ["/provider/notifications", "Notifications"],
     ["/provider/settings", "Settings"],
     ["/provider/settings/business", "Business details"],
     ["/provider/settings/account", "Account"],
@@ -348,11 +393,13 @@ await step("Provider settings, team, jobs and account screens open", p.page, asy
     ["/provider/team", "Team management"],
   ]) {
     await p.page.goto(url);
-    await p.page.getByRole("heading", { name: heading, level: 1 }).waitFor({ timeout: 8000 });
+    // The dashboard is titled with the business name, so it is checked by its breadcrumb.
+    if (heading === null) await p.page.getByText("Smoke Tractors").first().waitFor({ timeout: 8000 });
+    else await p.page.getByRole("heading", { name: heading, level: 1 }).waitFor({ timeout: 8000 });
   }
 });
 await step("Unbuilt sections say so instead of breaking", p.page, async () => {
-  for (const url of ["/provider/dashboard", "/provider/notifications", "/provider/reports", "/provider/help"]) {
+  for (const url of ["/provider/reports", "/provider/help"]) {
     await p.page.goto(url);
     await p.page.getByText("Not built yet.").waitFor({ timeout: 8000 });
   }

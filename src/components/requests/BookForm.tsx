@@ -18,14 +18,14 @@ function Submit() {
   );
 }
 
-function Select({ name, label, options, placeholder, error }: {
-  name: string; label: string; options: readonly Option[]; placeholder: string; error?: string;
+function Select({ name, label, options, placeholder, error, initial = "" }: {
+  name: string; label: string; options: readonly Option[]; placeholder: string; error?: string; initial?: string;
 }) {
   return (
     <div className={`field${error ? " field--invalid" : ""}`}>
       <label className="field__label" htmlFor={`f-${name}`}>{label}</label>
       <div className="field__box">
-        <select id={`f-${name}`} name={name} className="field__input" defaultValue="">
+        <select id={`f-${name}`} name={name} className="field__input" defaultValue={initial}>
           <option value="">{placeholder}</option>
           {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
@@ -47,14 +47,18 @@ function DateField({ name, label, helper, error }: { name: string; label: string
   );
 }
 
-export function BookForm({ services, districts }: { services: readonly Option[]; districts: readonly string[] }) {
+export function BookForm({ services, districts, service = "" }: {
+  services: readonly Option[]; districts: readonly string[];
+  /** Pre-chosen from the home screen's "Book ploughing" / "Book harvesting" tiles. */
+  service?: string;
+}) {
   const [state, action] = useActionState(bookService, {} as FormState);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
 
   return (
     <form action={action} className="form-soft book__form">
-      <Select name="service" label="What work do you need?" options={services} placeholder="Select the work" error={e.service} />
+      <Select name="service" label="What work do you need?" options={services} placeholder="Select the work" error={e.service} initial={v.service ?? service} />
       <Field name="acres" label="Farm size (acres)" type="text" inputMode="numeric" placeholder="For example, 5" defaultValue={v.acres} error={e.acres} />
       <div className="form-row">
         <DateField name="preferredDate" label="Preferred date" error={e.preferredDate} />

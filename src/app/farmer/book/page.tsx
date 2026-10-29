@@ -1,24 +1,33 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { DISTRICTS, SERVICES } from "@/lib/business";
 import { requireFarmer } from "@/lib/session";
+import { Shell, PageHead } from "@/components/app/Shell";
 import { BookForm } from "@/components/requests/BookForm";
+import { unreadCount } from "@/lib/notifications";
 
 export const metadata: Metadata = { title: "Book a service" };
+export const dynamic = "force-dynamic";
 
-export default async function Page() {
-  await requireFarmer();
+export default async function Page({ searchParams }: { searchParams: Promise<{ service?: string }> }) {
+  const farmer = await requireFarmer();
+  const asked = (await searchParams).service ?? "";
+  const service = SERVICES.some((s) => s.id === asked) ? asked : "";
+
   return (
-    <main className="setup">
-      <div className="setup__card book">
-        <h1 className="auth__title">Book a service</h1>
-        <p className="auth__subtitle">
-          Tell us what you need. Providers in your district will send you quotes, and you choose.
-        </p>
+    <Shell
+      crumb={{ label: "Book a service", icon: "plus" }}
+      user={{ name: farmer.name }}
+      audience="farmer"
+      unread={unreadCount(farmer)}
+    >
+      <PageHead
+        title="Book a service"
+        subtitle="Tell us what you need. Providers in your district will send you quotes, and you choose."
+      />
+      <div className="panel panel--wide">
         <p className="book__rule">A request is not a booking. Nothing is confirmed until you accept a quote and pay.</p>
-        <BookForm services={SERVICES} districts={DISTRICTS} />
-        <p className="auth__footer"><Link href="/farmer/requests">See my requests</Link></p>
+        <BookForm services={SERVICES} districts={DISTRICTS} service={service} />
       </div>
-    </main>
+    </Shell>
   );
 }

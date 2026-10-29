@@ -833,3 +833,55 @@ The design also shows a **"Payments — OTP"** screen on the *provider* side (`1
 one protects is not written down anywhere — most likely changing where payouts are sent, which is
 the brief's "changing the beneficiary". Not built: it needs confirming first, and it is in
 WAITING-ON.
+
+## Build status update (29 Oct 2026): the farmer app, notifications and the dashboard
+
+**Built and tested (86 browser tests, up from 75; the smoke run is 35 steps).** This closes the
+last of the unbuilt Figma sections except the two nobody has specified.
+
+### The farmer app now has its own app shell
+The design gives the farmer the same sidebar treatment as the provider — Home, Book a service, My
+requests, My bookings, Payments, Notifications — and until now the farmer screens were loose cards
+on a page. `Sidebar` and `Shell` are now driven by one `nav.ts` per audience, so the two apps share
+every pixel of chrome and differ only in their menu. The farmer screens all moved inside it.
+
+### Notifications are derived, not duplicated
+`src/lib/notifications.ts`. The in-app feed **is the outbox**, read by the signed-in person's
+email address. A second table written at the same seventeen call sites would have been seventeen
+chances to forget one, and two lists that quietly disagree about what happened.
+
+Two things are filtered out on the way: anything whose body is a credential (verification codes,
+staff sign-in codes — a code on a screen you are already signed into is pointless), and anything
+addressed to somebody else. The query is always by the reader's own email. There is a test for
+each of those, because "no codes on screen" is the kind of thing that silently regresses.
+
+Unread state lives in `notification_read`, and the bell in the top bar counts from the same query
+the list uses, so the two can never disagree.
+
+### A real bug this turned up
+A farmer's home screen failed with a server error on a brand-new database: `lib/jobs.ts` reads the
+`agreement` table but `lib/quotes.ts` created it, so the schema depended on which module a request
+happened to load first. The `agreement` DDL now lives in `db.ts` with a note saying why, and the
+two other modules that reached across a boundary now import the owner. Numbered migration files
+will make the whole question disappear — still in WAITING-ON.
+
+### Screens
+| Screen | Figma | What it does |
+| --- | --- | --- |
+| `/farmer/home` | `1-2507` | Greeting, Book ploughing / Book harvesting (which pre-choose the service), what is happening now, recent requests, "How it works" |
+| `/farmer/bookings` | `30-19534` | The four tabs from the design — Upcoming, In progress, Completed, Cancelled — with a real empty state each |
+| `/farmer/notifications` | `35-25885` | The feed, All / Unread, mark one or all read |
+| `/farmer/settings` + account, password | `55-515` | Details, password, and a sign-out that asks first |
+| `/provider/notifications` | `35-23756` | The same list, same component |
+| `/provider/dashboard` | `1-2506` | What needs doing today |
+
+### The dashboard shows work, not vanity numbers
+Every tile is something to act on — requests not yet quoted, quotes waiting on a farmer, jobs
+needing attention, money on its way — and every number is counted from the same data the other
+screens use. "Needs attention" lists concerns, machines at risk on a committed job, expired quotes
+and broken equipment; when it is empty it says so in words rather than showing a zero.
+
+### What is left
+Only two Figma things, and both are blocked on an answer rather than on work: the provider-side
+**Payments — OTP** screen (nobody has said what it protects) and **Reports**, which has no frame
+at all. Help & support is a placeholder for the same reason.

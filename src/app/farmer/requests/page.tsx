@@ -4,6 +4,8 @@ import { requireFarmer } from "@/lib/session";
 import { districtLabel } from "@/lib/business";
 import { STATUS_LABEL, listForFarmer, serviceLabel } from "@/lib/requests";
 import { cancelRequest } from "../book/actions";
+import { Shell, PageHead } from "@/components/app/Shell";
+import { unreadCount } from "@/lib/notifications";
 
 export const metadata: Metadata = { title: "My requests" };
 export const dynamic = "force-dynamic";
@@ -19,9 +21,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
   const rows = listForFarmer(farmer.id);
 
   return (
-    <main className="setup">
-      <div className="setup__card setup__card--wide">
-        <h1 className="auth__title">My requests</h1>
+    <Shell
+      crumb={{ label: "My requests", icon: "requests" }}
+      user={{ name: farmer.name }}
+      audience="farmer"
+      unread={unreadCount(farmer)}
+    >
+      <PageHead title="My requests" subtitle="Everything you have asked for, and what has come back." />
+      <>
         {justCreated ? (
           <p className="notice notice--success" role="status">
             Request <strong>{justCreated}</strong> sent. Keep that reference: it is how you find this
@@ -71,8 +78,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
             </table>
           </div>
         )}
-        <p className="auth__footer"><Link href="/farmer/book">Book another service</Link> · <Link href="/farmer/home">Home</Link></p>
-      </div>
-    </main>
+      </>
+    </Shell>
   );
 }

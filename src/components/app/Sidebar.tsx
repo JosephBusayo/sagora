@@ -2,40 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Icon, type IconName } from "./Icon";
+import { Icon } from "./Icon";
+import { NAV, type Audience, type NavItem } from "./nav";
 
-type Item = { href: string; label: string; icon: IconName };
-
-/** Exactly the three groups in the Figma sidebar. */
-const GENERAL: Item[] = [
-  { href: "/provider/dashboard", label: "Dashboard", icon: "home" },
-  { href: "/provider/requests", label: "Requests", icon: "requests" },
-  { href: "/provider/quotes", label: "My quotes", icon: "quotes" },
-  { href: "/provider/jobs", label: "Jobs", icon: "jobs" },
-  { href: "/provider/equipment", label: "Equipment", icon: "equipment" },
-  { href: "/provider/payments", label: "Payments", icon: "payments" },
-  { href: "/provider/notifications", label: "Notifications", icon: "bell" },
-];
-const TEAM: Item[] = [
-  { href: "/provider/team", label: "Team", icon: "team" },
-  { href: "/provider/reports", label: "Reports", icon: "reports" },
-];
-const PERSONAL: Item[] = [
-  { href: "/provider/settings", label: "General settings", icon: "settings" },
-  { href: "/provider/help", label: "Help & support", icon: "help" },
-  { href: "/provider/settings/account", label: "Account", icon: "account" },
-];
-
-function Group({ title, items, pathname }: { title: string; items: Item[]; pathname: string }) {
+function Group({ title, items, pathname, exact }: { title: string; items: NavItem[]; pathname: string; exact: boolean }) {
   return (
     <div className="nav__group">
       <p className="nav__title">{title}</p>
       <ul className="nav__list">
         {items.map((i) => {
-          const active = pathname === i.href || (i.href !== "/provider/settings" && pathname.startsWith(i.href + "/"));
+          // "Settings" would otherwise light up on every page beneath it.
+          const isSettings = i.href.endsWith("/settings");
+          const active = exact || isSettings ? pathname === i.href : pathname === i.href || pathname.startsWith(i.href + "/");
           return (
             <li key={i.href}>
-              <Link href={i.href} className={`nav__item${active ? " nav__item--active" : ""}`} aria-current={active ? "page" : undefined}>
+              <Link
+                href={i.href}
+                className={`nav__item${active ? " nav__item--active" : ""}`}
+                aria-current={active ? "page" : undefined}
+              >
                 <Icon name={i.icon} />
                 <span>{i.label}</span>
               </Link>
@@ -47,25 +32,31 @@ function Group({ title, items, pathname }: { title: string; items: Item[]; pathn
   );
 }
 
-export function Sidebar({ signOutAction }: { signOutAction: () => Promise<void> }) {
+export function Sidebar({ audience, signOutAction }: { audience: Audience; signOutAction: () => Promise<void> }) {
   const pathname = usePathname();
+  const nav = NAV[audience];
   return (
     <nav className="nav" aria-label="Main">
-      <Link href="/provider/dashboard" className="nav__brand">
+      <Link href={nav.home} className="nav__brand">
         <Icon name="logo" />
         <span>Sagora</span>
       </Link>
-      <Group title="General" items={GENERAL} pathname={pathname} />
-      <Group title="Team" items={TEAM} pathname={pathname} />
+      {nav.groups.map((g) => (
+        <Group key={g.title} title={g.title} items={g.items} pathname={pathname} exact={false} />
+      ))}
       <div className="nav__spacer" />
       <div className="nav__group">
         <p className="nav__title">Personal</p>
         <ul className="nav__list">
-          {PERSONAL.map((i) => {
+          {nav.personal.map((i) => {
             const active = pathname === i.href;
             return (
               <li key={i.href}>
-                <Link href={i.href} className={`nav__item${active ? " nav__item--active" : ""}`} aria-current={active ? "page" : undefined}>
+                <Link
+                  href={i.href}
+                  className={`nav__item${active ? " nav__item--active" : ""}`}
+                  aria-current={active ? "page" : undefined}
+                >
                   <Icon name={i.icon} />
                   <span>{i.label}</span>
                 </Link>

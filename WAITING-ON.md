@@ -1,7 +1,7 @@
 # Waiting on
 
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
-each one is a swap, not a rewrite. Updated 28 Oct 2026 (after payments phase A).
+each one is a swap, not a rewrite. Updated 29 Oct 2026.
 
 ## From the designer
 
@@ -16,6 +16,9 @@ each one is a swap, not a rewrite. Updated 28 Oct 2026 (after payments phase A).
 | 5c | **Equipment frames** (`11-31`, 7 frames) | The equipment register, fault states | Built in the design system's language, not from a frame |
 | 5d | **Jobs frames** (`15-9385`, 2 frames) | The jobs list, scheduling, work report | Built in the design system's language, not from a frame |
 | 5e | **Payments frames** — provider (`15-10667`, 9 frames) and farmer (`32-21589`, 5 frames) | Provider payments, farmer transactions, the finance desk | Built in the design system's language. The farmer table follows the columns named in the frame list (id, type, amount, date, status) |
+| 5f | **Bookings, Notifications and Farmer Settings frames** — `30-19534`, `35-23756`, `35-25885`, `55-515` | Farmer bookings, both notification lists, farmer settings | Built in the design system's language. The booking tabs follow the four states named in the frame list |
+| 5g | **Provider Dashboard frame** (`1-2506`) | The provider's home screen | Built from what the other screens can actually count. The design's "Home-tractors" variant has never been exported |
+| 5h | **A Reports frame** | `/provider/reports` | None exists in the file at all. The sidebar has the entry, so something was intended. Still a placeholder |
 | 6 | **Screens that do not exist in Figma** | Staff review queue, invite acceptance, "not built yet" placeholder, provider setup and approval | Built in the design system's language, not from a frame |
 | 7 | **Confirm the farmer sign-up title** | Farmer sign-up | The Figma frame says "Create a provider account", which looks like a copy slip. Build says "Create an account" |
 | 8 | **Confirm the verification button label** | Email verification | The frame repeats "Get verification code". Build says "Verify" |

@@ -42,7 +42,7 @@ tail -n 1 data/dev-outbox.jsonl
 npm run lint
 npm run typecheck
 npm run build
-npm run test:e2e                # builds first, then runs 75 browser tests on a throwaway database
+npm run test:e2e                # builds first, then runs 86 browser tests on a throwaway database
 npm run check:money             # 47 checks of the money rules, no browser, ~10 seconds
 ```
 

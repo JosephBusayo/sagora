@@ -33,19 +33,6 @@ CREATE TABLE IF NOT EXISTS quote (
 CREATE UNIQUE INDEX IF NOT EXISTS quote_version ON quote (request_id, business_id, version);
 CREATE INDEX IF NOT EXISTS quote_request ON quote (request_id, status);
 CREATE INDEX IF NOT EXISTS quote_business ON quote (business_id, created_at DESC);
-
-CREATE TABLE IF NOT EXISTS agreement (
-  id TEXT PRIMARY KEY,
-  request_id TEXT NOT NULL UNIQUE,
-  quote_id TEXT NOT NULL,
-  business_id TEXT NOT NULL,
-  version INTEGER NOT NULL,
-  amount_minor INTEGER NOT NULL,
-  includes TEXT NOT NULL,
-  start_date TEXT NOT NULL,
-  accepted_by TEXT NOT NULL,
-  accepted_at TEXT NOT NULL
-);
 `);
 
 export type QuoteStatus = "sent" | "superseded" | "withdrawn" | "accepted" | "not_selected";

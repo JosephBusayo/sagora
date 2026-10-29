@@ -47,6 +47,25 @@ CREATE TABLE IF NOT EXISTS provider_business (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+/*
+ * The frozen accepted quote. Its logic lives in lib/quotes.ts, but the table is created here
+ * because lib/jobs.ts, lib/payments.ts and lib/settlement.ts all read it. Leaving the DDL in
+ * the module that owns the logic made the schema depend on which module a request happened to
+ * load first — a farmer's home screen failed on a brand-new database for exactly that reason.
+ * Numbered migration files will replace all of this (see WAITING-ON).
+ */
+CREATE TABLE IF NOT EXISTS agreement (
+  id TEXT PRIMARY KEY,
+  request_id TEXT NOT NULL UNIQUE,
+  quote_id TEXT NOT NULL,
+  business_id TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  amount_minor INTEGER NOT NULL,
+  includes TEXT NOT NULL,
+  start_date TEXT NOT NULL,
+  accepted_by TEXT NOT NULL,
+  accepted_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS audit_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   at TEXT NOT NULL,

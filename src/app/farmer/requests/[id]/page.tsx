@@ -12,6 +12,8 @@ import { confirmDeliveryAction, raiseConcernAction } from "../job-actions";
 import { JOB_STATUS_LABEL, jobForRequest, type JobStatus } from "@/lib/jobs";
 import { bookingFor, methodLabel, paymentsFor } from "@/lib/payments";
 import { releasesFor } from "@/lib/settlement";
+import { Shell } from "@/components/app/Shell";
+import { unreadCount } from "@/lib/notifications";
 
 export const metadata: Metadata = { title: "Request" };
 export const dynamic = "force-dynamic";
@@ -42,10 +44,15 @@ export default async function Page({ params, searchParams }: {
   const refunds = releasesFor(id).filter((r) => r.kind === "refund" && r.status !== "void");
 
   return (
-    <main className="setup">
-      <div className="setup__card setup__card--wide">
-        <h1 className="auth__title">{request.reference}</h1>
-        <p className="auth__subtitle">
+    <Shell
+      crumb={{ label: "My requests", icon: "requests" }}
+      user={{ name: farmer.name }}
+      audience="farmer"
+      unread={unreadCount(farmer)}
+    >
+      <>
+        <h1 className="pagehead__title">{request.reference}</h1>
+        <p className="pagehead__sub">
           {serviceLabel(request.service)} · {request.acres} acres · {request.village}, {districtLabel(request.district)} ·
           {" "}preferred {fmt(request.preferredDate)}
         </p>
@@ -219,8 +226,7 @@ export default async function Page({ params, searchParams }: {
             })}
           </div>
         )}
-        <p className="auth__footer"><Link href="/farmer/requests">Back to my requests</Link></p>
-      </div>
-    </main>
+      </>
+    </Shell>
   );
 }

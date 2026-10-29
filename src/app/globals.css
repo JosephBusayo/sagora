@@ -424,7 +424,14 @@ select.field__input { appearance: auto; }
   border: 1px solid var(--color-hairline); color: var(--color-icon); }
 .topbar__search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: 400 13.5px/1 var(--font-sans); color: var(--color-text); }
 .topbar__actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
-.topbar__round { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--color-hairline); color: var(--color-text); }
+.topbar__round { position: relative; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid var(--color-hairline); color: var(--color-text); }
+a.topbar__round:hover { background: var(--color-nav-active); }
+/* The unread count sits on the bell, as a count rather than a bare dot: "how many" is the
+   question someone coming back after a day actually has. */
+.topbar__dot { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 4px;
+  border-radius: 9px; background: var(--color-brand); color: var(--color-on-brand);
+  font: 600 10px/18px var(--font-sans); text-align: center; }
 .topbar__user { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px 0 5px; border-radius: var(--radius-pill);
   border: 1px solid var(--color-hairline); color: var(--color-text-muted); font: 400 14px/1 var(--font-sans); }
 .topbar__avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #efe061; color: #3f3f1a; font: 600 14px/1 var(--font-sans); }
@@ -637,3 +644,48 @@ a.tab { text-decoration: none; display: inline-block; text-align: center; }
 .money-tile__label { margin: 0; color: var(--color-text-muted); font: var(--text-helper); }
 .panel { margin-top: 26px; padding: 24px 26px; background: var(--color-surface); border: 1px solid var(--color-hairline);
   border-radius: 18px; display: flex; flex-direction: column; gap: 12px; max-width: 640px; }
+
+/* -------- notifications -------- */
+.notif__top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.notif__top .tabs--page { flex: 1; min-width: 220px; max-width: 320px; justify-content: flex-start; gap: 4px; }
+.notif-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; max-width: 900px; }
+.notif { display: flex; align-items: flex-start; gap: 16px; padding: 18px 20px; background: var(--color-surface);
+  border: 1px solid var(--color-hairline); border-radius: 16px; }
+/* Unread is marked by the brand edge, not by shouting: the list is read top to bottom anyway. */
+.notif--unread { border-left: 3px solid var(--color-brand); background: #fcfdf7; }
+.notif__icon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  background: var(--color-chip); color: var(--color-brand); }
+.notif__body { flex: 1; min-width: 0; }
+.notif__head { margin: 0 0 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.notif__kind { font: 500 12px/1 var(--font-sans); text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-brand); }
+.notif__when { color: var(--color-text-muted); font: var(--text-helper); }
+.notif__subject { margin: 0 0 4px; font: 600 15px/1.3 var(--font-sans); }
+.notif__text { margin: 0; color: var(--color-text-muted); font: 400 13.5px/1.5 var(--font-sans); }
+
+/* -------- farmer home -------- */
+.panel--wide { max-width: 1000px; }
+.book-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; max-width: 1000px; margin-bottom: 24px; }
+.book-tile { display: flex; align-items: center; gap: 16px; padding: 22px 24px; background: var(--color-surface);
+  border: 1px solid var(--color-hairline); border-radius: 18px; text-decoration: none; color: inherit; }
+.book-tile:hover { border-color: var(--color-brand); background: #fcfdf7; }
+.book-tile__icon { flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
+  background: var(--color-chip); color: var(--color-brand); }
+.book-tile__text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.book-tile__text strong { font: 600 17px/1.2 var(--font-sans); }
+.book-tile__text span { color: var(--color-text-muted); font: var(--text-helper); }
+.how { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+.how__step { display: flex; align-items: flex-start; gap: 12px; }
+.how__num { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--color-brand); color: var(--color-on-brand); font: 600 12px/1 var(--font-sans); }
+.how__icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
+  background: var(--color-chip); color: var(--color-brand); }
+.how__body { display: flex; flex-direction: column; gap: 3px; }
+.how__body strong { font: 600 15px/1.2 var(--font-sans); }
+.how__body span { color: var(--color-text-muted); font: 400 13px/1.45 var(--font-sans); }
+
+/* -------- provider dashboard -------- */
+.money-tile--link { text-decoration: none; color: inherit; }
+.money-tile--link:hover { border-color: var(--color-brand); background: #fcfdf7; }
+.dash-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; max-width: 1000px; }
+.dash-cols .panel { margin-top: 0; max-width: none; }
+.plain-list__bad { border-color: #f0c6cc; background: #fdf6f6; }

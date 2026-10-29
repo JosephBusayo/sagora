@@ -4,6 +4,8 @@ import { requireFarmer } from "@/lib/session";
 import { formatAmount } from "@/lib/money";
 import { methodLabel } from "@/lib/payments";
 import { transactionsFor } from "@/lib/settlement";
+import { Shell, PageHead } from "@/components/app/Shell";
+import { unreadCount } from "@/lib/notifications";
 
 export const metadata: Metadata = { title: "Payments" };
 export const dynamic = "force-dynamic";
@@ -21,13 +23,14 @@ export default async function Page() {
   const rows = transactionsFor(farmer.id);
 
   return (
-    <main className="setup">
-      <div className="setup__card setup__card--wide">
-        <h1 className="auth__title">Payments</h1>
-        <p className="auth__subtitle">
-          Every payment you have made and every refund sent back to you.
-        </p>
-
+    <Shell
+      crumb={{ label: "Payments", icon: "payments" }}
+      user={{ name: farmer.name }}
+      audience="farmer"
+      unread={unreadCount(farmer)}
+    >
+      <PageHead title="Payments" subtitle="Every payment you have made and every refund sent back to you." />
+      <>
         {rows.length === 0 ? (
           <>
             <p className="empty">
@@ -76,10 +79,7 @@ export default async function Page() {
           </div>
         )}
 
-        <p className="auth__footer">
-          <Link href="/farmer/home">Back to home</Link>
-        </p>
-      </div>
-    </main>
+      </>
+    </Shell>
   );
 }

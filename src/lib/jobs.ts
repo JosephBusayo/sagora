@@ -3,6 +3,9 @@ import { randomUUID } from "node:crypto";
 import { changed, db } from "./db";
 import { audit } from "./business";
 import { getAsset, unavailableReason } from "./equipment";
+// jobs reads service_request as well as its own tables, so the module that owns it is loaded
+// here rather than left to whichever page happened to import what first.
+import "./requests";
 
 /**
  * A job is the work itself: an accepted agreement, scheduled, with specific machines and a
@@ -251,3 +254,54 @@ export function atRiskAssets(businessId: string, job: Job): { name: string; why:
   }
   return out;
 }
+
+export type FarmerBooking = Job & {
+  reference: string; service: string; district: string; village: string; acres: number;
+  businessName: string; businessPhone: string; amountMinor: number; assetNames: string[];
+};
+
+/**
+ * What the farmer calls a booking: work they have agreed to, with the provider's name attached.
+ * Their own requests only — the farmer id comes from the session, never from a form.
+ */
+export function bookingsForFarmer(farmerId: string): FarmerBooking[] {
+  const rows = db
+    .prepare(
+      `SELECT j.*, r.reference, r.service, r.district, r.village, r.acres,
+              b.name AS business_name, b.phone AS business_phone, a.amount_minor
+       FROM job j
+       JOIN service_request r ON r.id = j.request_id
+       JOIN provider_business b ON b.id = j.business_id
+       LEFT JOIN agreement a ON a.request_id = j.request_id
+       WHERE r.farmer_id = ?
+       ORDER BY COALESCE(j.start_date, '9999') ASC, j.created_at DESC`,
+    )
+    .all(farmerId) as (Row & {
+      reference: string; service: string; district: string; village: string; acres: number;
+      business_name: string; business_phone: string; amount_minor: number | null;
+    })[];
+
+  return rows.map((r) => {
+    const job = fromRow(r);
+    const names = job.assetIds.map((id) => {
+      const a = db.prepare("SELECT name FROM equipment WHERE id=?").get(id) as { name: string } | undefined;
+      return a?.name ?? "A machine";
+    });
+    return {
+      ...job,
+      reference: r.reference, service: r.service, district: r.district, village: r.village, acres: r.acres,
+      businessName: r.business_name, businessPhone: r.business_phone,
+      amountMinor: Number(r.amount_minor ?? 0), assetNames: names,
+    };
+  });
+}
+
+/** The four tabs the design gives the farmer's bookings list. */
+export const BOOKING_TABS = [
+  { id: "upcoming", label: "Upcoming", statuses: ["unscheduled", "scheduled"] },
+  { id: "in_progress", label: "In progress", statuses: ["in_progress", "work_reported", "disputed"] },
+  { id: "completed", label: "Completed", statuses: ["completed"] },
+  { id: "cancelled", label: "Cancelled", statuses: ["cancelled"] },
+] as const;
+
+export type BookingTab = (typeof BOOKING_TABS)[number]["id"];
