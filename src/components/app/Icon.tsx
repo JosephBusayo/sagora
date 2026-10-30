@@ -11,6 +11,7 @@
  */
 import {
   IconArrowBoxLeft,
+  IconArrowUpRight,
   IconBell,
   IconBubbleInfo,
   IconBubbleQuestion,
@@ -70,6 +71,8 @@ const ICONS = {
   logout: IconArrowBoxLeft,
   search: IconMagnifyingGlass,
   chevron: IconChevronRight,
+  // "See all" in the design is a diagonal arrow, not a chevron: it leaves this screen.
+  arrowOut: IconArrowUpRight,
   store: IconStore1,
   lock: IconLock,
   plus: IconPlusMedium,

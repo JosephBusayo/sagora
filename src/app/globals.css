@@ -11,8 +11,8 @@
   --color-brand: #567621;
   --color-brand-hover: #4a671c; /* (assumed) hover/pressed shade */
   --color-on-brand: #ffffff;
-  --color-text: #000000;
-  --color-text-muted: #636361;
+  --color-text: #191919;
+  --color-text-muted: #949494;
   --color-placeholder: #7f7f7f;
   --color-icon: #7f7f7d;
   --color-error: #b42318; /* (assumed) no error state in the design yet */
@@ -387,61 +387,93 @@ select.field__input { appearance: auto; }
    frames: frame 1728x1117, sidebar 276, panel inset 17, topbar 96,
    content padding 57. Colours sampled from the same frames.
 --------------------------------------------------------------------------- */
+/* Read from the Figma file rather than sampled from an export, so these are the design's own
+   values. Two greens do the structural work: #f1f3e8 outlines the shell, #e9ecd7 outlines the
+   cards and separates the table rows, and the same #e9ecd7 fills the active nav item. */
 :root {
   --color-nav-active: #e9ecd7;
-  --color-nav-text: #3f3f3d;
-  --color-chip: #e5f6c2;      /* avatar + settings icon circle */
-  --color-pill-bg: #cfe6ca;   /* "Active" status pill */
-  --color-pill-text: #2f5d23;
-  --color-field-soft: #f5f5f5; /* settings + modal inputs are filled, not outlined */
-  --color-hairline: #eceee4;
+  --color-nav-text: #6d6e6b;     /* resting sidebar label */
+  --color-nav-group: #929391;    /* "General" / "Personal" */
+  --color-chip: #e6f6c2;         /* the round icon tile behind a card's icon */
+  --color-pill-bg: #d0e6ca;      /* a settled, good-news status */
+  --color-pill-text: #567621;
+  --color-pill-warn-bg: #ffeebc; /* in progress */
+  --color-pill-warn-text: #664600;
+  --color-field-soft: #f5f5f5;   /* settings + modal inputs are filled, not outlined */
+  --color-hairline: #e9ecd7;     /* cards, table rows */
+  --color-shell-line: #f1f3e8;   /* the panel, top bar and the controls in it */
+  --color-heading: #191919;
+  --color-card-title: #2d2e29;
+  --color-crumb: #a3a3a3;
+  --color-table-head: #6b6b6b;
+  --color-avatar-bg: #f7e344;
+  --color-avatar-line: #fff28f;
+
+  /* The card shadow is soft and almost colourless: a wide, barely-there lift rather than a
+     drop. The smaller one is for the pill-shaped controls in the top bar. */
+  --shadow-card: 0 8px 8.5px #f5f5f5;
+  --shadow-control: 0 2px 4px #f2f2f2;
+
+  --radius-card: 22px;
+  --radius-shell: 33px;
+  --radius-control: 25px;
+
   --sidebar-w: 276px;
 }
 
 .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; background: var(--color-bg); }
 
 /* -------- sidebar -------- */
-.nav { display: flex; flex-direction: column; gap: 22px; padding: 26px 16px 24px; }
+/* Sidebar, at the design's measurements: 248 wide, 36-tall rows with a 10px radius, a 20px
+   icon and 10px to the label. */
+.nav { display: flex; flex-direction: column; gap: 24px; padding: 37px 14px 24px; }
 .nav__brand { display: flex; align-items: center; gap: 10px; padding: 0 10px; color: var(--color-brand); font: 600 22px/1 var(--font-sans); }
 .nav__brand .icon { width: 26px; height: 26px; }
-.nav__group { display: flex; flex-direction: column; gap: 6px; }
-.nav__title { margin: 0 0 2px; padding: 0 10px; font: 400 12px/1 var(--font-sans); color: var(--color-placeholder); }
-.nav__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.nav__item { display: flex; align-items: center; gap: 12px; width: 100%; height: 38px; padding: 0 10px; border: 0; border-radius: 8px;
-  background: transparent; color: var(--color-nav-text); font: 400 13.5px/1 var(--font-sans); text-align: left; cursor: pointer; }
+.nav__group { display: flex; flex-direction: column; gap: 8px; }
+.nav__title { margin: 0 0 0 8px; padding: 0; font: 500 14px/1 var(--font-sans); letter-spacing: -0.28px; color: var(--color-nav-group); }
+.nav__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.nav__item { display: flex; align-items: center; gap: 10px; width: 100%; height: 36px; padding: 0 8px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--color-nav-text); font: 500 15px/1 var(--font-sans); letter-spacing: -0.3px; text-align: left; cursor: pointer; }
 .nav__item:hover { background: rgba(86, 118, 33, 0.07); text-decoration: none; }
-.nav__item--active { background: var(--color-nav-active); color: var(--color-brand); font-weight: 500; }
-.nav__item .icon { flex: none; width: 18px; height: 18px; }
+.nav__item--active { background: var(--color-nav-active); color: var(--color-brand); }
+.nav__item .icon { flex: none; width: 20px; height: 20px; }
 .nav__spacer { flex: 1; min-height: 20px; }
 
 /* -------- panel + top bar -------- */
-.app__panel { display: flex; flex-direction: column; min-width: 0; margin: 17px 10px 10px 0; background: var(--color-surface);
-  border-radius: var(--radius-panel); overflow: hidden; }
+/* The panel is outlined, not just filled: a 2px line in the palest green, with the design's
+   33px corners. */
+.app__panel { display: flex; flex-direction: column; min-width: 0; margin: 14px 0 10px 0; background: var(--color-surface);
+  border: 2px solid var(--color-shell-line); border-radius: var(--radius-shell); overflow: hidden; }
 /* The left padding matches .app__content's, because in the design the breadcrumb and the page
    title below it sit on the same vertical line. They were 24px and 57px apart before, which is
    what made the whole header look unaligned. */
-.topbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; height: 88px; padding: 0 48px 0 57px;
-  border-bottom: 1px solid var(--color-hairline); }
-.topbar__crumb { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--color-text-muted); font: 400 14px/1 var(--font-sans); }
-.topbar__search { display: flex; align-items: center; gap: 10px; width: 420px; height: 46px; padding: 0 18px; border-radius: var(--radius-pill);
-  border: 1px solid var(--color-hairline); color: var(--color-icon); }
-.topbar__search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: 400 13.5px/1 var(--font-sans); color: var(--color-text); }
+.topbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; height: 80px; padding: 0 48px 0 57px;
+  border-bottom: 2px solid var(--color-shell-line); }
+.topbar__crumb { display: flex; align-items: center; gap: 9px; margin: 0; color: var(--color-crumb); font: 500 14px/1 var(--font-sans); letter-spacing: -0.28px; }
+/* Search and the two round buttons are the same pill: 50 tall, 25 radius, hairline border and
+   the small lift the design gives every control in this bar. */
+.topbar__search { display: flex; align-items: center; gap: 9px; width: 378px; height: 50px; padding: 0 16px; border-radius: var(--radius-control);
+  border: 1px solid var(--color-shell-line); box-shadow: var(--shadow-control); color: var(--color-icon); }
+.topbar__search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: 500 14px/1 var(--font-sans);
+  letter-spacing: -0.28px; color: #373737; }
 .topbar__actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
-.topbar__round { position: relative; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%;
-  border: 1px solid var(--color-hairline); color: var(--color-text); }
+.topbar__round { position: relative; display: grid; place-items: center; width: 51px; height: 50px; border-radius: var(--radius-control);
+  border: 1px solid var(--color-shell-line); box-shadow: var(--shadow-control); color: var(--color-text); }
+.topbar__round .icon { width: 20px; height: 20px; }
 a.topbar__round:hover { background: var(--color-nav-active); }
 /* The unread count sits on the bell, as a count rather than a bare dot: "how many" is the
    question someone coming back after a day actually has. */
 .topbar__dot { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 4px;
   border-radius: 9px; background: var(--color-brand); color: var(--color-on-brand);
   font: 600 10px/18px var(--font-sans); text-align: center; }
-.topbar__user { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px 0 5px; border-radius: var(--radius-pill);
-  border: 1px solid var(--color-hairline); color: var(--color-text-muted); font: 400 14px/1 var(--font-sans); }
+.topbar__user { display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 10px; border-radius: var(--radius-control);
+  border: 1px solid var(--color-shell-line); box-shadow: var(--shadow-control); color: var(--color-text-muted); font: 500 16px/1 var(--font-sans); }
 /* flex: none is load-bearing. Without it a long name squeezes the avatar narrower than it is
    tall, and the circle renders as an egg. */
-.topbar__avatar { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
-  background: #efe061; color: #3f3f1a; font: 600 14px/1 var(--font-sans); }
-.topbar__name { color: var(--color-text); white-space: nowrap; }
+.topbar__avatar { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 20px;
+  border: 1px solid var(--color-avatar-line); background: var(--color-avatar-bg); color: #000;
+  font: 500 16px/1 var(--font-sans); }
+.topbar__name { color: #1d1d1d; letter-spacing: -0.32px; white-space: nowrap; }
 .app__content { flex: 1; min-width: 0; padding: 40px 48px 48px 57px; overflow-x: auto; }
 
 /* -------- page header -------- */
@@ -452,14 +484,16 @@ a.topbar__round:hover { background: var(--color-nav-active); }
 .button--inline .icon { width: 18px; height: 18px; }
 
 /* -------- table -------- */
-.table-card { border: 1px solid var(--color-hairline); border-radius: 18px; overflow: hidden; }
+.table-card { border: 2px solid var(--color-hairline); border-radius: var(--radius-shell); overflow: hidden; }
 .table { width: 100%; border-collapse: collapse; }
 .table th { padding: 26px 20px; background: #f8f8f6; color: var(--color-text); font: 400 15px/1 var(--font-sans); text-align: left; }
 .table td { padding: 18px 20px; border-top: 1px solid var(--color-hairline); font: 400 14px/1.3 var(--font-sans); vertical-align: middle; }
 .table tbody tr:first-child td { border-top: 1px solid var(--color-hairline); }
 .table__person { display: flex; align-items: center; gap: 16px; }
 .table__avatar { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--color-chip); color: var(--color-brand); font: 500 15px/1 var(--font-sans); }
-.pill { display: inline-flex; align-items: center; white-space: nowrap; height: 32px; padding: 0 18px; border-radius: var(--radius-pill); font: 400 13.5px/1 var(--font-sans); }
+/* 35 tall with a 19px radius, as the design draws every status chip. */
+.pill { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; min-width: 100px; height: 35px;
+  padding: 0 10px; border-radius: 19px; font: 500 14px/21px var(--font-sans); }
 .pill--active { background: var(--color-pill-bg); color: var(--color-pill-text); }
 .pill--invited { background: #f6edcb; color: #6b551a; }
 .table__actions { width: 70px; text-align: right; }
@@ -468,10 +502,13 @@ a.topbar__round:hover { background: var(--color-nav-active); }
    the reference, every cell on one line, and a chevron closing the row. The dates and the
    "Preferred date" heading wrapped onto two lines before, which made the rows uneven. */
 .table--requests th, .table--requests td { white-space: nowrap; }
-.table--requests th { padding: 24px 16px; }
-.table--requests td { padding: 8px 16px; height: 65px; }
+.table--requests th { height: 87px; padding: 0 16px; background: #f8f9f6; color: var(--color-table-head);
+  font: 500 16px/21px var(--font-sans); }
+.table--requests td { height: 65px; padding: 0 16px; border-top: 2px solid var(--color-hairline);
+  color: var(--color-heading); font: 500 16px/21px var(--font-sans); }
+.table--requests tbody tr:first-child td { border-top: 0; }
 .table__ref { display: flex; align-items: center; gap: 10px; }
-.table__ref-icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+.table__ref-icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 40px;
   background: var(--color-chip); color: var(--color-brand); }
 .table__go { width: 56px; text-align: right; color: var(--color-icon); }
 .table__go .icon { vertical-align: middle; }
@@ -560,7 +597,7 @@ a.topbar__round:hover { background: var(--color-nav-active); }
 /* status pills: one colour per state, matching the Requests design */
 .pill--awaiting_quotes { background: #f1f1ea; color: #5a5a52; }
 .pill--quotes_sent { background: var(--color-pill-bg); color: var(--color-pill-text); }
-.pill--in_progress { background: #f8ecc4; color: #6b551a; }
+.pill--in_progress { background: var(--color-pill-warn-bg); color: var(--color-pill-warn-text); }
 .pill--completed { background: #cfe0f0; color: #2b4a66; }
 .pill--cancelled { background: #f6d2d6; color: #8a2733; }
 
@@ -686,18 +723,18 @@ a.tab { text-decoration: none; display: inline-block; text-align: center; }
    round icon tile, 14px to the text — so they are one class here. Only the chevron differs. */
 .panel--wide { max-width: 1000px; }
 
-.greeting { margin: 0 0 40px; }
-.greeting__date { margin: 0 0 14px; color: var(--color-text-muted); font: 400 14px/1 var(--font-sans); }
-.greeting__title { margin: 0; font: 600 30px/1.2 var(--font-sans); }
-.greeting__sub { margin: 10px 0 0; color: var(--color-text-muted); font: 400 14px/1.3 var(--font-sans); }
+.greeting { margin: 0 0 31px; }
+.greeting__date { margin: 0 0 28px; color: var(--color-text-muted); font: 500 16px/1 var(--font-sans); letter-spacing: -0.32px; }
+.greeting__title { margin: 0; color: var(--color-heading); font: 600 38px/1.1 var(--font-sans); }
+.greeting__sub { margin: 12px 0 0; color: var(--color-text-muted); font: 500 16px/1.2 var(--font-sans); }
 
 .home-section { margin: 0 0 40px; }
-.home-section__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 14px; }
-.home-section__title { margin: 0; font: 600 17px/1.2 var(--font-sans); }
-.home-section__more { display: inline-flex; align-items: center; gap: 6px; color: var(--color-text); text-decoration: none;
-  font: 500 14px/1 var(--font-sans); }
+.home-section__head { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 0 0 24px; }
+.home-section__title { margin: 0; color: var(--color-heading); font: 500 18px/1.2 var(--font-sans); }
+.home-section__more { display: inline-flex; align-items: center; gap: 10px; color: var(--color-heading); text-decoration: none;
+  font: 500 18px/1 var(--font-sans); }
 .home-section__more:hover { color: var(--color-brand); }
-.home-section__more .icon { width: 15px; height: 15px; }
+.home-section__more .icon { width: 24px; height: 24px; }
 
 /* Two service tiles side by side; three "How it works" steps. */
 .home-cards { display: grid; gap: 34px; }
@@ -705,19 +742,16 @@ a.tab { text-decoration: none; display: inline-block; text-align: center; }
 /* 29px between the three steps, as the design spaces them. */
 .home-cards--three { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 29px; }
 
-.home-card { display: flex; align-items: center; gap: 14px; min-height: 98px; padding: 25px; background: var(--color-surface);
-  border: 1px solid var(--color-hairline); border-radius: 14px; text-decoration: none; color: inherit;
-  box-shadow: 0 1px 2px rgba(28, 28, 26, 0.04), 0 6px 16px rgba(28, 28, 26, 0.04); }
-a.home-card:hover { border-color: var(--color-brand); box-shadow: 0 1px 2px rgba(28, 28, 26, 0.06), 0 10px 22px rgba(28, 28, 26, 0.07); }
-.home-card__icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+.home-card { display: flex; align-items: center; gap: 14px; padding: 24px; background: var(--color-surface);
+  border: 1px solid var(--color-hairline); border-radius: var(--radius-card); text-decoration: none; color: inherit;
+  box-shadow: var(--shadow-card); }
+a.home-card:hover { border-color: var(--color-brand); }
+.home-card__icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 40px;
   background: var(--color-chip); color: var(--color-brand); }
-.home-card__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.home-card__text strong { font: 600 17px/1.2 var(--font-sans); }
-.home-card__text span { color: var(--color-text-muted); font: 400 12.5px/1.4 var(--font-sans); }
-/* The design fits each step's line of explanation on one line, which is what keeps the three
-   cards the same height and the icons on the same line as each other. */
-.home-cards--three .home-card__text strong { font: 600 16px/1.2 var(--font-sans); }
-.home-card > .icon { flex: none; color: var(--color-icon); }
+.home-card__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.home-card__text strong { color: var(--color-card-title); font: 600 20px/1 var(--font-sans); }
+.home-card__text span { color: var(--color-text-muted); font: 500 13px/1.5 var(--font-sans); letter-spacing: -0.26px; }
+.home-card > .icon { flex: none; width: 24px; height: 24px; color: var(--color-icon); }
 
 /* -------- provider dashboard -------- */
 .money-tile--link { text-decoration: none; color: inherit; }

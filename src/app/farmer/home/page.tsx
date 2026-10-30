@@ -98,12 +98,12 @@ export default async function Page() {
           <h2 className="home-section__title">Your recent requests</h2>
           {requests.length > 0 ? (
             <Link href="/farmer/requests" className="home-section__more">
-              See all <Icon name="chevron" size={15} />
+              See all <Icon name="arrowOut" size={24} />
             </Link>
           ) : null}
         </div>
         {requests.length === 0 ? (
-          <p className="empty">You have not asked for any work yet.</p>
+          <div className="table-card"><p className="empty">You have not asked for any work yet.</p></div>
         ) : (
           <div className="table-card">
             <table className="table table--requests">
