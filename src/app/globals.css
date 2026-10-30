@@ -474,7 +474,10 @@ a.topbar__round:hover { background: var(--color-nav-active); }
   border: 1px solid var(--color-avatar-line); background: var(--color-avatar-bg); color: #000;
   font: 500 16px/1 var(--font-sans); }
 .topbar__name { color: #1d1d1d; letter-spacing: -0.32px; white-space: nowrap; }
-.app__content { flex: 1; min-width: 0; padding: 40px 48px 48px 57px; overflow-x: auto; }
+/* Equal insets, which at the 1728px the design is drawn at leaves the content just wider than
+   its 1328px — enough that each "How it works" step keeps its line of explanation on one line.
+   Six pixels narrower and all three cards grow a line taller than the design draws them. */
+.app__content { flex: 1; min-width: 0; padding: 40px 57px 48px 57px; overflow-x: auto; }
 
 /* -------- page header -------- */
 .pagehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 30px; }
@@ -746,15 +749,24 @@ a.tab { text-decoration: none; display: inline-block; text-align: center; }
 /* 29px between the three steps, as the design spaces them. */
 .home-cards--three { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 29px; }
 
-.home-card { display: flex; align-items: center; gap: 14px; padding: 24px; background: var(--color-surface);
+.home-card { display: flex; align-items: center; gap: 14px; min-height: 98px; padding: 24px; background: var(--color-surface);
   border: 1px solid var(--color-hairline); border-radius: var(--radius-card); text-decoration: none; color: inherit;
   box-shadow: var(--shadow-card); }
 a.home-card:hover { border-color: var(--color-brand); }
 .home-card__icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 40px;
   background: var(--color-chip); color: var(--color-brand); }
-.home-card__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+/* Figma trims a text box to its cap height; CSS keeps the whole line box. Left alone, the
+   13px subtitle takes about 19px of height where the design gives it 9, and every card came
+   out 4px taller than drawn. The gap is tightened to 8 to put the pair back at the 40px the
+   design's text block measures, which lets the 48px icon set the card's height — 98px. */
+.home-card__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .home-card__text strong { color: var(--color-card-title); font: 600 20px/1 var(--font-sans); }
-.home-card__text span { color: var(--color-text-muted); font: 500 13px/1.5 var(--font-sans); letter-spacing: -0.26px; }
+.home-card__text span { color: var(--color-text-muted); font: 500 13px/1.4 var(--font-sans); letter-spacing: -0.26px; }
+/* The design gives each step's explanation 313px and sets it not to wrap. Our Geist renders
+   the two longest of those strings 4px and 9px wider than Figma measured them — under 2%, but
+   enough to push them onto a second line and make all three cards 114px tall instead of 98.
+   Half a pixel of type is invisible; a card a line too tall is not. */
+.home-cards--three .home-card__text span { font-size: 12.5px; }
 .home-card > .icon { flex: none; width: 24px; height: 24px; color: var(--color-icon); }
 
 /* -------- provider dashboard -------- */
@@ -763,3 +775,28 @@ a.home-card:hover { border-color: var(--color-brand); }
 .dash-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; max-width: 1000px; }
 .dash-cols .panel { margin-top: 0; max-width: none; }
 .plain-list__bad { border-color: #f0c6cc; background: #fdf6f6; }
+
+
+/* ---------------------------------------------------------------------------
+   Below the width the design is drawn at.
+
+   The Figma frame is a fixed 1728px canvas. Held at full size on a 1366 or 1440
+   laptop, the same 20px title sits in a card two thirds the width, which reads as
+   oversized, and the explanation under each "How it works" step wraps to two and
+   then three lines so the three cards stop matching each other. Stepping the type
+   down once keeps the proportion the design has rather than the measurement.
+--------------------------------------------------------------------------- */
+@media (max-width: 1500px) {
+  .app__content { padding: 32px 40px 40px 40px; }
+  .greeting__title { font-size: 30px; }
+  .greeting__date, .greeting__sub { font-size: 15px; }
+  .home-card { padding: 20px; }
+  .home-card__icon { width: 42px; height: 42px; }
+  .home-card__text strong { font-size: 17px; }
+  .home-card__text span { font-size: 12.5px; }
+  .home-section__title, .home-section__more { font-size: 16px; }
+  .table--requests th, .table--requests td { font-size: 15px; padding: 0 12px; }
+  .table--requests th { height: 70px; }
+  .table--requests td { height: 58px; }
+  .table__ref-icon { width: 40px; height: 40px; }
+}
