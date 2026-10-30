@@ -149,7 +149,9 @@ export async function signIn(audience: Audience, fd: FormData): Promise<FormStat
   }
 
   if (needsVerification) {
-    // Better Auth has already emailed a fresh code for the unverified account.
+    // The code from sign-up has usually expired by now, so this screen needs a fresh one. Better
+    // Auth does not send one here by itself. A failed send still lands on the screen with Resend.
+    await auth.api.sendVerificationOTP({ body: { email, type: "email-verification" } }).catch(() => {});
     await setPending({ email, purpose: "verify", audience });
     redirect(r.verify);
   }

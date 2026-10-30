@@ -80,3 +80,13 @@ report. What the database shows, 30 Oct 2026:
 and queued its code, but the row stayed at `attempts: 0`. `notify` started sending with
 `void drain()`, and Vercel freezes a function once the response is sent. `waitUntil` fixes it.
 Nothing drains the queue on a timer, so a failed send also waits for the next event.
+
+**Email proven, 30 Oct 2026, 15:58 UTC.** After `d24aaa5` the staff code was sent and entered, and
+the staff session is verified. The queue also shows the retry to the second Gmail address accepted
+by Resend, after its earlier 403. So the "one inbox" limit above may not hold: confirm by checking
+whether that address actually receives mail. The cause of the first 403 is unknown.
+
+**The 403 explained, 30 Oct 2026.** Resend's own message: testing emails can only go to the
+account's own address, `josephbusayojayeoba@gmail.com`, until a domain is verified. So the key is
+good and the "one inbox" limit stands. The earlier "sent" on a retry to the other Gmail is
+unexplained. Reading login codes out of the production queue is blocked for agents.
