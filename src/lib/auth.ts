@@ -2,6 +2,7 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { emailOTP } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
+import { siteUrl } from "./site";
 import { authConnection } from "./db";
 import { notify } from "./outbox";
 
@@ -19,7 +20,7 @@ const SUBJECTS = {
 
 export const auth = betterAuth({
   appName: "Sagora",
-  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+  baseURL: siteUrl(),
   secret: process.env.BETTER_AUTH_SECRET,
   // Whichever driver lib/db.ts chose: a `pg` Pool when DATABASE_URL is set, Node's SQLite
   // otherwise. Better Auth takes either and manages its own four tables.

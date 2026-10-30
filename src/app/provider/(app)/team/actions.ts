@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { siteUrl } from "@/lib/site";
 import { z } from "zod";
 import { requireWorkspace } from "@/lib/guard";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
@@ -47,7 +48,7 @@ export async function inviteMember(_prev: FormState, fd: FormData): Promise<Form
   const created = await createInvite(business.id, user.id, input);
   if (!created) return { error: "That person is already on your team or has already been invited.", values };
 
-  const base = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+  const base = siteUrl();
   await notify({
     kind: "team.invited",
     dedupeKey: `team.invited:${created.id}`,
