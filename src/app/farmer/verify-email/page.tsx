@@ -13,7 +13,7 @@ export default async function Page() {
   if (!(await getPending())) redirect("/farmer/sign-in");
   return (
     <AuthShell
-      image="/auth/verify-email.jpg"
+      image="/auth/farmer-verify-email.jpg"
       title="Email verification"
       subtitle="Enter the verification code sent to your email"
       footer={<Link href="/farmer/sign-in">Back to sign in</Link>}

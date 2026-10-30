@@ -27,17 +27,17 @@ export const QUOTE_STATUS_LABEL: Record<QuoteStatus, string> = {
 export type Quote = {
   id: string; requestId: string; businessId: string; version: number;
   amountMinor: number; includes: string; startDate: string; validUntil: string;
-  note: string; status: QuoteStatus; createdAt: string;
+  note: string; status: QuoteStatus; declinedAt: string | null; createdAt: string;
 };
 
 type Row = {
   id: string; request_id: string; business_id: string; version: number; amount_minor: number;
-  includes: string; start_date: string; valid_until: string; note: string; status: QuoteStatus; created_at: string;
+  includes: string; start_date: string; valid_until: string; note: string; status: QuoteStatus; declined_at: string | null; created_at: string;
 };
 const fromRow = (r: Row): Quote => ({
   id: r.id, requestId: r.request_id, businessId: r.business_id, version: r.version,
   amountMinor: r.amount_minor, includes: r.includes, startDate: r.start_date,
-  validUntil: r.valid_until, note: r.note, status: r.status, createdAt: r.created_at,
+  validUntil: r.valid_until, note: r.note, status: r.status, declinedAt: r.declined_at, createdAt: r.created_at,
 });
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -83,7 +83,9 @@ export async function sendQuote(requestId: string, businessId: string, actorId: 
 
   const existing = await currentQuote(requestId, businessId);
   if (existing?.status === "accepted") return { ok: false, reason: "Your quote has already been accepted." };
-  if (existing?.status === "not_selected") return { ok: false, reason: "The farmer has chosen another provider." };
+  if (existing?.status === "not_selected") {
+    return { ok: false, reason: existing.declinedAt ? "The farmer declined your quote." : "The farmer has chosen another provider." };
+  }
 
   const now = new Date().toISOString();
   const id = randomUUID();
@@ -148,7 +150,36 @@ export async function acceptQuote(quoteId: string, farmerId: string): Promise<Ac
   return { ok: true };
 }
 
+/** The farmer turns one quote down. The request stays open for the others. */
+export async function declineQuote(quoteId: string, farmerId: string): Promise<boolean> {
+  const quote = await getQuote(quoteId);
+  if (!quote) return false;
+  const request = await getRequest(quote.requestId);
+  if (!request || request.farmerId !== farmerId) return false;
+  const res = await db.run("UPDATE quote SET status='not_selected', declined_at=? WHERE id=? AND status='sent'", new Date().toISOString(), quoteId);
+  if (res.changes) await audit(farmerId, "quote.declined", quoteId);
+  return res.changes > 0;
+}
+
 export async function agreementFor(requestId: string): Promise<{ businessId: string; amountMinor: number; version: number; includes: string; startDate: string } | null> {
   const r = await db.get("SELECT business_id, amount_minor, version, includes, start_date FROM agreement WHERE request_id=?", requestId) as { business_id: string; amount_minor: number; version: number; includes: string; start_date: string } | undefined;
   return r ? { businessId: r.business_id, amountMinor: r.amount_minor, version: r.version, includes: r.includes, startDate: r.start_date } : null;
+}
+
+export type ActivityItem = { at: string; text: string };
+
+/**
+ * What has happened on a request, as one provider may see it: the request itself and their own
+ * quotes, never another provider's.
+ */
+export async function activityFor(requestId: string, businessId: string, submittedAt: string): Promise<ActivityItem[]> {
+  const rows = await db.all("SELECT * FROM quote WHERE request_id=? AND business_id=? ORDER BY version ASC", requestId, businessId) as Row[];
+  const items: ActivityItem[] = [{ at: submittedAt, text: "The farmer sent this request" }];
+  for (const q of rows.map(fromRow)) {
+    items.push({ at: q.createdAt, text: q.version === 1 ? "You sent a quote" : `You sent version ${q.version} of your quote` });
+    if (q.declinedAt) items.push({ at: q.declinedAt, text: "The farmer declined your quote" });
+  }
+  const accepted = await db.get("SELECT accepted_at FROM agreement WHERE request_id=? AND business_id=?", requestId, businessId) as { accepted_at: string } | undefined;
+  if (accepted) items.push({ at: accepted.accepted_at, text: "The farmer accepted your quote" });
+  return items.sort((a, b) => b.at.localeCompare(a.at));
 }

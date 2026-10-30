@@ -1,3 +1,4 @@
+import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, landLabel } from "@/lib/land";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/guard";
@@ -5,7 +6,7 @@ import { Shell, PageHead } from "@/components/app/Shell";
 import { Icon } from "@/components/app/Icon";
 import { DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
 import { DATE_WINDOWS, STATUS_LABEL, browse, serviceLabel, type RequestStatus } from "@/lib/requests";
-import { QUOTE_STATUS_LABEL, currentQuote, isExpired, type QuoteStatus } from "@/lib/quotes";
+import { QUOTE_STATUS_LABEL, activityFor, currentQuote, isExpired, type QuoteStatus } from "@/lib/quotes";
 import { formatAmount } from "@/lib/money";
 import { RequestsTable, type RequestRow } from "@/components/requests/RequestsTable";
 import { FilterAutoSubmit } from "@/components/requests/FilterAutoSubmit";
@@ -69,12 +70,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
     service: r.service,
     serviceLabel: serviceLabel(r.service),
     acres: r.acres,
+    landAccess: landLabel(LAND_ACCESS, r.landAccess),
+    landCondition: landLabel(LAND_CONDITION, r.landCondition),
+    landClearance: landLabel(LAND_CLEARANCE, r.landClearance),
     preferredDate: fmt(r.preferredDate),
     alternateDate: r.alternateDate ? fmtLong(r.alternateDate) : null,
     district: districtLabel(r.district),
     village: r.village,
     notes: r.notes,
     submittedOn: fmt(r.createdAt.slice(0, 10)),
+    activity: (await activityFor(r.id, business.id, r.createdAt)).map((a) => ({ when: fmt(a.at.slice(0, 10)), text: a.text })),
     status: r.status,
     statusLabel: STATUS_LABEL[r.status as RequestStatus],
     myQuote: await (async () => {

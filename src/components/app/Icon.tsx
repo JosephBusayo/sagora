@@ -36,26 +36,12 @@ import {
   IconStore1,
   IconSuitcaseWork,
   IconTeam,
+  IconTrashCan,
   IconTruck,
   IconUser,
 } from "@central-icons-react/round-filled-radius-2-stroke-2";
 
-/** The Sagora mark. Brand, not part of the icon library: replace with the designer's SVG. */
-function LogoMark({ size = 24, ...rest }: { size?: number | string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" {...rest}>
-      <g fill="currentColor">
-        <circle cx="12" cy="12" r="2.6" />
-        {[0, 60, 120, 180, 240, 300].map((a) => (
-          <rect key={a} x="11" y="1.5" width="2" height="8" rx="1" transform={`rotate(${a} 12 12)`} />
-        ))}
-      </g>
-    </svg>
-  );
-}
-
 const ICONS = {
-  logo: LogoMark,
   home: IconHomeDoor,
   requests: IconFileDownload,
   quotes: IconNoteText,
@@ -86,6 +72,7 @@ const ICONS = {
   calendarAlt: IconCalendarRepeat,
   village: IconGarage,
   info: IconBubbleInfo,
+  trash: IconTrashCan,
 } as const;
 
 export type IconName = keyof typeof ICONS;

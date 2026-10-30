@@ -49,11 +49,14 @@ const inDays = (n: number) => new Date(Date.now() + n * 86400000).toISOString().
 async function book(page: Page, opts: { service: string; acres: string; district: string; village: string; days: number; notes?: string }) {
   await page.goto("/farmer/book");
   await page.getByLabel("What work do you need?").selectOption(opts.service);
-  await page.getByLabel("Farm size (acres)").fill(opts.acres);
-  await page.getByLabel("Preferred date").fill(inDays(opts.days));
+  await page.getByLabel("Land size").fill(opts.acres);
+  await page.getByLabel("Easy access").check();
+  await page.getByLabel("Cleared").check();
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.getByLabel("District").selectOption(opts.district);
-  await page.getByLabel("Community or village").fill(opts.village);
-  if (opts.notes) await page.getByLabel("Anything the provider should know").fill(opts.notes);
+  await page.getByLabel("Village/town").fill(opts.village);
+  await page.getByLabel("Preferred start date").fill(inDays(opts.days));
+  if (opts.notes) await page.getByLabel("Additional notes").fill(opts.notes);
   await page.getByRole("button", { name: "Send request" }).click();
 }
 
@@ -110,24 +113,35 @@ test("the booking form refuses incomplete and impossible requests", async ({ pag
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${SHOTS}/15-farmer-book.png`, fullPage: true });
 
-  await page.getByRole("button", { name: "Send request" }).click();
+  // The first step will not go on without its answers.
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByText("Choose the work you need")).toBeVisible();
+  await expect(page.getByText("Choose the land access")).toBeVisible();
+  await expect(page.getByText("Choose the land clearance")).toBeVisible();
+
+  await page.getByLabel("What work do you need?").selectOption("ploughing");
+  await page.getByLabel("Land size").fill("5");
+  await page.getByLabel("Moderate access").check();
+  await page.getByLabel("Flat").check();
+  await page.getByLabel("Vegetation remains").check();
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  // The second step: nothing chosen yet.
+  await page.getByRole("button", { name: "Send request" }).click();
   await expect(page.getByText("Choose your district")).toBeVisible();
 
   // A date in the past is refused.
-  await page.getByLabel("What work do you need?").selectOption("ploughing");
-  await page.getByLabel("Farm size (acres)").fill("5");
-  await page.getByLabel("Preferred date").fill(inDays(-5));
+  await page.getByLabel("Preferred start date").fill(inDays(-5));
   await page.getByLabel("District").selectOption("Bombali");
-  await page.getByLabel("Community or village").fill("Mabanta Village");
+  await page.getByLabel("Village/town").fill("Mabanta Village");
   await page.getByRole("button", { name: "Send request" }).click();
   await expect(page.getByText("Choose a date in the future")).toBeVisible();
 
-  // An alternate date before the preferred date is refused.
-  await page.getByLabel("Preferred date").fill(inDays(20));
-  await page.getByLabel("Alternate date").fill(inDays(10));
+  // A latest start date before the preferred one is refused.
+  await page.getByLabel("Preferred start date").fill(inDays(20));
+  await page.getByLabel("Latest start date").fill(inDays(10));
   await page.getByRole("button", { name: "Send request" }).click();
-  await expect(page.getByText("must be on or after the preferred date")).toBeVisible();
+  await expect(page.getByText("must be on or after the preferred start date")).toBeVisible();
 });
 
 test("a farmer books work, gets a reference, and it is emailed", async ({ page }) => {
@@ -179,10 +193,16 @@ test("the provider sees the request, filters it, and opens the details", async (
   await expect(dialog.getByText("Mabanta Village")).toBeVisible();
   await expect(dialog.getByText("First season. Need deep ploughing.")).toBeVisible();
   await expect(dialog.getByText("5 acres")).toBeVisible();
+  await expect(dialog.getByText("Easy access")).toBeVisible();
+  await expect(dialog.getByText("Cleared")).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/18-request-detail.png` });
 
-  // Quoting opens in the My quote tab; Activity is a later stage and stays disabled.
-  await expect(dialog.getByRole("tab", { name: "Activity" })).toBeDisabled();
+  // Activity starts with the farmer's own request.
+  await dialog.getByRole("tab", { name: "Activity" }).click();
+  await expect(dialog.getByText("The farmer sent this request")).toBeVisible();
+  await dialog.getByRole("tab", { name: "Request details" }).click();
+
+  // Quoting opens in the My quote tab.
   await dialog.getByRole("button", { name: "Send a quote" }).click();
   await expect(dialog.getByLabel("Total price (Le)")).toBeVisible();
   await dialog.getByRole("button", { name: "Close" }).click();
@@ -240,4 +260,19 @@ test("a farmer cannot withdraw someone else's request, and the book page is clos
   await expect(other.page.getByText("You have not asked for any work yet.")).toBeVisible();
   await other.ctx.close();
   await page.goto("/farmer/sign-in"); // keep the fixture page on a known screen
+});
+
+test("a farmer edits a request nobody has quoted, in the design's two steps", async ({ page }) => {
+  await signInFarmer(page);
+  await book(page, { service: "ploughing", acres: "7", district: "Kono", village: "Edit Village", days: 33 });
+  await page.getByRole("link", { name: /^SG-/ }).first().click();
+  await page.getByRole("link", { name: "Edit request" }).click();
+  await expect(page.getByRole("heading", { name: "Edit details" })).toBeVisible();
+  await expect(page.getByLabel("Land size")).toHaveValue("7");
+  await page.getByLabel("Land size").fill("9");
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByLabel("Village/town")).toHaveValue("Edit Village");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByRole("heading", { name: "Request details" })).toBeVisible();
+  await expect(page.getByText("9 acres")).toBeVisible();
 });

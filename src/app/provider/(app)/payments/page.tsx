@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireWorkspace } from "@/lib/guard";
 import { Shell, PageHead } from "@/components/app/Shell";
 import { Icon } from "@/components/app/Icon";
 import { formatAmount } from "@/lib/money";
 import { serviceLabel } from "@/lib/requests";
 import { JOB_STATUS_LABEL, type JobStatus } from "@/lib/jobs";
-import { RELEASE_STATUS_LABEL, destinationFor, earningsFor } from "@/lib/settlement";
+import {
+  RELEASE_STATUS_LABEL, destinationFor, earningsFor, getPayoutRequest, openPayoutRequest, walletBalance,
+} from "@/lib/settlement";
+import { requestPayoutAction } from "./actions";
 import { DestinationForm } from "@/components/payments/DestinationForm";
 
 export const metadata: Metadata = { title: "Payments" };
@@ -13,8 +17,12 @@ export const dynamic = "force-dynamic";
 
 const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ withdraw?: string; submitted?: string; error?: string }> }) {
   const { user, business, permission } = await requireWorkspace();
+  const sp = await searchParams;
+  const wallet = await walletBalance(business.id);
+  const open = await openPayoutRequest(business.id);
+  const submitted = sp.submitted ? await getPayoutRequest(business.id, sp.submitted) : null;
   const rows = await earningsFor(business.id);
   const destination = await destinationFor(business.id);
 
@@ -29,8 +37,63 @@ export default async function Page() {
     <Shell crumb={{ label: "Payments", icon: "payments" }} user={{ name: user.name }}>
       <PageHead
         title="Payments"
-        subtitle="What each agreed job is worth, what the farmer has paid, and where your money is. You are paid once the farmer confirms the work."
+        subtitle="View your earnings, payout details and transaction history"
       />
+
+      {sp.error ? <p className="notice notice--error" role="alert">{sp.error}</p> : null}
+      <section className="wallet">
+        <div>
+          <p className="wallet__label">Your wallet</p>
+          <p className="wallet__sub">Total balance</p>
+          <p className="wallet__amount">{formatAmount(wallet)}</p>
+          {open ? <p className="field__helper">Payout request {open.reference} is in progress.</p> : null}
+        </div>
+        <div className="wallet__actions">
+          <a href="#payout-details" className="button button--soft">Payout details</a>
+          {permission === "full_access" && wallet > 0 && destination && !open
+            ? <Link href="/provider/payments?withdraw=1" className="button">Withdraw funds</Link>
+            : <button type="button" className="button" disabled>Withdraw funds</button>}
+        </div>
+      </section>
+
+      {sp.withdraw && destination && wallet > 0 && !open ? (
+        <div className="modal-backdrop">
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="po-confirm">
+            <header className="modal__head">
+              <h2 id="po-confirm">Confirm payout request</h2>
+              <p>Review the details before submitting</p>
+            </header>
+            <dl className="request-rows">
+              <div className="request-row"><dt>Method</dt><dd>{destination.method === "bank" ? destination.bank : "Mobile money"}</dd></div>
+              <div className="request-row"><dt>Account</dt><dd>{destination.accountRef}</dd></div>
+              <div className="request-row"><dt>Payout amount</dt><dd>{formatAmount(wallet)}</dd></div>
+            </dl>
+            <p className="field__helper">This is your current available balance.</p>
+            <div className="request-card__actions">
+              <Link href="/provider/payments" className="button button--soft">Cancel</Link>
+              <form action={requestPayoutAction}><button type="submit" className="button">Submit request</button></form>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {submitted ? (
+        <div className="modal-backdrop">
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="po-done">
+            <header className="modal__head">
+              <h2 id="po-done">Payout request submitted</h2>
+            </header>
+            <dl className="request-rows">
+              <div className="request-row"><dt>Payout amount</dt><dd>{formatAmount(submitted.amountMinor)}</dd></div>
+              <div className="request-row"><dt>Request ID</dt><dd>{submitted.reference}</dd></div>
+              <div className="request-row"><dt>Requested on</dt><dd>{when(submitted.requestedAt)}</dd></div>
+            </dl>
+            <div className="request-card__actions">
+              <Link href="/provider/payments" className="button">Done</Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="money-tiles">
         <article className="money-tile">
@@ -110,8 +173,8 @@ export default async function Page() {
         </div>
       )}
 
-      <section className="panel">
-        <h2 className="quotes__heading">Where your money goes</h2>
+      <section className="panel" id="payout-details">
+        <h2 className="quotes__heading">Payout details</h2>
         <p className="field__helper">
           {destination
             ? `Currently ${destination.method === "bank" ? `${destination.bank} account` : "mobile money"} ${destination.accountRef}, in the name of ${destination.accountName}.`

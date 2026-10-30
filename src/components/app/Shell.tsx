@@ -40,11 +40,11 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, children
             <Icon name={crumb.icon} size={18} />
             <span>{crumb.label}</span>
           </p>
-          {/* Search is not wired up yet: it needs requests, jobs and equipment to exist. */}
-          <div className="topbar__search">
+          {/* A plain GET form, so search works with JavaScript off. */}
+          <form className="topbar__search" action={`${base}/search`} role="search">
             <Icon name="search" size={18} />
-            <input type="search" placeholder="Search requests, jobs, equipments..." aria-label="Search" disabled />
-          </div>
+            <input type="search" name="q" placeholder="Search requests, jobs, equipments..." aria-label="Search" maxLength={80} />
+          </form>
           <div className="topbar__actions">
             <Link
               href={`${base}/notifications`}

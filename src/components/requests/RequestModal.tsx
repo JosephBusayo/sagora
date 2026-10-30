@@ -9,6 +9,9 @@ export type RequestDetail = {
   reference: string;
   serviceLabel: string;
   acres: number;
+  landAccess: string;
+  landCondition: string;
+  landClearance: string;
   preferredDate: string;
   alternateDate: string | null;
   district: string;
@@ -16,6 +19,7 @@ export type RequestDetail = {
   notes: string;
   submittedOn: string;
   service: string;
+  activity: { when: string; text: string }[];
 };
 
 function Row({ icon, label, value }: { icon: IconName; label: string; value: string }) {
@@ -24,6 +28,17 @@ function Row({ icon, label, value }: { icon: IconName; label: string; value: str
       <span className="detail-row__label"><Icon name={icon} size={18} />{label}</span>
       <span className="detail-row__value">{value}</span>
     </div>
+  );
+}
+
+/** Everything about the ground that changes the price, so it stays on screen while pricing. */
+function LandRows({ request }: { request: RequestDetail }) {
+  return (
+    <>
+      <Row icon="info" label="Land access" value={request.landAccess} />
+      <Row icon="info" label="Land condition" value={request.landCondition} />
+      <Row icon="info" label="Land clearance" value={request.landClearance} />
+    </>
   );
 }
 
@@ -56,12 +71,27 @@ export function RequestModal({ request, myQuote, onClose }: { request: RequestDe
           <button type="button" role="tab" aria-selected={tab === "quote"} className={`tab${tab === "quote" ? " tab--on" : ""}`} onClick={() => setTab("quote")}>
             My quote
           </button>
-          {/* Activity is a later stage; shown so the screen matches the design, disabled so it does not pretend. */}
-          <button type="button" role="tab" aria-selected={false} className="tab" disabled title="Activity is not built yet">Activity</button>
+          <button type="button" role="tab" aria-selected={tab === "activity"} className={`tab${tab === "activity" ? " tab--on" : ""}`} onClick={() => setTab("activity")}>
+            Activity
+          </button>
         </div>
 
-        {tab === "quote" ? (
-          <QuoteForm requestId={request.id} existing={myQuote} onDone={onClose} />
+        {tab === "activity" ? (
+          <>
+            <ul className="activity">
+              {request.activity.map((a) => (
+                <li key={`${a.when}-${a.text}`}><span>{a.text}</span><span>{a.when}</span></li>
+              ))}
+            </ul>
+            <div className="form-actions">
+              <button type="button" className="button button--soft" onClick={onClose}>Close</button>
+            </div>
+          </>
+        ) : tab === "quote" ? (
+          <>
+            <div className="detail-list"><LandRows request={request} /></div>
+            <QuoteForm requestId={request.id} existing={myQuote} onDone={onClose} />
+          </>
         ) : (
         <>
         <div className="detail-head">
@@ -75,6 +105,7 @@ export function RequestModal({ request, myQuote, onClose }: { request: RequestDe
         <div className="detail-list">
           <Row icon="serviceType" label="Service type" value={request.serviceLabel} />
           <Row icon="farmSize" label="Farm size" value={`${request.acres} acres`} />
+          <LandRows request={request} />
           <Row icon="calendar" label="Preferred date" value={request.preferredDate} />
           <Row icon="calendarAlt" label="Alternate date" value={request.alternateDate ?? "Not given"} />
           <Row icon="pin" label="District" value={request.district} />

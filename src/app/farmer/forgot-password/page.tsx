@@ -10,7 +10,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
   const { expired } = await searchParams;
   return (
     <AuthShell
-      image="/auth/forgot-password.jpg"
+      image="/auth/farmer-forgot-password.jpg"
       title="Forgot password"
       subtitle="Enter your email to get a one time verification code"
       footer={<Link href="/farmer/sign-in">Back to sign in</Link>}

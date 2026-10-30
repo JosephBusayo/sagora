@@ -31,6 +31,9 @@ export type ServiceRequest = {
   contactEmail: string;
   service: string;
   acres: number;
+  landAccess: string;
+  landCondition: string;
+  landClearance: string;
   preferredDate: string;
   alternateDate: string | null;
   district: string;
@@ -42,13 +45,15 @@ export type ServiceRequest = {
 
 type Row = {
   id: string; reference: string; farmer_id: string | null; contact_name: string; contact_phone: string;
-  contact_email: string; service: string; acres: number; preferred_date: string; alternate_date: string | null;
+  contact_email: string; service: string; acres: number; land_access: string; land_condition: string;
+  land_clearance: string; preferred_date: string; alternate_date: string | null;
   district: string; village: string; notes: string; status: RequestStatus; created_at: string;
 };
 
 const fromRow = (r: Row): ServiceRequest => ({
   id: r.id, reference: r.reference, farmerId: r.farmer_id, contactName: r.contact_name,
   contactPhone: r.contact_phone, contactEmail: r.contact_email, service: r.service, acres: r.acres,
+  landAccess: r.land_access, landCondition: r.land_condition, landClearance: r.land_clearance,
   preferredDate: r.preferred_date, alternateDate: r.alternate_date, district: r.district,
   village: r.village, notes: r.notes, status: r.status, createdAt: r.created_at,
 });
@@ -69,6 +74,9 @@ async function nextReference(t: Queries): Promise<string> {
 export type NewRequest = {
   service: string;
   acres: number;
+  landAccess: string;
+  landCondition: string;
+  landClearance: string;
   preferredDate: string;
   alternateDate: string | null;
   district: string;
@@ -87,14 +95,29 @@ export async function createRequest(farmerId: string | null, input: NewRequest):
     const next = await nextReference(t);
     await t.run(`INSERT INTO service_request
         (id, reference, farmer_id, contact_name, contact_phone, contact_email, service, acres,
+         land_access, land_condition, land_clearance,
          preferred_date, alternate_date, district, village, notes, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, next, farmerId, input.contactName, input.contactPhone, input.contactEmail,
-      input.service, input.acres, input.preferredDate, input.alternateDate, input.district,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, next, farmerId, input.contactName, input.contactPhone, input.contactEmail,
+      input.service, input.acres, input.landAccess, input.landCondition, input.landClearance, input.preferredDate, input.alternateDate, input.district,
       input.village, input.notes, now, now);
     return next;
   });
   await audit(farmerId ?? "guest", "request.created", id, reference);
   return (await getById(id))!;
+}
+
+/** Details only, and only while nobody has priced them: what a provider quoted must not move. */
+export async function updateRequest(
+  farmerId: string, id: string,
+  d: Omit<NewRequest, "contactName" | "contactPhone" | "contactEmail">,
+): Promise<boolean> {
+  const res = await db.run(`UPDATE service_request SET service=?, acres=?, land_access=?, land_condition=?, land_clearance=?,
+       preferred_date=?, alternate_date=?, district=?, village=?, notes=?, updated_at=?
+       WHERE id=? AND farmer_id=? AND status='awaiting_quotes'`,
+    d.service, d.acres, d.landAccess, d.landCondition, d.landClearance, d.preferredDate, d.alternateDate,
+    d.district, d.village, d.notes, new Date().toISOString(), id, farmerId);
+  if (res.changes) await audit(farmerId, "request.edited", id);
+  return res.changes > 0;
 }
 
 export async function getById(id: string): Promise<ServiceRequest | null> {
@@ -154,6 +177,23 @@ export async function browse(filters: Filters, page: number): Promise<{ rows: Se
   const safePage = Math.min(Math.max(1, page), pages);
   const rows = await db.all(`SELECT * FROM service_request ${clause} ORDER BY preferred_date ASC, created_at DESC LIMIT ? OFFSET ?`, ...params, PAGE_SIZE, (safePage - 1) * PAGE_SIZE) as Row[];
   return { rows: rows.map(fromRow), total, pages };
+}
+
+/** Matches a reference, village or district. LIKE wildcards in the search are taken literally. */
+const likeTerm = (q: string) => `%${q.toLowerCase().replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+const REQUEST_MATCH = `(LOWER(reference) LIKE ? ESCAPE '\\' OR LOWER(village) LIKE ? ESCAPE '\\' OR LOWER(district) LIKE ? ESCAPE '\\')`;
+
+export async function searchForFarmer(farmerId: string, q: string): Promise<ServiceRequest[]> {
+  const t = likeTerm(q);
+  const rows = await db.all(`SELECT * FROM service_request WHERE farmer_id=? AND ${REQUEST_MATCH} ORDER BY created_at DESC LIMIT 25`, farmerId, t, t, t) as Row[];
+  return rows.map(fromRow);
+}
+
+/** The same list a provider can browse: no contact details, nothing withdrawn. */
+export async function searchForProvider(q: string): Promise<ServiceRequest[]> {
+  const t = likeTerm(q);
+  const rows = await db.all(`SELECT * FROM service_request WHERE status <> 'cancelled' AND ${REQUEST_MATCH} ORDER BY created_at DESC LIMIT 25`, t, t, t) as Row[];
+  return rows.map(fromRow);
 }
 
 /** A farmer can withdraw their own request while nobody has started work. */

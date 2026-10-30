@@ -427,8 +427,7 @@ select.field__input { appearance: auto; }
 /* Sidebar, at the design's measurements: 248 wide, 36-tall rows with a 10px radius, a 20px
    icon and 10px to the label. */
 .nav { display: flex; flex-direction: column; gap: 24px; padding: 37px 14px 24px; }
-.nav__brand { display: flex; align-items: center; gap: 10px; padding: 0 10px; color: var(--color-brand); font: 600 22px/1 var(--font-sans); }
-.nav__brand .icon { width: 26px; height: 26px; }
+.nav__brand { display: flex; align-items: center; height: 33px; padding: 0 10px; }
 .nav__group { display: flex; flex-direction: column; gap: 8px; }
 .nav__title { margin: 0 0 0 8px; padding: 0; font: 500 14px/1 var(--font-sans); letter-spacing: -0.28px; color: var(--color-nav-group); }
 .nav__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -603,7 +602,23 @@ a.topbar__round:hover { background: var(--color-nav-active); }
    Requests: farmer booking and the provider browse list
 --------------------------------------------------------------------------- */
 .book { max-width: 620px; }
-.book__form { max-width: none; }
+.book__form { max-width: 529px; margin: 0 auto; width: 100%; }
+.book__head { text-align: center; margin-bottom: 18px; }
+.book__head h2 { margin: 0; font: 600 22px/31px var(--font-sans); color: #191919; }
+.book__head p { margin: 4px 0 0; font: 500 14px/21px var(--font-sans); color: #808080; }
+.book__actions { gap: 10px; margin-top: 12px; }
+.book__actions .button { flex: 1; min-width: 0; height: 55px; font: 500 18px/1 var(--font-sans); border-radius: 28px; display: inline-flex; align-items: center; justify-content: center; }
+.book__actions .button:hover { text-decoration: none; }
+.field__suffix { flex: none; font: 500 13px/21px var(--font-sans); color: #808080; }
+.chips { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.chips legend { padding: 0; margin-bottom: 10px; }
+.chips__row { display: flex; flex-wrap: wrap; gap: 12px 20px; }
+.chip { position: relative; display: inline-flex; align-items: center; gap: 10px; padding: 10px; border-radius: 18px; background: #f5f5f5;
+  font: 500 13px/21px var(--font-sans); color: #808080; cursor: pointer; }
+.chip input { position: absolute; left: 10px; width: 24px; height: 24px; margin: 0; opacity: 0; cursor: pointer; }
+.chip__icon { flex: none; width: 24px; height: 24px; border-radius: 50%; background: url(/icons/check-off.svg) center / 24px no-repeat; }
+.chip input:checked + .chip__icon { background-image: url(/icons/check-on.svg); }
+.chip input:focus-visible + .chip__icon { outline: 2px solid var(--color-brand); outline-offset: 2px; }
 .book__rule { margin: 0; padding: 12px 14px; border-radius: var(--radius-field); background: var(--color-bg);
   border: 1px solid var(--color-border); color: var(--color-text-muted); font: var(--text-helper); }
 .home__actions { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
@@ -810,3 +825,69 @@ a.home-card:hover { border-color: var(--color-brand); }
   .table--requests td { height: 58px; }
   .table__ref-icon { width: 40px; height: 40px; }
 }
+
+/* -------- booking modal, over Home (465:11158) -------- */
+.modal--book { max-width: 595px; padding: 38px 33px; border-radius: 33px; }
+.modal--book .book__form { max-width: 529px; }
+
+/* -------- farmer request details (465:14385) -------- */
+.request-card { width: 100%; max-width: 565px; margin: 0 auto 24px; overflow: hidden; border: 1px solid #f2f2f2; border-radius: 33px; background: var(--color-surface);
+  box-shadow: 0 4px 13px rgba(221, 221, 221, 0.58); }
+.request-card__banner { position: relative; height: 183px; overflow: hidden; background: #fafee3; }
+.request-card__body { padding: 25px 45px 36px; }
+.request-card__title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 36px; }
+.request-card__title h1 { margin: 0; font: 600 22px/31px var(--font-sans); color: #191919; }
+.request-card__delete { display: grid; place-items: center; padding: 0; border: 0; background: none; color: #e5001c; cursor: pointer; }
+.request-rows { display: flex; flex-direction: column; gap: 8px; margin: 0 0 36px; }
+.request-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 35px; }
+.request-row dt { font: 500 13px/21px var(--font-sans); color: #808080; }
+.request-row dd { margin: 0; text-align: right; font: 600 13px/21px var(--font-sans); color: #191919; }
+.request-card__actions { display: flex; gap: 10px; }
+.request-card__actions > *, .request-card__actions form .button { flex: 1; width: 100%; }
+.request-card__actions .button { height: 55px; border-radius: 28px; display: inline-flex; align-items: center; justify-content: center; font: 500 18px/1 var(--font-sans); }
+.request-card__actions .button:hover { text-decoration: none; }
+
+/* -------- a provider's offer to a farmer (465:15547) -------- */
+.offer { overflow: hidden; border: 1px solid #f2f2f2; border-radius: 33px; background: var(--color-surface); box-shadow: 0 4px 13px rgba(221, 221, 221, 0.58); }
+.offer--agreed { border-color: var(--color-brand); }
+.offer__price { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 111px; padding: 16px 23px; background: #fafbf6; }
+.offer__price p { margin: 0; font: 500 13px/21px var(--font-sans); color: #808080; }
+.offer__price .offer__amount { font: 600 32px/1.2 var(--font-sans); color: #191919; }
+.offer__body { display: flex; flex-direction: column; gap: 10px; padding: 24px 23px 22px; }
+.offer__body h3 { margin: 0; font: 600 16px/21px var(--font-sans); color: #191919; }
+.offer__meta { display: flex; justify-content: space-between; gap: 12px; margin: 0; font: 500 13px/21px var(--font-sans); color: #808080; }
+.offer__label { margin: 8px 0 0; font: 500 13px/21px var(--font-sans); color: #191919; }
+.offer__text { margin: 0; font: 500 13px/21px var(--font-sans); color: #808080; }
+
+/* -------- search and activity -------- */
+.search-results { list-style: none; margin: 0 0 24px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.search-results li { display: flex; align-items: center; gap: 16px; padding: 14px 18px; border: 2px solid var(--color-hairline); border-radius: 16px; font: 500 14px/21px var(--font-sans); }
+.search-results li > span:nth-child(2) { flex: 1; color: #808080; }
+.activity { list-style: none; margin: 24px 0 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.activity li { display: flex; justify-content: space-between; gap: 16px; font: 500 13px/21px var(--font-sans); }
+.activity li > span:last-child { color: #808080; white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .request-card__body { padding: 22px 20px 26px; }
+  .modal--book { padding: 28px 16px; }
+  .modal-backdrop { padding: 16px; }
+  .chips__row { gap: 10px; }
+  .search-results li { flex-wrap: wrap; }
+}
+
+/* -------- provider wallet (465:6230) -------- */
+.wallet { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; padding: 24px 28px;
+  border: 2px solid #e9ecd7; border-radius: 33px; background: #fafbf6; }
+.wallet p { margin: 0; }
+.wallet__label { font: 600 16px/21px var(--font-sans); color: #191919; }
+.wallet__sub { margin-top: 8px !important; font: 500 13px/21px var(--font-sans); color: #808080; }
+.wallet__amount { font: 600 32px/1.3 var(--font-sans); color: #191919; }
+.wallet__actions { display: flex; gap: 10px; }
+.wallet__actions .button { width: auto; min-width: 170px; height: 52px; display: inline-flex; align-items: center; justify-content: center; font: 500 15px/1 var(--font-sans); }
+.wallet__actions .button:hover { text-decoration: none; }
+
+/* -------- help -------- */
+.help { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+.help > div { padding: 18px 22px; border: 2px solid #e9ecd7; border-radius: 22px; }
+.help dt { font: 600 15px/21px var(--font-sans); color: #191919; }
+.help dd { margin: 6px 0 0; font: 500 14px/21px var(--font-sans); color: #808080; }

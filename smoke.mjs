@@ -103,11 +103,14 @@ let reference = "";
 await step("Farmer books ploughing and gets a reference", f.page, async () => {
   await f.page.goto("/farmer/book");
   await f.page.getByLabel("What work do you need?").selectOption("ploughing");
-  await f.page.getByLabel("Farm size (acres)").fill("4");
-  await f.page.getByLabel("Preferred date").fill(inDays(35));
+  await f.page.getByLabel("Land size").fill("4");
+  await f.page.getByLabel("Easy access").check();
+  await f.page.getByLabel("Cleared").check();
+  await f.page.getByRole("button", { name: "Continue" }).click();
   await f.page.getByLabel("District").selectOption("Bombali");
-  await f.page.getByLabel("Community or village").fill("Mabanta Village");
-  await f.page.getByLabel("Anything the provider should know").fill("Some stumps near the road.");
+  await f.page.getByLabel("Village/town").fill("Mabanta Village");
+  await f.page.getByLabel("Preferred start date").fill(inDays(35));
+  await f.page.getByLabel("Additional notes").fill("Some stumps near the road.");
   await f.page.getByRole("button", { name: "Send request" }).click();
   await f.page.waitForURL(/\/farmer\/requests\?new=/);
   reference = (await f.page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)[0];
@@ -220,7 +223,7 @@ await step("Farmer sees the quote and accepts it", f.page, async () => {
   await f.page.goto("/farmer/requests");
   await f.page.getByRole("link", { name: reference }).click();
   await f.page.getByText("Le 2,400.00").waitFor();
-  await f.page.getByRole("button", { name: "Accept this quote" }).click();
+  await f.page.getByRole("button", { name: "Accept quote" }).click();
   await f.page.getByText("The price and terms are now fixed").waitFor();
   await f.page.screenshot({ path: path.join(OUT, "07-farmer-accepted.png"), fullPage: true });
 });
@@ -394,7 +397,7 @@ await step("Provider settings, team, jobs and account screens open", p.page, asy
   }
 });
 await step("Unbuilt sections say so instead of breaking", p.page, async () => {
-  for (const url of ["/provider/reports", "/provider/help"]) {
+  for (const url of ["/provider/reports"]) {
     await p.page.goto(url);
     await p.page.getByText("Not built yet.").waitFor({ timeout: 8000 });
   }

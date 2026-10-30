@@ -111,10 +111,13 @@ test.beforeAll(async ({ browser }) => {
 
   await f.page.goto("/farmer/book");
   await f.page.getByLabel("What work do you need?").selectOption("ploughing");
-  await f.page.getByLabel("Farm size (acres)").fill("6");
-  await f.page.getByLabel("Preferred date").fill(inDays(40));
+  await f.page.getByLabel("Land size").fill("6");
+  await f.page.getByLabel("Easy access").check();
+  await f.page.getByLabel("Cleared").check();
+  await f.page.getByRole("button", { name: "Continue" }).click();
   await f.page.getByLabel("District").selectOption("Bombali");
-  await f.page.getByLabel("Community or village").fill("Mabanta Village");
+  await f.page.getByLabel("Village/town").fill("Mabanta Village");
+  await f.page.getByLabel("Preferred start date").fill(inDays(40));
   await f.page.getByRole("button", { name: "Send request" }).click();
   reference = (await f.page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
   await f.ctx.close();
@@ -186,7 +189,8 @@ test("the farmer compares both quotes and accepts one", async ({ page, browser }
   await signInFarmer(page);
   await page.goto("/farmer/requests");
   await page.getByRole("link", { name: reference }).click();
-  await expect(page.getByRole("heading", { name: reference })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Request details" })).toBeVisible();
+  await expect(page.getByText(reference)).toBeVisible();
   await expect(page.getByText("Le 1,200.50")).toBeVisible();
   await expect(page.getByText("Le 1,350.00")).toBeVisible();
   await page.waitForLoadState("networkidle");
@@ -194,12 +198,12 @@ test("the farmer compares both quotes and accepts one", async ({ page, browser }
 
   // Accept the cheaper one.
   const cheaper = page.locator("article").filter({ hasText: "Le 1,200.50" });
-  await cheaper.getByRole("button", { name: "Accept this quote" }).click();
+  await cheaper.getByRole("button", { name: "Accept quote" }).click();
   await expect(page.getByRole("status").filter({ hasText: "The price and terms are now fixed" })).toBeVisible();
 
   // The other provider's quote is now closed, and no second accept is offered.
   await expect(page.getByText("You chose another provider.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Accept this quote" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Accept quote" })).toHaveCount(0);
 });
 
 test("the accepted version is frozen, and the provider cannot change it", async ({ page }) => {
@@ -235,10 +239,13 @@ test("an expired quote cannot be accepted", async ({ page, browser }) => {
   await signInFarmer(f.page);
   await f.page.goto("/farmer/book");
   await f.page.getByLabel("What work do you need?").selectOption("ploughing");
-  await f.page.getByLabel("Farm size (acres)").fill("2");
-  await f.page.getByLabel("Preferred date").fill(inDays(45));
+  await f.page.getByLabel("Land size").fill("2");
+  await f.page.getByLabel("Easy access").check();
+  await f.page.getByLabel("Cleared").check();
+  await f.page.getByRole("button", { name: "Continue" }).click();
   await f.page.getByLabel("District").selectOption("Bombali");
-  await f.page.getByLabel("Community or village").fill("Kagbo");
+  await f.page.getByLabel("Village/town").fill("Kagbo");
+  await f.page.getByLabel("Preferred start date").fill(inDays(45));
   await f.page.getByRole("button", { name: "Send request" }).click();
   const ref2 = (await f.page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
   await f.ctx.close();
@@ -254,7 +261,7 @@ test("an expired quote cannot be accepted", async ({ page, browser }) => {
   await f2.page.goto("/farmer/requests");
   await f2.page.getByRole("link", { name: ref2 }).click();
   await expect(f2.page.getByText("This price has expired")).toBeVisible();
-  await expect(f2.page.getByRole("button", { name: "Accept this quote" })).toHaveCount(0);
+  await expect(f2.page.getByRole("button", { name: "Accept quote" })).toHaveCount(0);
   await f2.ctx.close();
 });
 

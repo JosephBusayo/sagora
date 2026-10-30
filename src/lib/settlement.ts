@@ -403,3 +403,62 @@ export async function reconcile(): Promise<Reconciliation> {
     negativeAccounts: negative.map((n) => ({ account: n.account, amountMinor: Number(n.total) })),
   };
 }
+
+/* ------------------------------------------------------- provider withdrawals */
+
+export type PayoutRequest = { id: string; reference: string; businessId: string; amountMinor: number; requestedAt: string };
+
+type PayoutRequestRow = { id: string; reference: string; business_id: string; amount_minor: number; requested_at: string };
+const payoutRequest = (r: PayoutRequestRow): PayoutRequest => ({
+  id: r.id, reference: r.reference, businessId: r.business_id, amountMinor: r.amount_minor, requestedAt: r.requested_at,
+});
+
+/** What Sagora has approved and owes this business right now. */
+export const walletBalance = (businessId: string) => balance(account.payable(businessId));
+
+export async function openPayoutRequest(businessId: string): Promise<PayoutRequest | null> {
+  const r = await db.get("SELECT * FROM payout_request WHERE business_id=? AND status='requested'", businessId) as PayoutRequestRow | undefined;
+  return r ? payoutRequest(r) : null;
+}
+
+export async function getPayoutRequest(businessId: string, reference: string): Promise<PayoutRequest | null> {
+  const r = await db.get("SELECT * FROM payout_request WHERE business_id=? AND reference=?", businessId, reference) as PayoutRequestRow | undefined;
+  return r ? payoutRequest(r) : null;
+}
+
+export async function openPayoutRequests(): Promise<(PayoutRequest & { businessName: string })[]> {
+  const rows = await db.all(`SELECT p.*, b.name AS business_name FROM payout_request p JOIN provider_business b ON b.id = p.business_id
+       WHERE p.status='requested' ORDER BY p.requested_at ASC`) as (PayoutRequestRow & { business_name: string })[];
+  return rows.map((r) => ({ ...payoutRequest(r), businessName: r.business_name }));
+}
+
+/** Records the ask. Money still only moves through a release with two people on it. */
+export async function requestPayout(businessId: string, actorId: string): Promise<Outcome<string>> {
+  const amount = await walletBalance(businessId);
+  if (amount <= 0) return { ok: false, reason: "You have no balance to withdraw yet." };
+  if (!(await destinationFor(businessId))) return { ok: false, reason: "Add your payout details first." };
+
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  try {
+    const reference = await db.tx(async (t) => {
+      await t.run("INSERT INTO reference_counter (name, value) VALUES ('payout', 0) ON CONFLICT(name) DO NOTHING");
+      await t.run("UPDATE reference_counter SET value = value + 1 WHERE name = 'payout'");
+      const row = (await t.get("SELECT value FROM reference_counter WHERE name = 'payout'")) as { value: number };
+      const ref = `PO-${year}-${String(row.value).padStart(3, "0")}`;
+      await t.run(`INSERT INTO payout_request (id, reference, business_id, amount_minor, requested_by, requested_at) VALUES (?,?,?,?,?,?)`,
+        randomUUID(), ref, businessId, amount, actorId, now.toISOString());
+      return ref;
+    });
+    await audit(actorId, "payout.requested", businessId, String(amount));
+    return { ok: true, value: reference };
+  } catch {
+    return { ok: false, reason: "You already have a payout request in progress." };
+  }
+}
+
+export async function closePayoutRequest(actorId: string, id: string): Promise<boolean> {
+  const res = await db.run("UPDATE payout_request SET status='closed', closed_at=? WHERE id=? AND status='requested'", new Date().toISOString(), id);
+  if (res.changes) await audit(actorId, "payout.request_closed", id);
+  return res.changes > 0;
+}

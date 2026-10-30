@@ -12,7 +12,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
   const changed = (await readNotice()) === "password-changed";
   return (
     <AuthShell
-      image="/auth/sign-in.jpg"
+      image="/auth/verify-email.jpg"
       title="Welcome back"
       subtitle="Enter your details to sign in to your account"
       footer={

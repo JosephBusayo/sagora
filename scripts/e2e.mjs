@@ -5,6 +5,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 const DB = "data/test.db";
+// .env.local names the production database, and both `next start` and --env-file would load
+// it. Neither overrides a variable that is already set, so an empty one keeps tests off it.
+// Postgres runs only when DATABASE_URL is set in the shell, on purpose.
+process.env.DATABASE_URL ??= "";
+process.env.DATABASE_URL_UNPOOLED ??= "";
 const postgres = Boolean(process.env.DATABASE_URL);
 
 // The outbox is a file either way; the database is a file only on sqlite.

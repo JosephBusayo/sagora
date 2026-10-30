@@ -4,12 +4,12 @@ import { requireStaff } from "@/lib/session";
 import { formatAmount } from "@/lib/money";
 import { METHODS, awaitingPayment, methodLabel, openCases, paymentsFor } from "@/lib/payments";
 import {
-  FEE_POLICY, RELEASE_STATUS_LABEL, pendingReleases, reconcile, releasesFor,
+  FEE_POLICY, RELEASE_STATUS_LABEL, openPayoutRequests, pendingReleases, reconcile, releasesFor,
 } from "@/lib/settlement";
 import { jobForRequest, JOB_STATUS_LABEL, type JobStatus } from "@/lib/jobs";
 import { signOut } from "@/app/provider/actions";
 import {
-  approveReleaseAction, markSentAction, prepareRefundAction, preparePayoutAction,
+  approveReleaseAction, closePayoutRequestAction, markSentAction, prepareRefundAction, preparePayoutAction,
   recordPaymentAction, resolveCaseAction, reviseReleaseAction, voidReleaseAction,
 } from "../payments-actions";
 
@@ -51,6 +51,7 @@ export default async function Page({
   const collect = await awaitingPayment();
   const cases = await openCases();
   const releases = await pendingReleases();
+  const withdrawals = await openPayoutRequests();
   const books = await reconcile();
 
   // A component cannot await inside its own JSX, so every per-row query is answered first.
@@ -233,6 +234,23 @@ export default async function Page({
 
         {tab === "releases" ? (
           <>
+            {withdrawals.length > 0 ? (
+              <section className="staff__item">
+                <h2>Withdrawal requests</h2>
+                <p className="field__helper">Providers asking for approved money. Send it below as usual, then close the request.</p>
+                <ul className="asset__faults">
+                  {withdrawals.map((w) => (
+                    <li key={w.id}>
+                      <span className="asset__fault-text">{w.reference} · {w.businessName} · {formatAmount(w.amountMinor)}</span>
+                      <form action={closePayoutRequestAction}>
+                        <input type="hidden" name="id" value={w.id} />
+                        <button type="submit" className="resend__button">Close</button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
             {payable.length > 0 ? (
               <section className="staff__item">
                 <h2>Ready to pay out</h2>

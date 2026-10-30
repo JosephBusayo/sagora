@@ -7,6 +7,10 @@ import path from "node:path";
 const PORT = 3200;
 const DB = "data/smoke.db";
 const win = process.platform === "win32";
+// .env.local names the production database, and both `next start` and --env-file would load
+// it. Neither overrides a variable that is already set, so an empty one keeps this run off it.
+process.env.DATABASE_URL ??= "";
+process.env.DATABASE_URL_UNPOOLED ??= "";
 const env = {
   ...process.env,
   DATABASE_PATH: DB,

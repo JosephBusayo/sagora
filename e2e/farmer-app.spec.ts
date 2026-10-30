@@ -157,7 +157,8 @@ test("the home tiles pre-choose the service on the booking form", async ({ page 
   await signIn(page, FARMER, "farmer");
   await page.getByRole("link", { name: /Book harvesting/ }).click();
   await expect(page).toHaveURL(/service=harvesting/);
-  await expect(page.getByLabel("What work do you need?")).toHaveValue("harvesting");
+  await expect(page.getByRole("heading", { name: "Harvesting service" })).toBeVisible();
+  await expect(page.getByLabel("What work do you need?")).toHaveCount(0);
 
   // And the plain link does not pre-choose anything.
   await page.goto("/farmer/book");
@@ -168,10 +169,13 @@ test("a farmer books work and the provider quotes it", async ({ page, browser })
   await signIn(page, FARMER, "farmer");
   await page.goto("/farmer/book");
   await page.getByLabel("What work do you need?").selectOption("ploughing");
-  await page.getByLabel("Farm size (acres)").fill("5");
-  await page.getByLabel("Preferred date").fill(inDays(25));
+  await page.getByLabel("Land size").fill("5");
+  await page.getByLabel("Easy access").check();
+  await page.getByLabel("Cleared").check();
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.getByLabel("District").selectOption("Kenema");
-  await page.getByLabel("Community or village").fill("Dama Village");
+  await page.getByLabel("Village/town").fill("Dama Village");
+  await page.getByLabel("Preferred start date").fill(inDays(25));
   await page.getByRole("button", { name: "Send request" }).click();
   reference = (await page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
 
@@ -244,7 +248,7 @@ test("accepting a quote puts the job under bookings, in the right tab", async ({
   await signIn(page, FARMER, "farmer");
   await page.goto("/farmer/requests");
   await page.getByRole("link", { name: reference }).click();
-  await page.getByRole("button", { name: "Accept this quote" }).click();
+  await page.getByRole("button", { name: "Accept quote" }).click();
   await expect(page.getByRole("status").filter({ hasText: "now fixed" })).toBeVisible();
 
   await page.goto("/farmer/bookings");

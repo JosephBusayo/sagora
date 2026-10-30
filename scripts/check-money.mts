@@ -62,7 +62,7 @@ async function paidJobFixture(label: string) {
   const owner = await user(`Owner ${label}`, "provider");
   const biz = await business(owner, `Business ${label}`);
   const req = await requests.createRequest(farmer, {
-    service: "ploughing", acres: 4, district: "Bo", village: "Testville",
+    service: "ploughing", acres: 4, landAccess: "easy", landCondition: "", landClearance: "cleared", district: "Bo", village: "Testville",
     preferredDate: inDays(20), alternateDate: null, notes: "",
     contactName: `Farmer ${label}`, contactPhone: "76000001", contactEmail: `${farmer}@example.test`,
   });
@@ -136,7 +136,7 @@ console.log("\nPayment received, booking not confirmed");
   const late = await paidJobFixture("late");
   // Something else takes the machine for those dates, so capacity is gone when money arrives.
   const other = await requests.createRequest(late.farmer, {
-    service: "ploughing", acres: 2, district: "Bo", village: "Testville",
+    service: "ploughing", acres: 2, landAccess: "easy", landCondition: "", landClearance: "cleared", district: "Bo", village: "Testville",
     preferredDate: inDays(20), alternateDate: null, notes: "",
     contactName: "Other", contactPhone: "76000002", contactEmail: `${late.farmer}@example.test`,
   });

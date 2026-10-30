@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Create an account" };
 export default function Page() {
   return (
     <AuthShell
-      image="/auth/sign-up.jpg"
+      image="/auth/farmer-sign-up.jpg"
       // The Figma frame reads "Create a provider account" on the farmer screen; that is a
       // copy slip carried over from the provider flow, so the farmer wording is used here.
       title="Create an account"

@@ -100,10 +100,13 @@ test("the same event queued twice only sends once", async ({ page }) => {
 
   await page.goto("/farmer/book");
   await page.getByLabel("What work do you need?").selectOption("ploughing");
-  await page.getByLabel("Farm size (acres)").fill("2");
-  await page.getByLabel("Preferred date").fill(inDays(30));
+  await page.getByLabel("Land size").fill("2");
+  await page.getByLabel("Easy access").check();
+  await page.getByLabel("Cleared").check();
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.getByLabel("District").selectOption("Bombali");
-  await page.getByLabel("Community or village").fill("Outbox Village");
+  await page.getByLabel("Village/town").fill("Outbox Village");
+  await page.getByLabel("Preferred start date").fill(inDays(30));
   await page.getByRole("button", { name: "Send request" }).click();
   const reference = (await page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
 

@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { acceptQuote } from "@/lib/quotes";
+import { acceptQuote, declineQuote } from "@/lib/quotes";
 import { requireFarmer } from "@/lib/session";
 import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
@@ -35,4 +35,25 @@ export async function acceptQuoteAction(fd: FormData) {
     });
   }
   redirect(`/farmer/requests/${requestId}?accepted=1`);
+}
+
+export async function declineQuoteAction(fd: FormData) {
+  const farmer = await requireFarmer();
+  const quoteId = String(fd.get("quoteId") ?? "");
+  const requestId = String(fd.get("requestId") ?? "");
+  if (await declineQuote(quoteId, farmer.id)) {
+    const row = await db.get(`SELECT b.email AS email, r.reference AS reference
+         FROM quote q JOIN provider_business b ON b.id = q.business_id
+         JOIN service_request r ON r.id = q.request_id WHERE q.id = ?`, quoteId) as { email: string; reference: string } | undefined;
+    if (row?.email) {
+      await notify({
+        kind: "quote.declined",
+        dedupeKey: `quote.declined:${quoteId}`,
+        to: row.email,
+        subject: `Your quote for ${row.reference} was declined`,
+        text: `The farmer declined your quote for ${row.reference}.`,
+      });
+    }
+  }
+  redirect(`/farmer/requests/${requestId}`);
 }

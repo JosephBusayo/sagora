@@ -8,7 +8,7 @@ import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
 import { recordPayment, resolveCase } from "@/lib/payments";
 import {
-  approveRelease, getRelease, markSent, prepareRefund, preparePayout, reviseAmount, voidRelease,
+  approveRelease, closePayoutRequest, getRelease, markSent, prepareRefund, preparePayout, reviseAmount, voidRelease,
 } from "@/lib/settlement";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -149,4 +149,10 @@ export async function resolveCaseAction(fd: FormData) {
   const done = await resolveCase(str(fd, "id"), str(fd, "resolution") || "Resolved by staff");
   revalidatePath("/staff/payments");
   back("cases", done ? "Case closed." : "That case was already closed.", done ? "ok" : "err");
+}
+
+export async function closePayoutRequestAction(fd: FormData) {
+  const staff = await requireStaff();
+  await closePayoutRequest(staff.id, String(fd.get("id") ?? ""));
+  revalidatePath("/staff/payments");
 }

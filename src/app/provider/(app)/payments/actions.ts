@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireWorkspace } from "@/lib/guard";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
-import { setDestination } from "@/lib/settlement";
+import { requestPayout, setDestination } from "@/lib/settlement";
 import type { FormState } from "@/app/provider/actions";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -38,4 +39,11 @@ export async function saveDestination(_prev: FormState, fd: FormData): Promise<F
 
   revalidatePath("/provider/payments");
   return { notice: "Saved. Any payout waiting to be sent has gone back for approval." };
+}
+
+export async function requestPayoutAction() {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission !== "full_access") redirect("/provider/payments");
+  const result = await requestPayout(business.id, user.id);
+  redirect(result.ok ? `/provider/payments?submitted=${result.value}` : `/provider/payments?error=${encodeURIComponent(result.reason)}`);
 }

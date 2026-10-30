@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "./Icon";
@@ -38,8 +39,7 @@ export function Sidebar({ audience, signOutAction }: { audience: Audience; signO
   return (
     <nav className="nav" aria-label="Main">
       <Link href={nav.home} className="nav__brand">
-        <Icon name="logo" />
-        <span>Sagora</span>
+        <Image src="/brand/logo-wordmark.svg" alt="Sagora" width={108} height={28} priority />
       </Link>
       {nav.groups.map((g) => (
         <Group key={g.title} title={g.title} items={g.items} pathname={pathname} exact={false} />

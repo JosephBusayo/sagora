@@ -65,10 +65,13 @@ async function agreedJob(browser: Browser, acres: string, village: string): Prom
   await signInFarmer(f.page);
   await f.page.goto("/farmer/book");
   await f.page.getByLabel("What work do you need?").selectOption("ploughing");
-  await f.page.getByLabel("Farm size (acres)").fill(acres);
-  await f.page.getByLabel("Preferred date").fill(inDays(40));
+  await f.page.getByLabel("Land size").fill(acres);
+  await f.page.getByLabel("Easy access").check();
+  await f.page.getByLabel("Cleared").check();
+  await f.page.getByRole("button", { name: "Continue" }).click();
   await f.page.getByLabel("District").selectOption("Bombali");
-  await f.page.getByLabel("Community or village").fill(village);
+  await f.page.getByLabel("Village/town").fill(village);
+  await f.page.getByLabel("Preferred start date").fill(inDays(40));
   await f.page.getByRole("button", { name: "Send request" }).click();
   const reference = (await f.page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
 
@@ -88,7 +91,7 @@ async function agreedJob(browser: Browser, acres: string, village: string): Prom
 
   await f.page.goto("/farmer/requests");
   await f.page.getByRole("link", { name: reference }).click();
-  await f.page.getByRole("button", { name: "Accept this quote" }).click();
+  await f.page.getByRole("button", { name: "Accept quote" }).click();
   await expect(f.page.getByRole("status").filter({ hasText: "now fixed" })).toBeVisible();
   await f.ctx.close();
   return reference;

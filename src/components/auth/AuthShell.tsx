@@ -17,7 +17,7 @@ export function AuthShell({ image, title, subtitle, children, footer }: Props) {
         <div className="auth__form-col">
           <Image
             className="auth__logo"
-            src="/brand/logo-mark.png"
+            src="/brand/logo-mark.svg"
             alt="Sagora"
             width={70}
             height={65}
