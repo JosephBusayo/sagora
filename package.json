@@ -16,7 +16,8 @@
     "check:money": "node scripts/check-money.mjs",
     "db:reset": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/reset.mts",
     "check:sql": "node scripts/check-sql.mjs",
-    "mail": "node scripts/mail.mjs"
+    "mail": "node scripts/mail.mjs",
+    "vercel:env": "node scripts/vercel-env.mjs"
   },
   "dependencies": {
     "@central-icons-react/round-filled-radius-2-stroke-2": "^1.2.22",
