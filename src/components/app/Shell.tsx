@@ -18,6 +18,17 @@ type Props = {
 
 const initial = (name: string) => (name.trim()[0] ?? "?").toUpperCase();
 
+/**
+ * The name as the design writes it: first name, then the initial of the last. "Joseph Jayeoba"
+ * becomes "Joseph J". A full name wraps onto a second line in the space the design allows, and
+ * a wrapped name is what makes the avatar beside it look squashed.
+ */
+function shortName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return parts[0] ?? "";
+  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}`;
+}
+
 export function Shell({ crumb, user, audience = "provider", unread = 0, children }: Props) {
   const base = `/${audience}`;
   return (
@@ -48,7 +59,7 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, children
             </Link>
             <span className="topbar__user">
               <span className="topbar__avatar" aria-hidden="true">{initial(user.name)}</span>
-              <span className="topbar__name">{user.name}</span>
+              <span className="topbar__name" title={user.name}>{shortName(user.name)}</span>
               <Icon name="chevron" size={16} />
             </span>
           </div>

@@ -99,10 +99,58 @@ test("the farmer app lands on home with the designed sidebar", async ({ page }) 
   await expect(nav.getByRole("link", { name: "Equipment" })).toHaveCount(0);
   await expect(nav.getByRole("link", { name: "Team" })).toHaveCount(0);
 
-  await expect(page.getByRole("heading", { name: `Welcome, ${FARMER.name.split(" ")[0]}` })).toBeVisible();
+  // The design greets by time of day above a dated line, so the heading is one of three.
+  await expect(
+    page.getByRole("heading", { name: new RegExp(`Good (morning|afternoon|evening), ${FARMER.name.split(" ")[0]}`) }),
+  ).toBeVisible();
   await expect(page.getByText("How it works")).toBeVisible();
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${SHOTS}/33-farmer-home.png`, fullPage: true });
+});
+
+test("the home screen says what the design says", async ({ page }) => {
+  // This screen was once rewritten in our own words, which read fine and was not the product
+  // the designer drew. These are the designer's strings, from the Figma frame, so a rewrite
+  // has to be a deliberate decision rather than something nobody notices.
+  await signIn(page, FARMER, "farmer");
+
+  for (const line of [
+    "Get farm work done with trusted service providers in your area",
+    "Book ploughing service",
+    "Prepare your land for planting",
+    "Book harvesting service",
+    "Harvest your crops efficiently",
+    "Tell us what you need",
+    "Choose service, farm size, location and preferred date",
+    "Receive quotes",
+    "Verified service providers in your area will send quotes",
+    "Choose a provider",
+    "Compare quotes and get work done",
+    "Your recent requests",
+  ]) {
+    await expect(page.getByText(line, { exact: true }).first()).toBeVisible();
+  }
+
+  // Today's date, spelled out above the greeting.
+  const today = new Date().toLocaleDateString("en-GB", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Freetown",
+  });
+  await expect(page.getByText(today, { exact: true })).toBeVisible();
+
+  // "How it works" comes before the requests table, as the design orders them: someone who has
+  // never used this needs the explanation first, and their table is empty anyway.
+  const order = await page.evaluate(() => {
+    const text = document.body.innerText;
+    return { how: text.indexOf("How it works"), recent: text.indexOf("Your recent requests") };
+  });
+  expect(order.how).toBeGreaterThan(-1);
+  expect(order.how).toBeLessThan(order.recent);
+
+  // The sidebar's Personal group, in full.
+  const nav = page.getByRole("navigation", { name: "Main" });
+  for (const label of ["General settings", "Help & support", "Account"]) {
+    await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
+  }
 });
 
 test("the home tiles pre-choose the service on the booking form", async ({ page }) => {
@@ -233,9 +281,11 @@ test("a farmer can change their own details but not their sign-in email", async 
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("status")).toContainText("saved");
 
-  // The new name shows in the top bar, which reads it from the session.
+  // The new name shows in the top bar, which reads it from the session. The design shows the
+  // first name and the last initial there, so the full name lives in the title attribute.
   await page.goto("/farmer/home");
-  await expect(page.getByText("Mariama B Bangura")).toBeVisible();
+  await expect(page.getByText("Mariama B", { exact: true })).toBeVisible();
+  await expect(page.getByTitle("Mariama B Bangura")).toBeVisible();
 });
 
 test("a farmer cannot reach the provider's screens through the farmer app", async ({ page }) => {

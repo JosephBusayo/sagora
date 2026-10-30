@@ -417,7 +417,10 @@ select.field__input { appearance: auto; }
 /* -------- panel + top bar -------- */
 .app__panel { display: flex; flex-direction: column; min-width: 0; margin: 17px 10px 10px 0; background: var(--color-surface);
   border-radius: var(--radius-panel); overflow: hidden; }
-.topbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; height: 96px; padding: 0 24px;
+/* The left padding matches .app__content's, because in the design the breadcrumb and the page
+   title below it sit on the same vertical line. They were 24px and 57px apart before, which is
+   what made the whole header look unaligned. */
+.topbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; height: 88px; padding: 0 48px 0 57px;
   border-bottom: 1px solid var(--color-hairline); }
 .topbar__crumb { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--color-text-muted); font: 400 14px/1 var(--font-sans); }
 .topbar__search { display: flex; align-items: center; gap: 10px; width: 420px; height: 46px; padding: 0 18px; border-radius: var(--radius-pill);
@@ -434,8 +437,11 @@ a.topbar__round:hover { background: var(--color-nav-active); }
   font: 600 10px/18px var(--font-sans); text-align: center; }
 .topbar__user { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px 0 5px; border-radius: var(--radius-pill);
   border: 1px solid var(--color-hairline); color: var(--color-text-muted); font: 400 14px/1 var(--font-sans); }
-.topbar__avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #efe061; color: #3f3f1a; font: 600 14px/1 var(--font-sans); }
-.topbar__name { color: var(--color-text); }
+/* flex: none is load-bearing. Without it a long name squeezes the avatar narrower than it is
+   tall, and the circle renders as an egg. */
+.topbar__avatar { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  background: #efe061; color: #3f3f1a; font: 600 14px/1 var(--font-sans); }
+.topbar__name { color: var(--color-text); white-space: nowrap; }
 .app__content { flex: 1; min-width: 0; padding: 40px 48px 48px 57px; overflow-x: auto; }
 
 /* -------- page header -------- */
@@ -457,6 +463,18 @@ a.topbar__round:hover { background: var(--color-nav-active); }
 .pill--active { background: var(--color-pill-bg); color: var(--color-pill-text); }
 .pill--invited { background: #f6edcb; color: #6b551a; }
 .table__actions { width: 70px; text-align: right; }
+
+/* The requests table as the design lays it out (Figma 1:2370): a 48px round icon tile before
+   the reference, every cell on one line, and a chevron closing the row. The dates and the
+   "Preferred date" heading wrapped onto two lines before, which made the rows uneven. */
+.table--requests th, .table--requests td { white-space: nowrap; }
+.table--requests th { padding: 24px 16px; }
+.table--requests td { padding: 8px 16px; height: 65px; }
+.table__ref { display: flex; align-items: center; gap: 10px; }
+.table__ref-icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+  background: var(--color-chip); color: var(--color-brand); }
+.table__go { width: 56px; text-align: right; color: var(--color-icon); }
+.table__go .icon { vertical-align: middle; }
 .icon-button { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--color-text); cursor: pointer; }
 .icon-button:hover { background: var(--color-bg); }
 .empty { padding: 40px 20px; text-align: center; color: var(--color-text-muted); }
@@ -662,26 +680,44 @@ a.tab { text-decoration: none; display: inline-block; text-align: center; }
 .notif__subject { margin: 0 0 4px; font: 600 15px/1.3 var(--font-sans); }
 .notif__text { margin: 0; color: var(--color-text-muted); font: 400 13.5px/1.5 var(--font-sans); }
 
-/* -------- farmer home -------- */
+/* -------- farmer home --------
+   Measured from the Figma frame (1:2267) rather than guessed. The service tiles and the
+   "How it works" steps are the same card in the design — 98px tall, 25px of padding, a 48px
+   round icon tile, 14px to the text — so they are one class here. Only the chevron differs. */
 .panel--wide { max-width: 1000px; }
-.book-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; max-width: 1000px; margin-bottom: 24px; }
-.book-tile { display: flex; align-items: center; gap: 16px; padding: 22px 24px; background: var(--color-surface);
-  border: 1px solid var(--color-hairline); border-radius: 18px; text-decoration: none; color: inherit; }
-.book-tile:hover { border-color: var(--color-brand); background: #fcfdf7; }
-.book-tile__icon { flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
+
+.greeting { margin: 0 0 40px; }
+.greeting__date { margin: 0 0 14px; color: var(--color-text-muted); font: 400 14px/1 var(--font-sans); }
+.greeting__title { margin: 0; font: 600 30px/1.2 var(--font-sans); }
+.greeting__sub { margin: 10px 0 0; color: var(--color-text-muted); font: 400 14px/1.3 var(--font-sans); }
+
+.home-section { margin: 0 0 40px; }
+.home-section__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 14px; }
+.home-section__title { margin: 0; font: 600 17px/1.2 var(--font-sans); }
+.home-section__more { display: inline-flex; align-items: center; gap: 6px; color: var(--color-text); text-decoration: none;
+  font: 500 14px/1 var(--font-sans); }
+.home-section__more:hover { color: var(--color-brand); }
+.home-section__more .icon { width: 15px; height: 15px; }
+
+/* Two service tiles side by side; three "How it works" steps. */
+.home-cards { display: grid; gap: 34px; }
+.home-cards--two { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+/* 29px between the three steps, as the design spaces them. */
+.home-cards--three { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 29px; }
+
+.home-card { display: flex; align-items: center; gap: 14px; min-height: 98px; padding: 25px; background: var(--color-surface);
+  border: 1px solid var(--color-hairline); border-radius: 14px; text-decoration: none; color: inherit;
+  box-shadow: 0 1px 2px rgba(28, 28, 26, 0.04), 0 6px 16px rgba(28, 28, 26, 0.04); }
+a.home-card:hover { border-color: var(--color-brand); box-shadow: 0 1px 2px rgba(28, 28, 26, 0.06), 0 10px 22px rgba(28, 28, 26, 0.07); }
+.home-card__icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
   background: var(--color-chip); color: var(--color-brand); }
-.book-tile__text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
-.book-tile__text strong { font: 600 17px/1.2 var(--font-sans); }
-.book-tile__text span { color: var(--color-text-muted); font: var(--text-helper); }
-.how { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
-.how__step { display: flex; align-items: flex-start; gap: 12px; }
-.how__num { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
-  background: var(--color-brand); color: var(--color-on-brand); font: 600 12px/1 var(--font-sans); }
-.how__icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
-  background: var(--color-chip); color: var(--color-brand); }
-.how__body { display: flex; flex-direction: column; gap: 3px; }
-.how__body strong { font: 600 15px/1.2 var(--font-sans); }
-.how__body span { color: var(--color-text-muted); font: 400 13px/1.45 var(--font-sans); }
+.home-card__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.home-card__text strong { font: 600 17px/1.2 var(--font-sans); }
+.home-card__text span { color: var(--color-text-muted); font: 400 12.5px/1.4 var(--font-sans); }
+/* The design fits each step's line of explanation on one line, which is what keeps the three
+   cards the same height and the icons on the same line as each other. */
+.home-cards--three .home-card__text strong { font: 600 16px/1.2 var(--font-sans); }
+.home-card > .icon { flex: none; color: var(--color-icon); }
 
 /* -------- provider dashboard -------- */
 .money-tile--link { text-decoration: none; color: inherit; }

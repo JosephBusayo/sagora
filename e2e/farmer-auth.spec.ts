@@ -76,7 +76,7 @@ test("farmer signs up, verifies, and reaches the farmer home as a farmer account
 
   await enterCode(page, F.email);
   await expect(page).toHaveURL(/\/farmer\/home$/);
-  await expect(page.getByRole("heading", { name: "Welcome, Aminata" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening), Aminata/ })).toBeVisible();
   expect(await roleOf(F.email)).toBe("farmer");
 });
 

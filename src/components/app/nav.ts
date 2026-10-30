@@ -55,6 +55,7 @@ export const NAV: Record<Audience, { home: string; groups: NavGroup[]; personal:
     ],
     personal: [
       { href: "/farmer/settings", label: "General settings", icon: "settings" },
+      { href: "/farmer/help", label: "Help & support", icon: "help" },
       { href: "/farmer/settings/account", label: "Account", icon: "account" },
     ],
   },
