@@ -11,6 +11,9 @@ import os from "node:os";
 import path from "node:path";
 import * as sdb from "./scripts/smoke-db.mjs";
 
+// From a laptop, every Postgres query crosses to the database and back.
+const WAIT = process.env.DATABASE_URL ? 45_000 : 8_000;
+
 const BASE = "http://localhost:3200";
 // The system temp folder, so this works the same on Windows, macOS and Linux.
 const OUT = path.join(os.tmpdir(), "sagora-smoke");
@@ -68,7 +71,7 @@ async function verify(page, email) {
   await page.getByLabel("Digit 1 of 7").click();
   await page.keyboard.type(c);
   await page.getByRole("button", { name: "Verify" }).click();
-  await page.waitForURL((u) => !u.pathname.includes("verify-email"), { timeout: 8000 });
+  await page.waitForURL((u) => !u.pathname.includes("verify-email"), { timeout: WAIT });
 }
 
 /** Staff screens need a second factor: a code emailed to the staff account itself. */
@@ -79,7 +82,7 @@ async function passStaffCheck(page, email, landing) {
   await page.getByLabel("Digit 1 of 7").click();
   await page.keyboard.type(c);
   await page.getByRole("button", { name: "Verify" }).click();
-  await page.waitForURL((u) => !u.pathname.includes("/staff/verify"), { timeout: 8000 });
+  await page.waitForURL((u) => !u.pathname.includes("/staff/verify"), { timeout: WAIT });
   await page.goto(landing);
 }
 
@@ -192,7 +195,7 @@ await step("Provider adds a tractor to the equipment register", p.page, async ()
   await d.getByLabel("Name", { exact: true }).fill("Blue Massey");
   await d.getByLabel("Registration or serial number").fill("SM-001");
   await d.getByRole("button", { name: "Add machine" }).click();
-  await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: 8000 });
+  await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: WAIT });
   await p.page.reload();
   await p.page.getByText("Blue Massey").waitFor();
   await p.page.screenshot({ path: path.join(OUT, "04-equipment.png"), fullPage: true });
@@ -251,7 +254,7 @@ await step("Provider schedules the work, committing the tractor", p.page, async 
   await d.getByLabel("Work ends").fill(inDays(21));
   await d.getByLabel("Blue Massey").check();
   await d.getByRole("button", { name: "Commit the machines" }).click();
-  await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: 8000 });
+  await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: WAIT });
   await p.page.screenshot({ path: path.join(OUT, "09-job-scheduled.png"), fullPage: true });
 });
 await step("Staff records a part payment, which does not book the job", s.page, async () => {
@@ -310,7 +313,7 @@ await step("Provider reports the work and the farmer confirms it", p.page, async
   const d = p.page.getByRole("dialog");
   await d.getByLabel("How much was done (acres)").fill("6");
   await d.getByRole("button", { name: "Report the work" }).click();
-  await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: 8000 });
+  await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: WAIT });
 
   await f.page.goto("/farmer/requests");
   await f.page.getByRole("link", { name: reference }).click();
@@ -343,7 +346,7 @@ await step("The farmer app has its own sidebar and screens", f.page, async () =>
     ["/farmer/settings/account", "First and last name"],
   ]) {
     await f.page.goto(url);
-    await f.page.getByText(text).first().waitFor({ timeout: 8000 });
+    await f.page.getByText(text).first().waitFor({ timeout: WAIT });
   }
   await f.page.goto("/farmer/home");
   await f.page.waitForLoadState("networkidle");
@@ -351,16 +354,16 @@ await step("The farmer app has its own sidebar and screens", f.page, async () =>
 });
 await step("The booked job shows under the farmer's bookings", f.page, async () => {
   await f.page.goto("/farmer/bookings?tab=completed");
-  await f.page.getByText(reference).first().waitFor({ timeout: 8000 });
+  await f.page.getByText(reference).first().waitFor({ timeout: WAIT });
   await f.page.screenshot({ path: path.join(OUT, "15-farmer-bookings.png"), fullPage: true });
 });
 await step("Both sides see the same events in their notifications", f.page, async () => {
   await f.page.goto("/farmer/notifications");
-  await f.page.getByText(`${reference} is booked`).first().waitFor({ timeout: 8000 });
+  await f.page.getByText(`${reference} is booked`).first().waitFor({ timeout: WAIT });
   await f.page.screenshot({ path: path.join(OUT, "16-farmer-notifications.png"), fullPage: true });
 
   await p.page.goto("/provider/notifications");
-  await p.page.getByText("was accepted").first().waitFor({ timeout: 8000 });
+  await p.page.getByText("was accepted").first().waitFor({ timeout: WAIT });
 });
 await step("A verification code never appears in the notification list", f.page, async () => {
   await f.page.goto("/farmer/notifications");
@@ -370,7 +373,7 @@ await step("A verification code never appears in the notification list", f.page,
 });
 await step("The provider dashboard counts real work, not invented numbers", p.page, async () => {
   await p.page.goto("/provider/dashboard");
-  await p.page.getByText("Needs attention").waitFor({ timeout: 8000 });
+  await p.page.getByText("Needs attention").waitFor({ timeout: WAIT });
   await p.page.getByText("Money on its way to you").waitFor();
   await p.page.waitForLoadState("networkidle");
   await p.page.screenshot({ path: path.join(OUT, "17-provider-dashboard.png"), fullPage: true });
@@ -392,14 +395,14 @@ await step("Provider settings, team, jobs and account screens open", p.page, asy
   ]) {
     await p.page.goto(url);
     // The dashboard greets the person by name and time of day rather than naming the business.
-    if (heading === null) await p.page.getByText(/Good (morning|afternoon|evening),/).first().waitFor({ timeout: 8000 });
-    else await p.page.getByRole("heading", { name: heading, level: 1 }).waitFor({ timeout: 8000 });
+    if (heading === null) await p.page.getByText(/Good (morning|afternoon|evening),/).first().waitFor({ timeout: WAIT });
+    else await p.page.getByRole("heading", { name: heading, level: 1 }).waitFor({ timeout: WAIT });
   }
 });
 await step("Unbuilt sections say so instead of breaking", p.page, async () => {
   for (const url of ["/provider/reports"]) {
     await p.page.goto(url);
-    await p.page.getByText("Not built yet.").waitFor({ timeout: 8000 });
+    await p.page.getByText("Not built yet.").waitFor({ timeout: WAIT });
   }
 });
 await step("Signing out closes the workspace", p.page, async () => {

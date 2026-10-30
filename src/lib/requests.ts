@@ -64,7 +64,7 @@ export const serviceLabel = (id: string) => SERVICES.find((s) => s.id === id)?.l
  * Human reference, as in the design: SG-1048. Takes the transaction it must run in, so the
  * number and the request it belongs to are allocated together or not at all.
  */
-async function nextReference(t: Queries): Promise<string> {
+export async function nextReference(t: Queries): Promise<string> {
   await t.run("INSERT INTO reference_counter (name, value) VALUES ('request', 1047) ON CONFLICT(name) DO NOTHING");
   await t.run("UPDATE reference_counter SET value = value + 1 WHERE name = 'request'");
   const row = (await t.get("SELECT value FROM reference_counter WHERE name = 'request'")) as { value: number };
@@ -152,7 +152,7 @@ export const PAGE_SIZE = 7;
  * email stay out until there is a reason to share them, which is the quote stage.
  */
 export async function browse(filters: Filters, page: number): Promise<{ rows: ServiceRequest[]; total: number; pages: number }> {
-  const where: string[] = ["status <> 'cancelled'"];
+  const where: string[] = ["status <> 'cancelled'", "private_to IS NULL"];
   const params: (string | number)[] = [];
   if (filters.service && SERVICES.some((s) => s.id === filters.service)) {
     where.push("service = ?");
@@ -192,7 +192,7 @@ export async function searchForFarmer(farmerId: string, q: string): Promise<Serv
 /** The same list a provider can browse: no contact details, nothing withdrawn. */
 export async function searchForProvider(q: string): Promise<ServiceRequest[]> {
   const t = likeTerm(q);
-  const rows = await db.all(`SELECT * FROM service_request WHERE status <> 'cancelled' AND ${REQUEST_MATCH} ORDER BY created_at DESC LIMIT 25`, t, t, t) as Row[];
+  const rows = await db.all(`SELECT * FROM service_request WHERE status <> 'cancelled' AND private_to IS NULL AND ${REQUEST_MATCH} ORDER BY created_at DESC LIMIT 25`, t, t, t) as Row[];
   return rows.map(fromRow);
 }
 

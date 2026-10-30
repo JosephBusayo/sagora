@@ -891,3 +891,9 @@ a.home-card:hover { border-color: var(--color-brand); }
 .help > div { padding: 18px 22px; border: 2px solid #e9ecd7; border-radius: 22px; }
 .help dt { font: 600 15px/21px var(--font-sans); color: #191919; }
 .help dd { margin: 6px 0 0; font: 500 14px/21px var(--font-sans); color: #808080; }
+
+/* -------- jobs: links, schedule grid -------- */
+.jobs-links { display: flex; gap: 20px; margin: 0 0 18px; font: 500 14px/21px var(--font-sans); }
+.schedule { overflow-x: auto; }
+.schedule th, .schedule td { white-space: nowrap; }
+.schedule__busy { background: var(--color-nav-active); color: var(--color-brand); font-weight: 600; }

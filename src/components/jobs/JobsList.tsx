@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Icon } from "@/components/app/Icon";
 import { ScheduleModal } from "./ScheduleModal";
 import { ReportModal } from "./ReportModal";
-import { startWorkAction } from "@/app/provider/(app)/jobs/actions";
+import { noReplacementAction, startWorkAction } from "@/app/provider/(app)/jobs/actions";
 
 export type Option = { id: string; label: string };
 export type JobView = {
@@ -12,6 +12,7 @@ export type JobView = {
   status: string; statusLabel: string; startDate: string | null; endDate: string | null;
   assetNames: string[]; operatorName: string | null; atRisk: { name: string; why: string }[];
   reportedAcres: number | null; workNote: string; concern: string;
+  privateCustomer: string | null; changes: string[];
   schedule: { startDate: string; endDate: string; operatorId: string; assetIds: string[] };
 };
 
@@ -32,7 +33,7 @@ export function JobsList({ jobs, assets, operators, canEdit }: {
   const [reporting, setReporting] = useState<JobView | null>(null);
 
   if (jobs.length === 0) {
-    return <div className="table-card"><p className="empty">No work yet. A job appears here when a farmer accepts your quote.</p></div>;
+    return <div className="table-card"><p className="empty">No work yet. A job appears here when a farmer accepts your quote, or when you add a private job.</p></div>;
   }
 
   return (
@@ -47,6 +48,7 @@ export function JobsList({ jobs, assets, operators, canEdit }: {
               <div className="asset__title">
                 <h3>{j.reference}</h3>
                 <p>{j.serviceLabel} · {j.acres} acres · {j.where}</p>
+                {j.privateCustomer ? <p>Private job · {j.privateCustomer}</p> : null}
               </div>
             </div>
 
@@ -68,6 +70,13 @@ export function JobsList({ jobs, assets, operators, canEdit }: {
                 — replace the machine or move the dates.
               </p>
             ) : null}
+            {j.atRisk.length > 0 && canEdit && !j.privateCustomer ? (
+              <form action={noReplacementAction}>
+                <input type="hidden" name="jobId" value={j.id} />
+                <button type="submit" className="resend__button">No replacement available</button>
+              </form>
+            ) : null}
+            {j.changes.length > 0 ? <p className="field__helper">Changes: {j.changes.join(" · ")}</p> : null}
 
             {j.status === "work_reported" ? (
               <p className="field__helper">
@@ -78,7 +87,7 @@ export function JobsList({ jobs, assets, operators, canEdit }: {
               <p className="notice notice--error" role="status">The farmer raised a concern: {j.concern}</p>
             ) : null}
             {j.status === "completed" ? (
-              <p className="field__helper">The farmer confirmed {j.reportedAcres} acres.</p>
+              <p className="field__helper">{j.privateCustomer ? `Finished: ${j.reportedAcres} acres.` : `The farmer confirmed ${j.reportedAcres} acres.`}</p>
             ) : null}
 
             {canEdit ? (

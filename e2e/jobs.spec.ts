@@ -300,3 +300,28 @@ test("a teammate with view-only access cannot schedule or report", async ({ page
   await expect(card.getByRole("button", { name: "Report work done" })).toHaveCount(0);
   await expect(card.getByRole("button", { name: "Start work" })).toHaveCount(0);
 });
+
+test("a private job blocks machines, stays private, and the schedule shows it", async ({ page }) => {
+  await signInProvider(page);
+  await page.goto("/provider/jobs");
+  await page.getByRole("link", { name: "Add a private job" }).click();
+  await page.getByRole("button", { name: "Add job" }).click();
+  await expect(page.getByText("Enter the customer's name")).toBeVisible();
+
+  await page.getByLabel("Customer name").fill("Private Customer");
+  await page.getByLabel("Service").selectOption("ploughing");
+  await page.getByLabel("Land size (acres)").fill("3");
+  await page.getByLabel("District").selectOption("Bombali");
+  await page.getByLabel("Village/town").fill("Private Village");
+  await page.getByRole("button", { name: "Add job" }).click();
+  await expect(page).toHaveURL(/\/provider\/jobs$/);
+  await expect(page.getByText("Private job · Private Customer")).toBeVisible();
+
+  // Never a lead: it is not in the requests anyone can browse.
+  await page.goto("/provider/search?q=Private%20Village");
+  await expect(page.getByRole("heading", { name: "Requests" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Jobs" })).toBeVisible();
+
+  await page.goto("/provider/jobs/schedule");
+  await expect(page.getByRole("heading", { name: "Schedule" })).toBeVisible();
+});

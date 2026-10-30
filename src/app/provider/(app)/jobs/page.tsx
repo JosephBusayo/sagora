@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireWorkspace } from "@/lib/guard";
 import { Shell, PageHead } from "@/components/app/Shell";
 import { districtLabel } from "@/lib/business";
 import { serviceLabel } from "@/lib/requests";
 import { getAsset, selectableAssets } from "@/lib/equipment";
 import { listMembers } from "@/lib/team";
-import { JOB_STATUS_LABEL, atRiskAssets, listJobs, type JobStatus } from "@/lib/jobs";
+import { JOB_STATUS_LABEL, atRiskAssets, listJobs, machineChanges, type JobStatus } from "@/lib/jobs";
 import { JobsList, type JobView } from "@/components/jobs/JobsList";
 
 export const metadata: Metadata = { title: "Jobs" };
@@ -38,6 +39,8 @@ export default async function Page() {
       assetNames: names,
       operatorName: members.find((m) => m.id === j.operatorId)?.name ?? null,
       atRisk: await atRiskAssets(business.id, j),
+      privateCustomer: j.privateCustomer,
+      changes: (await machineChanges(j.id)).map((c) => `${fmt(c.at.slice(0, 10))}: ${c.detail}`),
       reportedAcres: j.reportedAcres,
       workNote: j.workNote,
       concern: j.concern,
@@ -68,6 +71,10 @@ export default async function Page() {
         title="My Jobs"
         subtitle="View and manage the jobs you have been assigned"
       />
+      <p className="jobs-links">
+        <Link href="/provider/jobs/schedule">Schedule</Link>
+        {permission !== "view_jobs" ? <Link href="/provider/jobs/new">Add a private job</Link> : null}
+      </p>
       <JobsList
         jobs={jobs}
         assets={assetOptions}

@@ -3,9 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db, type Queries } from "./db";
 import { audit } from "./business";
 import { getAsset, unavailableReason } from "./equipment";
-// jobs reads service_request as well as its own tables, so the module that owns it is loaded
-// here rather than left to whichever page happened to import what first.
-import "./requests";
+import { nextReference } from "./requests";
 
 /**
  * A job is the work itself: an accepted agreement, scheduled, with specific machines and a
@@ -84,12 +82,23 @@ export async function jobForRequest(requestId: string): Promise<Job | null> {
   return r ? fromRow(r) : null;
 }
 
-export async function listJobs(businessId: string): Promise<(Job & { reference: string; service: string; district: string; village: string; acres: number })[]> {
-  const rows = await db.all(`SELECT j.*, r.reference, r.service, r.district, r.village, r.acres
+export type ListedJob = Job & {
+  reference: string; service: string; district: string; village: string; acres: number;
+  /** Set for a job the provider entered themselves: there is no farmer to confirm it. */
+  privateCustomer: string | null;
+};
+
+export async function listJobs(businessId: string): Promise<ListedJob[]> {
+  const rows = await db.all(`SELECT j.*, r.reference, r.service, r.district, r.village, r.acres, r.private_to, r.contact_name
        FROM job j JOIN service_request r ON r.id = j.request_id
-       WHERE j.business_id=? ORDER BY COALESCE(j.start_date, '9999') ASC, j.created_at ASC`, businessId) as (Row & { reference: string; service: string; district: string; village: string; acres: number })[];
+       WHERE j.business_id=? ORDER BY COALESCE(j.start_date, '9999') ASC, j.created_at ASC`, businessId) as (Row & {
+      reference: string; service: string; district: string; village: string; acres: number; private_to: string | null; contact_name: string;
+    })[];
   return Promise.all(
-    rows.map(async (r) => ({ ...(await fromRow(r)), reference: r.reference, service: r.service, district: r.district, village: r.village, acres: r.acres })),
+    rows.map(async (r) => ({
+      ...(await fromRow(r)), reference: r.reference, service: r.service, district: r.district, village: r.village, acres: r.acres,
+      privateCustomer: r.private_to ? r.contact_name : null,
+    })),
   );
 }
 
@@ -161,10 +170,61 @@ export async function startWork(businessId: string, actorId: string, jobId: stri
 
 /** The provider says what was done. This is a claim, not a delivery: the farmer decides that. */
 export async function reportWork(businessId: string, actorId: string, jobId: string, acres: number, note: string): Promise<boolean> {
+  const now = new Date().toISOString();
   const res = await db.run(`UPDATE job SET status='work_reported', reported_acres=?, work_note=?, reported_at=?, updated_at=?
-       WHERE id=? AND business_id=? AND status IN ('scheduled','in_progress')`, acres, note, new Date().toISOString(), new Date().toISOString(), jobId, businessId);
-  if (res.changes) await audit(actorId, "job.work_reported", jobId, `${acres} acres`);
-  return res.changes > 0;
+       WHERE id=? AND business_id=? AND status IN ('scheduled','in_progress')`, acres, note, now, now, jobId, businessId);
+  if (!res.changes) return false;
+  await audit(actorId, "job.work_reported", jobId, `${acres} acres`);
+  // A private customer has no account to confirm with, so the provider's report closes it.
+  await db.run(`UPDATE job SET status='completed', confirmed_at=?, updated_at=?
+       WHERE id=? AND request_id IN (SELECT id FROM service_request WHERE private_to IS NOT NULL)`, now, now, jobId);
+  return true;
+}
+
+/* ------------------------------------------------------------ private jobs */
+
+export type PrivateJobInput = {
+  customerName: string; customerPhone: string; service: string; acres: number; district: string; village: string; notes: string;
+};
+
+/** Work from outside Sagora: it blocks machines like any job and is never offered to anyone. */
+export async function createPrivateJob(businessId: string, actorId: string, input: PrivateJobInput): Promise<string> {
+  const now = new Date().toISOString();
+  const requestId = randomUUID();
+  const jobId = randomUUID();
+  await db.tx(async (t) => {
+    const reference = await nextReference(t);
+    await t.run(`INSERT INTO service_request
+        (id, reference, private_to, contact_name, contact_phone, service, acres, preferred_date, district, village, notes, status, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,'in_progress',?,?)`, requestId, reference, businessId, input.customerName, input.customerPhone,
+      input.service, input.acres, now.slice(0, 10), input.district, input.village, input.notes, now, now);
+    await t.run("INSERT INTO job (id, request_id, business_id, created_at, updated_at) VALUES (?,?,?,?,?)", jobId, requestId, businessId, now, now);
+  });
+  await audit(actorId, "job.private_created", jobId);
+  return jobId;
+}
+
+/* --------------------------------------------------------------- breakdowns */
+
+/** Machine swaps on a job, oldest first. The audit log already keeps them for good. */
+export async function machineChanges(jobId: string): Promise<{ at: string; detail: string }[]> {
+  return await db.all("SELECT at, detail FROM audit_log WHERE entity_id=? AND action='job.machine_replaced' ORDER BY at ASC", jobId) as { at: string; detail: string }[];
+}
+
+/** A provider cannot replace a broken machine: hands the job to Sagora, who can arrange a refund. */
+export async function reportNoReplacement(businessId: string, actorId: string, jobId: string): Promise<boolean> {
+  const job = await getJob(businessId, jobId);
+  if (!job) return false;
+  const at = await atRiskAssets(businessId, job);
+  if (at.length === 0) return false;
+  await db.tx(async (t) => {
+    const open = await t.get("SELECT id FROM exception_case WHERE request_id=? AND kind='no_replacement' AND status='open'", job.requestId);
+    if (open) return;
+    await t.run("INSERT INTO exception_case (id, request_id, kind, detail, opened_at) VALUES (?,?,'no_replacement',?,?)",
+      randomUUID(), job.requestId, `No replacement for ${at.map((a) => a.name).join(", ")}`, new Date().toISOString());
+  });
+  await audit(actorId, "job.no_replacement", jobId);
+  return true;
 }
 
 /* --------------------------------------------------------------- the farmer */
