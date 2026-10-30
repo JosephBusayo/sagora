@@ -136,10 +136,11 @@ test("staff asks for changes, provider fixes and resubmits, staff approves", asy
   const s = await fresh(browser);
   await registerAndVerify(s.page, S);
   await testRun(`UPDATE "user" SET role='staff' WHERE email=?`, S.email);
-  await s.page.goto("/provider/sign-in");
+  await s.page.goto("/staff/sign-in");
   await s.page.getByLabel("Email").fill(S.email);
   await s.page.getByLabel("Password", { exact: true }).fill(S.password);
   await s.page.getByRole("button", { name: "Sign in" }).click();
+  await s.page.waitForURL(/\/staff\/verify$/);
   await passStaffCheck(s.page, S.email, "/staff/providers");
   await expect(s.page.getByRole("heading", { name: "Providers waiting for review" })).toBeVisible();
   await s.page.waitForLoadState("networkidle"); // let the review form hydrate before clicking

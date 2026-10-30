@@ -9,6 +9,8 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   workers: 1,
+  // Five seconds is too tight for a laptop building pages on demand.
+  expect: { timeout: 15_000 },
   reporter: [["list"]],
   outputDir: "./e2e/.results",
   use: {

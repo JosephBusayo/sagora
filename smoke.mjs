@@ -10,6 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import * as sdb from "./scripts/smoke-db.mjs";
+import { audit, summarise } from "./scripts/responsive-audit.mjs";
 
 // From a laptop, every Postgres query crosses to the database and back.
 const WAIT = process.env.DATABASE_URL ? 45_000 : 8_000;
@@ -162,10 +163,11 @@ await step("Staff account is created and promoted", s.page, async () => {
   await sdb.run(`UPDATE "user" SET role='staff' WHERE email=?`, STAFF.email);
 });
 await step("A staff password alone does not open the staff screens", s.page, async () => {
-  await s.page.goto("/provider/sign-in");
+  await s.page.goto("/staff/sign-in");
   await s.page.getByLabel("Email").fill(STAFF.email);
   await s.page.getByLabel("Password", { exact: true }).fill(STAFF.pass);
   await s.page.getByRole("button", { name: "Sign in" }).click();
+  await s.page.waitForURL(/\/staff\/verify$/, { timeout: WAIT });
   await s.page.goto("/staff/payments");
   if (!/\/staff\/verify$/.test(s.page.url())) throw new Error(`no second factor: landed on ${s.page.url()}`);
   await s.page.screenshot({ path: path.join(OUT, "03a-staff-verify.png"), fullPage: true });
@@ -398,6 +400,46 @@ await step("Provider settings, team, jobs and account screens open", p.page, asy
     if (heading === null) await p.page.getByText(/Good (morning|afternoon|evening),/).first().waitFor({ timeout: WAIT });
     else await p.page.getByRole("heading", { name: heading, level: 1 }).waitFor({ timeout: WAIT });
   }
+});
+await step("Every page fits every screen, from a small phone up", p.page, async () => {
+  const report = [];
+  await f.page.goto("/farmer/requests");
+  const detail = await f.page.getByRole("link", { name: reference }).first().getAttribute("href");
+  await audit(f.page, [
+    "/farmer/home", "/farmer/book", "/farmer/book?service=ploughing", "/farmer/requests", detail, "/farmer/bookings", "/farmer/payments",
+    "/farmer/notifications", "/farmer/search?q=a", "/farmer/settings", "/farmer/settings/account", "/farmer/settings/password", "/farmer/help",
+  ], report);
+  await audit(p.page, [
+    "/provider/dashboard", "/provider/requests", "/provider/quotes", "/provider/jobs", "/provider/jobs/schedule", "/provider/jobs/new",
+    "/provider/equipment", "/provider/payments", "/provider/notifications", "/provider/team", "/provider/reports", "/provider/help",
+    "/provider/search?q=a", "/provider/settings", "/provider/settings/account", "/provider/settings/business", "/provider/settings/password",
+  ], report);
+  await audit(s.page, ["/staff/providers", "/staff/payments", "/staff/payments?tab=releases", "/staff/payments?tab=books", "/staff/outbox"], report);
+  const guest = await (await browser.newContext({ baseURL: BASE })).newPage();
+  await audit(guest, [
+    "/provider/sign-in", "/provider/sign-up", "/provider/forgot-password", "/farmer/sign-in", "/farmer/sign-up", "/farmer/forgot-password", "/staff/sign-in",
+  ], report);
+  fs.writeFileSync(path.join(OUT, "responsive.json"), JSON.stringify(report, null, 1));
+  // What a phone actually shows, for a person to look at: numbers cannot judge a layout.
+  const shot = async (page, name, url, then) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(url);
+    await page.waitForLoadState("networkidle").catch(() => {});
+    if (then) await then();
+    await page.screenshot({ path: path.join(OUT, `phone-${name}.png`) });
+    await page.setViewportSize({ width: 1440, height: 950 });
+  };
+  await shot(f.page, "home", "/farmer/home");
+  await shot(f.page, "menu", "/farmer/home", () => f.page.locator(".nav__burger").click());
+  await shot(f.page, "book", "/farmer/book?service=ploughing");
+  await shot(f.page, "request", detail);
+  await shot(p.page, "requests", "/provider/requests");
+  await shot(p.page, "modal", "/provider/requests", () => p.page.getByRole("button", { name: /Open request/ }).first().click());
+  await shot(p.page, "payments", "/provider/payments");
+  await shot(p.page, "schedule", "/provider/jobs/schedule");
+  const { failing, small, zooms } = summarise(report);
+  console.log(`      ${report.length} page and width checks: ${failing.length} failing, ${small} small tap targets, ${zooms} fields that zoom on iPhone`);
+  if (failing.length) throw new Error(`${failing.length} checks failed: ${failing.slice(0, 5).map((r) => `${r.url}@${r.width}`).join(", ")}`);
 });
 await step("Unbuilt sections say so instead of breaking", p.page, async () => {
   for (const url of ["/provider/reports"]) {

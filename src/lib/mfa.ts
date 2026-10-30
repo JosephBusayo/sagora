@@ -48,26 +48,22 @@ export type SendResult = { ok: true } | { ok: false; reason: string };
  * already in the person's inbox.
  */
 export async function sendCode(sessionId: string, user: { id: string; name: string; email: string }): Promise<SendResult> {
-  const existing = await rowFor(sessionId);
-  // A live code sent moments ago is reused, so an impatient second click does not invalidate
-  // the one already in the inbox. A code that is spent, expired or burnt by wrong attempts is
-  // replaced whatever the clock says — otherwise asking for a new one would do nothing.
-  const stillUsable =
-    existing?.code_hash &&
-    existing.attempts < MAX_ATTEMPTS &&
-    existing.code_expires_at &&
-    existing.code_expires_at > iso(now());
-  if (stillUsable && existing.last_sent_at && Date.now() - Date.parse(existing.last_sent_at) < RESEND_SECONDS * 1000) {
-    return { ok: true };
-  }
-
   // randomInt is the cryptographic generator; Math.random is not fit for a credential.
   const code = String(randomInt(0, 10 ** OTP_LENGTH)).padStart(OTP_LENGTH, "0");
-  await db.run(`INSERT INTO staff_mfa (session_id, user_id, code_hash, attempts, code_expires_at, last_sent_at)
+  // One statement decides, because two page loads can arrive together: a redirect and a prefetch
+  // would otherwise each email a code, and only the last would work. A live code sent moments ago
+  // is kept, so an impatient second click does not invalidate the one in the inbox. A code that is
+  // spent, expired or burnt by wrong attempts is replaced whatever the clock says.
+  const claimed = await db.run(`INSERT INTO staff_mfa (session_id, user_id, code_hash, attempts, code_expires_at, last_sent_at)
      VALUES (?,?,?,0,?,?)
      ON CONFLICT(session_id) DO UPDATE SET
        code_hash=excluded.code_hash, attempts=0,
-       code_expires_at=excluded.code_expires_at, last_sent_at=excluded.last_sent_at`, sessionId, user.id, hash(code), iso(plus(CODE_MINUTES * 60_000)), iso(now()));
+       code_expires_at=excluded.code_expires_at, last_sent_at=excluded.last_sent_at
+     WHERE staff_mfa.code_hash IS NULL OR staff_mfa.attempts >= ? OR staff_mfa.code_expires_at <= ?
+        OR staff_mfa.last_sent_at IS NULL OR staff_mfa.last_sent_at < ?`,
+    sessionId, user.id, hash(code), iso(plus(CODE_MINUTES * 60_000)), iso(now()),
+    MAX_ATTEMPTS, iso(now()), iso(plus(-RESEND_SECONDS * 1000)));
+  if (!claimed.changes) return { ok: true };
 
   await notify({
     kind: "staff.mfa",

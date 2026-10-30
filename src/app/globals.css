@@ -426,7 +426,11 @@ select.field__input { appearance: auto; }
 /* -------- sidebar -------- */
 /* Sidebar, at the design's measurements: 248 wide, 36-tall rows with a 10px radius, a 20px
    icon and 10px to the label. */
-.nav { display: flex; flex-direction: column; gap: 24px; padding: 37px 14px 24px; }
+.nav { display: flex; flex-direction: column; padding: 37px 14px 24px; }
+.nav__bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.nav__body { flex: 1; display: flex; flex-direction: column; gap: 24px; }
+.nav__toggle { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.nav__burger { display: none; }
 .nav__brand { display: flex; align-items: center; height: 33px; padding: 0 10px; }
 .nav__group { display: flex; flex-direction: column; gap: 8px; }
 .nav__title { margin: 0 0 0 8px; padding: 0; font: 500 14px/1 var(--font-sans); letter-spacing: -0.28px; color: var(--color-nav-group); }
@@ -562,21 +566,6 @@ a.topbar__round:hover { background: var(--color-nav-active); }
 .modal__head p { margin: 0 auto; max-width: 320px; color: var(--color-text-muted); font: 400 14px/1.4 var(--font-sans); }
 .modal .form-soft { max-width: none; }
 
-/* -------- narrow screens: the sidebar becomes a top strip -------- */
-@media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; }
-  .nav { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px; }
-  .nav__group { flex-direction: row; align-items: center; gap: 8px; }
-  .nav__title { display: none; }
-  .nav__list { flex-direction: row; flex-wrap: wrap; }
-  .nav__spacer { display: none; }
-  .app__panel { margin: 0; border-radius: 0; }
-  .topbar { grid-template-columns: 1fr auto; height: auto; padding: 14px; gap: 12px; }
-  .topbar__search { display: none; }
-  .app__content { padding: 20px 16px 40px; }
-  .form-row { grid-template-columns: 1fr; }
-}
-
 /* row action menu */
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .rowmenu { position: relative; display: inline-block; }
@@ -684,7 +673,7 @@ a.topbar__round:hover { background: var(--color-nav-active); }
 
 /* -------- equipment register -------- */
 .equipment__top { display: flex; justify-content: flex-end; margin: -14px 0 20px; }
-.equipment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px; }
+.equipment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr)); gap: 16px; }
 .asset { display: flex; flex-direction: column; gap: 12px; padding: 20px; background: var(--color-surface);
   border: 1px solid var(--color-hairline); border-radius: 16px; }
 .asset--retired { background: #fbfbf8; }
@@ -720,7 +709,7 @@ a.tab { text-decoration: none; display: inline-block; text-align: center; }
   font: 400 14px/1.4 var(--font-sans); }
 
 /* -------- provider payments -------- */
-.money-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 22px; }
+.money-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px; margin-bottom: 22px; }
 .money-tile { padding: 20px 22px; background: var(--color-surface); border: 1px solid var(--color-hairline);
   border-radius: 16px; display: flex; flex-direction: column; gap: 6px; }
 .money-tile__icon { width: 44px; height: 44px; border-radius: 50%; background: var(--color-chip); color: var(--color-brand);
@@ -768,9 +757,9 @@ a.tab { text-decoration: none; display: inline-block; text-align: center; }
 
 /* Two service tiles side by side; three "How it works" steps. */
 .home-cards { display: grid; gap: 34px; }
-.home-cards--two { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.home-cards--two { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
 /* 29px between the three steps, as the design spaces them. */
-.home-cards--three { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 29px; }
+.home-cards--three { grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 29px; }
 
 .home-card { display: flex; align-items: center; gap: 14px; min-height: 98px; padding: 24px; background: var(--color-surface);
   border: 1px solid var(--color-hairline); border-radius: var(--radius-card); text-decoration: none; color: inherit;
@@ -897,3 +886,151 @@ a.home-card:hover { border-color: var(--color-brand); }
 .schedule { overflow-x: auto; }
 .schedule th, .schedule td { white-space: nowrap; }
 .schedule__busy { background: var(--color-nav-active); color: var(--color-brand); font-weight: 600; }
+
+.staff-link { overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------------------------
+   Responsive rules, across the whole site. Small screens are the normal case for farmers.
+   - Nothing scrolls sideways except a list that says so (tabs, filters, wide tables).
+   - Tap targets are at least 44px, Apple's minimum.
+   - Fields are 16px on touch screens, or iOS zooms the page when one is focused.
+   - The page keeps clear of the notch and the home indicator.
+--------------------------------------------------------------------------- */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overflow-wrap: break-word; }
+img, svg, video { max-width: 100%; }
+.app { min-height: 100dvh; }
+
+/* A wide table scrolls inside its card, never the page. */
+.table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pagehead { flex-wrap: wrap; }
+.pagehead > * { min-width: 0; }
+.form-actions, .wallet__actions, .setup__buttons { flex-wrap: wrap; }
+.wallet__actions .button, .form-actions .button { max-width: 100%; }
+
+/* Lists of options stay on one line and slide sideways, with no scrollbar drawn. */
+.tabs, .filters { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.tabs::-webkit-scrollbar, .filters::-webkit-scrollbar { display: none; }
+.tab, a.tab, .filter { flex: none; white-space: nowrap; }
+
+@media (max-width: 1100px) {
+  .app__content { padding: 28px 24px 40px; }
+  .topbar { padding: 0 24px; }
+  .topbar__search { width: 100%; max-width: 378px; }
+}
+
+/* Tablets and phones: the sidebar becomes a bar with a menu button. */
+@media (max-width: 900px) {
+  .app { display: block; }
+  .nav { position: sticky; top: 0; z-index: 15; padding: max(8px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left));
+    background: var(--color-bg); border-bottom: 1px solid var(--color-hairline); }
+  .nav__bar { margin: 0; min-height: 44px; }
+  .nav__brand { padding: 0; }
+  .nav__burger { display: flex; flex-direction: column; justify-content: center; gap: 5px; width: 44px; height: 44px; padding: 0 11px; margin-right: -11px; cursor: pointer; }
+  .nav__burger span { display: block; height: 2px; border-radius: 2px; background: var(--color-text); transition: transform 0.15s ease, opacity 0.15s ease; }
+  .nav__toggle:checked ~ .nav__bar .nav__burger span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .nav__toggle:checked ~ .nav__bar .nav__burger span:nth-child(2) { opacity: 0; }
+  .nav__toggle:checked ~ .nav__bar .nav__burger span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+  .nav__toggle:focus-visible ~ .nav__bar .nav__burger { outline: 2px solid var(--color-brand); outline-offset: -2px; border-radius: 10px; }
+  .nav__body { display: none; position: absolute; top: 100%; left: 0; right: 0; max-height: calc(100dvh - 60px); overflow-y: auto; overscroll-behavior: contain;
+    padding: 16px max(16px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    background: var(--color-bg); border-bottom: 1px solid var(--color-hairline); box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08); }
+  .nav__toggle:checked ~ .nav__body { display: flex; }
+  .nav__spacer { display: none; }
+  .nav__item { height: 48px; }
+  .app__panel { margin: 0; border: 0; border-radius: 0; }
+  .topbar { grid-template-columns: minmax(0, 1fr) auto; height: auto; padding: 12px 16px; gap: 12px; }
+  .topbar__crumb { min-width: 0; }
+  .topbar__search { grid-column: 1 / -1; grid-row: 2; width: 100%; max-width: none; height: 48px; }
+  .topbar__user { min-width: 0; height: 44px; padding: 0 4px; }
+  .topbar__user .icon, .topbar__name { display: none; }
+  .topbar__round { width: 44px; height: 44px; }
+  .app__content { padding: 20px 16px calc(40px + env(safe-area-inset-bottom)); overflow-x: visible; }
+  .form-row { grid-template-columns: 1fr; }
+  .table { min-width: 640px; }
+  .dash-cols { grid-template-columns: minmax(0, 1fr); }
+
+  input:not([type="radio"]):not([type="checkbox"]), select, textarea, .field__input, .topbar__search input { font-size: 16px; }
+  .field__box { min-height: 48px; }
+
+  .modal-backdrop { padding: 12px; }
+  .modal { max-height: calc(100dvh - 24px); padding: 28px 20px; border-radius: 24px; }
+  .modal--request .modal__banner { margin: -28px -20px 0; height: 140px; }
+  .modal--request .tabs { margin: 0 -20px 16px; }
+  .modal--book { padding: 28px 16px; }
+  .rowmenu__pop button { min-height: 44px; }
+  .resend__button { min-height: 44px; }
+}
+
+/* Phones. */
+@media (max-width: 640px) {
+  .pagehead__title, .greeting__title { font-size: 24px; }
+  .home-cards { gap: 14px; }
+  .home-section { margin-top: 24px; }
+  .form-actions .button { flex: 1 1 100%; min-width: 0; }
+  .wallet { padding: 20px; border-radius: 24px; }
+  .wallet__actions { width: 100%; }
+  .wallet__actions .button { flex: 1 1 100%; min-width: 0; }
+  .request-card { border-radius: 24px; }
+  .request-card__banner { height: 130px; }
+  .request-row { align-items: flex-start; }
+  .offer__price { flex-wrap: wrap; }
+  .offer__meta { flex-wrap: wrap; }
+  .chips__row { gap: 8px; }
+  .chip { min-height: 44px; }
+  .setup { padding: 20px 16px; }
+  .staff__item { overflow-x: auto; }
+}
+
+/* The smallest phones. */
+@media (max-width: 360px) {
+  .request-card__body { padding: 20px 16px 24px; }
+  .wallet__amount, .offer__price .offer__amount { font-size: 26px; }
+  .request-card__actions { flex-wrap: wrap; }
+  .request-card__actions > * { flex: 1 1 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav__burger span { transition: none; }
+}
+
+/* A label hidden for screen readers sits inside a scrolling table. Without a positioned parent
+   it escapes the scroller and stretches the whole page sideways. */
+.table-card, .staff__item { position: relative; }
+.setup > *, .setup__card, .setup__card > *, .staff__item { min-width: 0; max-width: 100%; }
+.staff__item { overflow-x: auto; }
+
+@media (max-width: 1100px) {
+  .table { min-width: 640px; }
+}
+
+/* Touch screens: everything a thumb has to hit is at least 44px. */
+@media (max-width: 900px) {
+  .nav__brand { min-height: 44px; }
+  .tab, a.tab { height: 44px; line-height: 44px; }
+  .field__toggle { width: 44px; height: 44px; margin-right: -10px; }
+  .field__input { min-height: 44px; }
+  .topbar__search input { height: 44px; }
+  .filter select { min-height: 44px; font-size: 16px; }
+  .home-section__more { min-height: 44px; display: inline-flex; align-items: center; }
+  .icon-button { width: 44px; height: 44px; }
+  summary.button { height: 44px; }
+  .auth__footer a, .field__helper a { display: inline-block; padding: 12px 4px; margin: -12px -4px; }
+}
+
+@media (max-width: 900px) {
+  .table td a, .jobs-links a, .search-results a { display: inline-flex; align-items: center; min-height: 44px; }
+  .staff__item input, .staff__item select { min-height: 44px; }
+}
+
+@media (max-width: 640px) {
+  /* A short list of options slides sideways rather than stacking. */
+  .filters { flex-wrap: nowrap; }
+}
+@media (max-width: 900px) {
+  .auth__footer a, .field__helper a { padding: 16px 4px; margin: -16px -4px; }
+  .asset__faults a, .staff__item a { display: inline-flex; align-items: center; min-height: 44px; }
+}
+
+/* Same reason as .table-card: hidden labels must stay inside their scroller. */
+.filters, .tabs { position: relative; }

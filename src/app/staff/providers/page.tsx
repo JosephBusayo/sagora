@@ -31,7 +31,7 @@ export default async function Page() {
             <ReviewForm id={b.id} />
           </section>
         ))}
-        <p className="auth__footer"><Link href="/staff/outbox">Notification queue</Link></p>
+        <p className="auth__footer"><Link href="/staff/outbox">Notification queue</Link> · <Link href="/staff/team">Staff</Link></p>
         <form action={signOut} className="setup__signout"><button type="submit" className="resend__button">Sign out</button></form>
       </div>
     </main>

@@ -38,9 +38,18 @@ export function Sidebar({ audience, signOutAction }: { audience: Audience; signO
   const nav = NAV[audience];
   return (
     <nav className="nav" aria-label="Main">
-      <Link href={nav.home} className="nav__brand">
-        <Image src="/brand/logo-wordmark.svg" alt="Sagora" width={108} height={28} priority />
-      </Link>
+      {/* A checkbox rather than state, so the phone menu opens with JavaScript off. The key
+          closes it again after moving to another page. */}
+      <input key={pathname} id="nav-open" type="checkbox" className="nav__toggle" aria-label="Menu" />
+      <div className="nav__bar">
+        <Link href={nav.home} className="nav__brand">
+          <Image src="/brand/logo-wordmark.svg" alt="Sagora" width={108} height={28} priority />
+        </Link>
+        <label htmlFor="nav-open" className="nav__burger" aria-hidden="true">
+          <span /><span /><span />
+        </label>
+      </div>
+      <div className="nav__body">
       {nav.groups.map((g) => (
         <Group key={g.title} title={g.title} items={g.items} pathname={pathname} exact={false} />
       ))}
@@ -72,6 +81,7 @@ export function Sidebar({ audience, signOutAction }: { audience: Audience; signO
             </form>
           </li>
         </ul>
+      </div>
       </div>
     </nav>
   );

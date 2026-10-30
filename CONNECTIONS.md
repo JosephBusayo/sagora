@@ -90,3 +90,7 @@ whether that address actually receives mail. The cause of the first 403 is unkno
 account's own address, `josephbusayojayeoba@gmail.com`, until a domain is verified. So the key is
 good and the "one inbox" limit stands. The earlier "sent" on a retry to the other Gmail is
 unexplained. Reading login codes out of the production queue is blocked for agents.
+
+**Staff sign-in, 30 Oct 2026.** Staff sign in at `/staff/sign-in`, which nothing links to. The
+public sign-in pages reject staff accounts. Admins add staff at `/staff/team`.
+`npm run staff:make -- <email> --admin` makes an admin from the command line.

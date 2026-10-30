@@ -1,4 +1,5 @@
 import "server-only";
+import { isStaffRole } from "./audience";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "./auth";
@@ -11,7 +12,7 @@ export async function requireProvider(): Promise<SessionUser> {
   const s = await auth.api.getSession({ headers: await headers() });
   const u = s?.user as SessionUser | undefined;
   if (!u || !u.emailVerified) redirect("/provider/sign-in");
-  if (u.role === "staff") redirect("/staff/providers");
+  if (isStaffRole(u.role)) redirect("/staff/providers");
   if (u.role === "farmer") redirect("/farmer/home"); // a farmer account has no provider workspace
   return u;
 }
@@ -21,7 +22,7 @@ export async function requireFarmer(): Promise<SessionUser> {
   const s = await auth.api.getSession({ headers: await headers() });
   const u = s?.user as SessionUser | undefined;
   if (!u || !u.emailVerified) redirect("/farmer/sign-in");
-  if (u.role !== "farmer") redirect(u.role === "staff" ? "/staff/providers" : "/provider/setup");
+  if (u.role !== "farmer") redirect(isStaffRole(u.role) ? "/staff/providers" : "/provider/setup");
   return u;
 }
 
@@ -35,8 +36,15 @@ export async function requireFarmer(): Promise<SessionUser> {
 export async function requireStaff(): Promise<SessionUser> {
   const s = await auth.api.getSession({ headers: await headers() });
   const u = s?.user as SessionUser | undefined;
-  if (!u || !u.emailVerified || u.role !== "staff") redirect("/provider/sign-in");
+  if (!u || !u.emailVerified || !isStaffRole(u.role)) redirect("/provider/sign-in");
   if (!(await isVerified(s!.session.id))) redirect("/staff/verify");
+  return u;
+}
+
+/** An admin has passed everything staff have, and may also add and remove staff. */
+export async function requireAdmin(): Promise<SessionUser> {
+  const u = await requireStaff();
+  if (u.role !== "admin") redirect("/staff/providers");
   return u;
 }
 
@@ -44,7 +52,7 @@ export async function requireStaff(): Promise<SessionUser> {
 export async function staffAwaitingCode(): Promise<{ user: SessionUser; sessionId: string }> {
   const s = await auth.api.getSession({ headers: await headers() });
   const u = s?.user as SessionUser | undefined;
-  if (!u || !u.emailVerified || u.role !== "staff") redirect("/provider/sign-in");
+  if (!u || !u.emailVerified || !isStaffRole(u.role)) redirect("/provider/sign-in");
   return { user: u, sessionId: s!.session.id };
 }
 

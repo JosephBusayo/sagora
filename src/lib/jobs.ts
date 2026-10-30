@@ -266,7 +266,7 @@ export async function atRiskAssets(businessId: string, job: Job): Promise<{ name
 
 export type FarmerBooking = Job & {
   reference: string; service: string; district: string; village: string; acres: number;
-  businessName: string; businessPhone: string; amountMinor: number; assetNames: string[];
+  businessName: string; amountMinor: number; assetNames: string[];
 };
 
 /**
@@ -275,7 +275,7 @@ export type FarmerBooking = Job & {
  */
 export async function bookingsForFarmer(farmerId: string): Promise<FarmerBooking[]> {
   const rows = await db.all(`SELECT j.*, r.reference, r.service, r.district, r.village, r.acres,
-              b.name AS business_name, b.phone AS business_phone, a.amount_minor
+              b.name AS business_name, a.amount_minor
        FROM job j
        JOIN service_request r ON r.id = j.request_id
        JOIN provider_business b ON b.id = j.business_id
@@ -283,7 +283,7 @@ export async function bookingsForFarmer(farmerId: string): Promise<FarmerBooking
        WHERE r.farmer_id = ?
        ORDER BY COALESCE(j.start_date, '9999') ASC, j.created_at DESC`, farmerId) as (Row & {
       reference: string; service: string; district: string; village: string; acres: number;
-      business_name: string; business_phone: string; amount_minor: number | null;
+      business_name: string; amount_minor: number | null;
     })[];
 
   return Promise.all(
@@ -298,7 +298,7 @@ export async function bookingsForFarmer(farmerId: string): Promise<FarmerBooking
       return {
         ...job,
         reference: r.reference, service: r.service, district: r.district, village: r.village, acres: r.acres,
-        businessName: r.business_name, businessPhone: r.business_phone,
+        businessName: r.business_name,
         amountMinor: Number(r.amount_minor ?? 0), assetNames: names,
       };
     }),

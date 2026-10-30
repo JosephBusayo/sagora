@@ -1,6 +1,6 @@
 import "server-only";
 
-/** The two apps. Staff use the provider screens to sign in and are routed on from there. */
+/** The two public apps. Staff have their own unlisted sign-in at /staff/sign-in. */
 export type Audience = "provider" | "farmer";
 
 export const ROUTES = {
@@ -25,7 +25,13 @@ export const ROUTES = {
 
 /** Where this account belongs, whichever sign-in screen it used. */
 export function homeForRole(role: string | null | undefined): string {
-  if (role === "staff") return "/staff/providers";
+  if (isStaffRole(role)) return "/staff/providers";
   if (role === "farmer") return ROUTES.farmer.home;
   return ROUTES.provider.home;
 }
+
+/** An admin is a member of staff who can also add and remove staff. */
+export const isStaffRole = (role: string | null | undefined) => role === "staff" || role === "admin";
+
+/** Accounts the public sign-in screens must treat as unknown, including staff who have left. */
+export const isInternalRole = (role: string | null | undefined) => isStaffRole(role) || role === "staff_removed";

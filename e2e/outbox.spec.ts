@@ -147,10 +147,11 @@ test("a failing send keeps the work, retries, and shows in the staff queue", asy
   await enterCode(s.page, STAFF.email);
   await testRun(`UPDATE "user" SET role='staff' WHERE email=?`, STAFF.email);
 
-  await s.page.goto("/provider/sign-in");
+  await s.page.goto("/staff/sign-in");
   await s.page.getByLabel("Email").fill(STAFF.email);
   await s.page.getByLabel("Password", { exact: true }).fill(STAFF.pass);
   await s.page.getByRole("button", { name: "Sign in" }).click();
+  await s.page.waitForURL(/\/staff\/verify$/);
 
   await passStaffCheck(s.page, STAFF.email, "/staff/outbox");
   await expect(s.page.getByRole("heading", { name: "Notification queue" })).toBeVisible();

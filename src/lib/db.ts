@@ -150,11 +150,15 @@ function postgresDriver(connectionString: string): { db: Database; auth: Pool } 
 function sqliteDriver(file: string): { db: Database; auth: DatabaseSync } {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const connection = new DatabaseSync(file);
-  connection.exec("PRAGMA journal_mode = WAL");
-  connection.exec("PRAGMA foreign_keys = ON");
   // Node's SQLite waits 0ms for a lock by default, so two writes at once fail outright.
   // better-sqlite3 waited 5s; keep that, or concurrent requests hit "database is locked".
   connection.exec("PRAGMA busy_timeout = 5000");
+  // Build workers open a new file at the same moment, and this switch ignores the timeout above.
+  // WAL is a property of the file, so one worker winning is enough for all of them.
+  try {
+    connection.exec("PRAGMA journal_mode = WAL");
+  } catch {}
+  connection.exec("PRAGMA foreign_keys = ON");
 
   /**
    * SQLite here is one connection, and a transaction on it belongs to whoever opened it. Because

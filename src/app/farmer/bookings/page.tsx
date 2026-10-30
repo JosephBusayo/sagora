@@ -113,7 +113,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
 
                 <p className="asset__notes">
                   <strong>{b.businessName}</strong>
-                  {b.businessPhone ? ` · ${b.businessPhone}` : ""}
                   {b.amountMinor > 0 ? ` · ${formatAmount(b.amountMinor)}` : ""}
                 </p>
 

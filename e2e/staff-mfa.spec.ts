@@ -44,7 +44,7 @@ async function fresh(browser: Browser) {
   return { ctx, page: await ctx.newPage() };
 }
 async function signIn(page: Page) {
-  await page.goto("/provider/sign-in");
+  await page.goto("/staff/sign-in");
   await page.getByLabel("Email").fill(STAFF.email);
   await page.getByLabel("Password", { exact: true }).fill(STAFF.pass);
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -174,4 +174,51 @@ test("the code is useless without the password", async ({ page, browser }) => {
   await expect(b.page).toHaveURL(/\/provider\/sign-in$/);
   await b.ctx.close();
   expect(page.url()).toBeTruthy();
+});
+
+test("staff have their own door, and an admin adds and removes staff", async ({ page, browser }) => {
+  // The public screens treat a staff account as if it did not exist.
+  const outsider = await fresh(browser);
+  await outsider.page.goto("/provider/sign-in");
+  await outsider.page.getByLabel("Email").fill(STAFF.email);
+  await outsider.page.getByLabel("Password", { exact: true }).fill(STAFF.pass);
+  await outsider.page.getByRole("button", { name: "Sign in" }).click();
+  await expect(outsider.page.getByText("Incorrect email or password.")).toBeVisible();
+  await outsider.ctx.close();
+
+  // Plain staff cannot reach the team screen. An admin can.
+  await signIn(page);
+  await typeCode(page, await latestCode(STAFF.email));
+  await page.waitForURL(/\/staff\/payments/);
+  await page.goto("/staff/team");
+  await expect(page).toHaveURL(/\/staff\/providers$/);
+  await testRun(`UPDATE "user" SET role='admin' WHERE email=?`, STAFF.email);
+  await page.goto("/staff/team");
+
+  const hire = `mfa.hire.${run}@example.com`;
+  await page.getByLabel("Name").fill("New Hire");
+  await page.getByLabel("Email").fill(hire);
+  await page.getByRole("button", { name: "Invite" }).click();
+  const notice = await page.getByText(/Invitation ready/).innerText();
+  const link = notice.match(/\/staff\/join\/[\w-]+/)![0];
+
+  const joiner = await fresh(browser);
+  await joiner.page.goto(link);
+  await joiner.page.getByLabel("Password", { exact: true }).fill("a-long-hire-password");
+  await joiner.page.getByLabel("Confirm Password").fill("a-long-hire-password");
+  await joiner.page.getByRole("button", { name: "Finish setup" }).click();
+  await joiner.page.waitForURL(/\/staff\/sign-in$/);
+  await joiner.ctx.close();
+
+  // Used once, and gone.
+  const again = await fresh(browser);
+  await again.page.goto(link);
+  await expect(again.page.getByText("This invitation can't be used")).toBeVisible();
+  await again.ctx.close();
+
+  await page.goto("/staff/team");
+  const row = page.getByRole("listitem").filter({ hasText: hire });
+  await expect(row).toBeVisible();
+  await row.getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByRole("listitem").filter({ hasText: hire })).toHaveCount(0);
 });

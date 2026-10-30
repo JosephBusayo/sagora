@@ -8,7 +8,7 @@ import { clearFor } from "./mfa";
 import { db } from "./db";
 import { normaliseSierraLeonePhone } from "./phone";
 import { clearPending, getPending, setPending } from "./pending";
-import { ROUTES, homeForRole, type Audience } from "./audience";
+import { ROUTES, homeForRole, isInternalRole, isStaffRole, type Audience } from "./audience";
 
 /**
  * The sign-up / sign-in / recovery flow, shared by the provider and farmer screens.
@@ -139,6 +139,9 @@ export async function signIn(audience: Audience, fd: FormData): Promise<FormStat
   if (!password) return { fieldErrors: { password: "Enter your password" }, values };
   const email = parsed.data;
 
+  // Staff do not sign in here, and this screen does not reveal that they exist.
+  if (isInternalRole(await roleOf(email))) return { error: "Incorrect email or password.", values };
+
   let needsVerification = false;
   try {
     await auth.api.signInEmail({ body: { email, password }, headers: await headers() });
@@ -157,6 +160,21 @@ export async function signIn(audience: Audience, fd: FormData): Promise<FormStat
   }
   // Someone may sign in on the wrong screen: send them where their account belongs.
   redirect(homeForRole(await roleOf(email)));
+}
+
+/** The staff door. Every failure reads the same, so it does not confirm who is staff. */
+export async function signInStaff(fd: FormData): Promise<FormState> {
+  const email = str(fd, "email").trim().toLowerCase();
+  const password = str(fd, "password");
+  const values = { email };
+  const refused = { error: "Incorrect email or password.", values };
+  if (!isStaffRole(await roleOf(email))) return refused;
+  try {
+    await auth.api.signInEmail({ body: { email, password }, headers: await headers() });
+  } catch (err) {
+    return isRateLimited(err) ? { error: "Too many attempts. Please wait a minute and try again.", values } : refused;
+  }
+  redirect("/staff/verify");
 }
 
 /* ---------------------------------------------------------- forgot password */
