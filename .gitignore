@@ -48,3 +48,8 @@ next-env.d.ts
 /e2e/.results
 /e2e/screens
 .neon
+
+# throwaway measuring/debug scripts
+/probe-*.mjs
+/shot-*.mjs
+/measure*.mjs
