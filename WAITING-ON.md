@@ -1,7 +1,68 @@
 # Waiting on
 
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
-each one is a swap, not a rewrite. Updated 29 Oct 2026.
+each one is a swap, not a rewrite. Updated 30 Oct 2026.
+
+## Where this is, 30 Oct 2026
+
+Written for whoever picks this up next, including a fresh session.
+
+**Done since the 29th**
+
+- The app runs on PostgreSQL as well as SQLite. `DATABASE_URL` set means Postgres, unset means
+  a local SQLite file. 87 e2e tests, the 35-step walkthrough and 47 money checks pass on both.
+- Neon is the database. Joseph's own Neon account, project `summer-cell-85093947`, region
+  `aws-eu-west-2` (London). **London rules out Neon's Object Storage, Functions, AI Gateway and
+  Realtime**, which are only in us-east-1/2, eu-central-1 and ap-southeast-1. Nothing built
+  needs them; file uploads later would need S3 or R2 instead.
+- `npm run db:reset` empties a database and keeps the schema. It names the database first,
+  refuses without `--yes`, and refuses outright on `SAGORA_ENV=production`.
+- `npm run mail` prints the dev outbox with the sign-up codes pulled out.
+- `npm run vercel:env` pushes the production environment into Vercel from `.env.local`.
+- Deployed to Vercel at `sagora-three.vercel.app` (Joseph's personal account — see below).
+- **Figma access is solved.** Joseph copied the file to his own account, where the MCP
+  connector is not rate-limited: `LiwlNONIHcNE1Il3V8pReB`. All 17 sections can be read.
+  Items 1-6 below are now gettable rather than blocked.
+- Farmer home rebuilt from the frame: the designer's copy, the real colours, type and
+  spacing, and the measured box sizes. The designer's words swept across both apps.
+
+**Blocked, 30 Oct**
+
+- **Netim's operation queue is stuck.** Five "create a record" operations on `sagora.sl` have
+  been pending since 07:33 CET with no progress — operation numbers 14361850, 14361013,
+  14361015, 14361864, 14364103. Until they apply, Resend cannot verify the domain. A support
+  ticket is the only move; re-adding records just queues more.
+- Until then `EMAIL_FROM` stays unset, so mail goes out as `onboarding@resend.dev`, which
+  **only delivers to the address the Resend account was registered with**.
+
+**Next, in order**
+
+1. Run `npm run db:migrate` against the Neon production database. It has probably never been
+   migrated, which would make every page on the deployment a 500.
+2. `npm run staff:make -- <email>` to create the first staff account. Without one nobody can
+   approve a provider or record a payment, and a demo dead-ends on the first screen.
+3. Walk the whole path on the deployed site and fix what breaks.
+4. The booking flow is missing three fields the design has: **Land access**, **Land condition**
+   and **Land clearance**, across two steps. A migration, a reworked form, and showing them to
+   the provider when they quote. This is the largest remaining gap on the demo path.
+5. Provider payments is missing a whole designed area — wallet, payout details, withdraw
+   funds, add payment method. Half of it is Monime, which cannot be opened yet. Left alone
+   deliberately: a wallet screen that cannot move money is worse than no wallet screen.
+
+**Accounts, and who they belong to**
+
+Everything except the domain is currently in Joseph's name, agreed as a deliberate trade for
+the Monday deadline, to be transferred afterwards.
+
+| Service | Whose | Transfer cost |
+|---|---|---|
+| Domain `sagora.sl` | **Karim / Kodehut** (Netim) | none, already right |
+| GitHub `JosephBusayo/sagora` | Joseph | one button |
+| Neon | Joseph | production starts on a fresh project in Karim's org; test data never moves |
+| Vercel | Joseph | **Hobby forbids commercial use** — production must not stay here |
+| Resend | Joseph | Karim's account re-verifies the same domain |
+| Monime | nobody | cannot be opened by a developer, and must not be. Payments are recorded by hand by design, so nothing is blocked on it |
+
 
 ## From the designer
 
