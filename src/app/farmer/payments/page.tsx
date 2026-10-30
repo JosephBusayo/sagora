@@ -34,7 +34,8 @@ export default async function Page() {
         {rows.length === 0 ? (
           <>
             <p className="empty">
-              You have not paid for any work yet. A payment appears here once you accept a quote and pay for it.
+              <strong className="empty__title">No payments yet</strong>
+              <span className="empty__body">Your payment records will appear here after you complete a booking</span>
             </p>
             <p style={{ textAlign: "center" }}><Link href="/farmer/requests">See my requests</Link></p>
           </>

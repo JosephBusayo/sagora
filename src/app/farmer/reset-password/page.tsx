@@ -11,7 +11,7 @@ export default async function Page() {
   const pending = await getPending();
   if (!pending || pending.purpose !== "reset" || !pending.code) redirect("/farmer/forgot-password");
   return (
-    <AuthShell image="/auth/reset-password.jpg" title="Reset password" subtitle="Create a new password for your account">
+    <AuthShell image="/auth/reset-password.jpg" title="Reset password" subtitle="Create a new password to secure your account">
       <ResetPasswordForm action={resetFarmerPassword} />
     </AuthShell>
   );

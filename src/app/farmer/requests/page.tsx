@@ -27,7 +27,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
       audience="farmer"
       unread={await unreadCount(farmer)}
     >
-      <PageHead title="My requests" subtitle="Everything you have asked for, and what has come back." />
+      <PageHead title="Requests" subtitle="All requests you’ve sent out to service providers" />
       <>
         {justCreated ? (
           <p className="notice notice--success" role="status">

@@ -16,7 +16,7 @@ export default async function Page() {
       audience="farmer"
       unread={await unreadCount(farmer)}
     >
-      <PageHead title="Account" subtitle="Your name and phone number" />
+      <PageHead title="Account" subtitle="Manage your personal account details" />
       <FarmerAccountForm
         initial={{ name: farmer.name, phone: (farmer.phone ?? "").replace(/^\+232/, ""), email: farmer.email }}
       />

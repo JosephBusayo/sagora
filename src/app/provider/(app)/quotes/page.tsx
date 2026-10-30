@@ -29,7 +29,7 @@ export default async function Page() {
 
   return (
     <Shell crumb={{ label: "My quotes", icon: "quotes" }} user={{ name: user.name }}>
-      <PageHead title="My quotes" subtitle="Prices you have sent to farmers, and what happened to them" />
+      <PageHead title="My quotes" subtitle="View and manage the quotes you’ve sent to farmers" />
       {quotes.length === 0 ? (
         <div className="table-card"><p className="empty">You have not sent any quotes yet. Open a request to send one.</p></div>
       ) : (

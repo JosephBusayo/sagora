@@ -248,7 +248,7 @@ test("accepting a quote puts the job under bookings, in the right tab", async ({
   await expect(page.getByRole("status").filter({ hasText: "now fixed" })).toBeVisible();
 
   await page.goto("/farmer/bookings");
-  await expect(page.getByRole("heading", { name: "My bookings" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bookings", exact: true })).toBeVisible();
   const card = page.locator("article.asset").filter({ hasText: reference });
   await expect(card).toBeVisible();
   await expect(card.getByText("Not scheduled yet")).toBeVisible();
@@ -257,11 +257,11 @@ test("accepting a quote puts the job under bookings, in the right tab", async ({
 
   // The other tabs are genuinely empty, not showing the same job four times.
   await page.goto("/farmer/bookings?tab=completed");
-  await expect(page.getByText("Nothing finished yet.")).toBeVisible();
+  await expect(page.getByText("Nothing finished yet", { exact: true })).toBeVisible();
   await page.goto("/farmer/bookings?tab=cancelled");
-  await expect(page.getByText("Nothing has been cancelled.")).toBeVisible();
+  await expect(page.getByText("Nothing cancelled", { exact: true })).toBeVisible();
   await page.goto("/farmer/bookings?tab=in_progress");
-  await expect(page.getByText("No work is under way right now.")).toBeVisible();
+  await expect(page.getByText("No work under way", { exact: true })).toBeVisible();
 
   await page.goto("/farmer/bookings");
   await page.waitForLoadState("networkidle");
@@ -299,7 +299,10 @@ test("a farmer cannot reach the provider's screens through the farmer app", asyn
 test("the provider dashboard counts the real work waiting", async ({ page }) => {
   await signIn(page, PROV, "provider");
   await page.goto("/provider/dashboard");
-  await expect(page.getByRole("heading", { name: PROV.business })).toBeVisible();
+  // The design greets by name and time of day here too, with the business named in the sidebar
+  // rather than as the page title.
+  await expect(page.getByRole("heading", { name: /Good (morning|afternoon|evening),/ })).toBeVisible();
+  await expect(page.getByText("Here\u2019s what\u2019s happening with your business today")).toBeVisible();
 
   // The accepted quote became an unscheduled job: that is one job needing the provider.
   const jobs = page.locator("a.money-tile").filter({ hasText: "Jobs needing you" });

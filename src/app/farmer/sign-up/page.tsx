@@ -22,7 +22,7 @@ export default function Page() {
     >
       <SignUpForm
         action={signUpFarmer}
-        nameField={{ name: "name", label: "First and last name", placeholder: "Enter your first and last name", autoComplete: "name" }}
+        nameField={{ name: "name", label: "First and last name", placeholder: "Enter your name", autoComplete: "name" }}
       />
     </AuthShell>
   );

@@ -16,7 +16,7 @@ export default async function Page() {
       audience="farmer"
       unread={await unreadCount(farmer)}
     >
-      <PageHead title="Password" subtitle="Changing your password signs you out everywhere else." />
+      <PageHead title="Password and security" subtitle="Manage your password" />
       <FarmerPasswordForm />
     </Shell>
   );

@@ -147,7 +147,7 @@ test.beforeAll(async ({ browser }) => {
 test("an accepted quote creates an unscheduled job", async ({ page }) => {
   await signInProvider(page);
   await page.goto("/provider/jobs");
-  await expect(page.getByRole("heading", { name: "Jobs" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "My Jobs", exact: true })).toBeVisible();
   await expect(jobCard(page, refA).getByText("Not scheduled yet")).toBeVisible();
   await expect(jobCard(page, refB).getByText("Not scheduled yet")).toBeVisible();
   await page.waitForLoadState("networkidle");

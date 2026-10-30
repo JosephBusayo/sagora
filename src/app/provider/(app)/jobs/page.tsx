@@ -65,8 +65,8 @@ export default async function Page() {
   return (
     <Shell crumb={{ label: "Jobs", icon: "jobs" }} user={{ name: user.name }}>
       <PageHead
-        title="Jobs"
-        subtitle="Work a farmer has agreed to. Scheduling commits machines, so one plough cannot be on two jobs at once."
+        title="My Jobs"
+        subtitle="View and manage the jobs you have been assigned"
       />
       <JobsList
         jobs={jobs}

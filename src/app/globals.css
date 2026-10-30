@@ -515,6 +515,10 @@ a.topbar__round:hover { background: var(--color-nav-active); }
 .icon-button { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--color-text); cursor: pointer; }
 .icon-button:hover { background: var(--color-bg); }
 .empty { padding: 40px 20px; text-align: center; color: var(--color-text-muted); }
+/* The design's empty states say what is missing on one line and what will fill it on the
+   next, rather than one long apologetic sentence. */
+.empty__title { display: block; margin: 0 0 6px; color: var(--color-heading); font: 600 18px/1.2 var(--font-sans); }
+.empty__body { display: block; color: var(--color-text-muted); font: 500 14px/1.4 var(--font-sans); }
 
 /* -------- settings list -------- */
 .settings-list { display: flex; flex-direction: column; gap: 16px; max-width: 1230px; }

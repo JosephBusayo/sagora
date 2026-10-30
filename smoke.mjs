@@ -333,7 +333,7 @@ await step("The books balance at the end of all of it", s.page, async () => {
 await step("The farmer app has its own sidebar and screens", f.page, async () => {
   for (const [url, text] of [
     ["/farmer/home", "How it works"],
-    ["/farmer/bookings", "My bookings"],
+    ["/farmer/bookings", "Bookings"],
     ["/farmer/payments", "Transaction ID"],
     ["/farmer/notifications", "Notifications"],
     ["/farmer/settings", "Sign out of Sagora"],
@@ -378,7 +378,7 @@ await step("The provider dashboard counts real work, not invented numbers", p.pa
 await step("Provider settings, team, jobs and account screens open", p.page, async () => {
   for (const [url, heading] of [
     ["/provider/dashboard", null],
-    ["/provider/jobs", "Jobs"],
+    ["/provider/jobs", "My Jobs"],
     ["/provider/payments", "Payments"],
     ["/provider/notifications", "Notifications"],
     ["/provider/settings", "Settings"],
@@ -388,8 +388,8 @@ await step("Provider settings, team, jobs and account screens open", p.page, asy
     ["/provider/team", "Team management"],
   ]) {
     await p.page.goto(url);
-    // The dashboard is titled with the business name, so it is checked by its breadcrumb.
-    if (heading === null) await p.page.getByText("Smoke Tractors").first().waitFor({ timeout: 8000 });
+    // The dashboard greets the person by name and time of day rather than naming the business.
+    if (heading === null) await p.page.getByText(/Good (morning|afternoon|evening),/).first().waitFor({ timeout: 8000 });
     else await p.page.getByRole("heading", { name: heading, level: 1 }).waitFor({ timeout: 8000 });
   }
 });

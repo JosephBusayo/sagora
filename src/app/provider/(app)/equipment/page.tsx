@@ -28,8 +28,8 @@ export default async function Page() {
   return (
     <Shell crumb={{ label: "Equipment", icon: "equipment" }} user={{ name: user.name }}>
       <PageHead
-        title="Equipment"
-        subtitle="Every machine you own or lease. Retired machines stay here for their history, but cannot be put on new work."
+        title="Equipments"
+        subtitle="Manage the equipments you use for farm services"
       />
       <EquipmentList assets={assets} kinds={KINDS.map((k) => ({ ...k }))} canEdit={permission !== "view_jobs"} />
     </Shell>

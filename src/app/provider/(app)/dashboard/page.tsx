@@ -11,9 +11,20 @@ import { atRiskAssets, listJobs } from "@/lib/jobs";
 import { listAssets, unavailableReason } from "@/lib/equipment";
 import { earningsFor } from "@/lib/settlement";
 import { unreadCount } from "@/lib/notifications";
+import { greeting, todayLong } from "@/lib/greeting";
 
 export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
+
+/** The three cards the design offers from the dashboard, with the designer's own wording. */
+const ACTIONS: { href: string; icon: IconName; title: string; body: string }[] = [
+  { href: "/provider/requests", icon: "requests", title: "Requests",
+    body: "View farm service requests & find work that matches your services." },
+  { href: "/provider/jobs", icon: "jobs", title: "Manage your schedule",
+    body: "Check upcoming jobs and review equipment and operator availability." },
+  { href: "/provider/equipment", icon: "equipment", title: "Manage equipments",
+    body: "View your registered equipment and update its availability or condition." },
+];
 
 const fmt = (iso: string | null) =>
   iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" }) : null;
@@ -27,6 +38,7 @@ const fmt = (iso: string | null) =>
  */
 export default async function Page() {
   const { user, business } = await requireWorkspace();
+  const firstName = user.name.trim().split(/\s+/)[0];
 
   const quotes = await listQuotes(business.id);
   const jobs = await listJobs(business.id);
@@ -54,7 +66,6 @@ export default async function Page() {
     (n, m) => n + (m.release && m.release.status !== "paid" ? m.release.netMinor : 0),
     0,
   );
-  const paidToYou = money.reduce((n, m) => n + (m.release?.status === "paid" ? m.release.netMinor : 0), 0);
 
   const tiles: { icon: IconName; value: string; label: string; href: string }[] = [
     { icon: "requests", value: String(open.length), label: "Requests you have not quoted", href: "/provider/requests" },
@@ -73,14 +84,24 @@ export default async function Page() {
 
   return (
     <Shell crumb={{ label: "Dashboard", icon: "home" }} user={{ name: user.name }} unread={await unreadCount(user)}>
-      <div className="pagehead">
-        <div>
-          <h1 className="pagehead__title">{business.name}</h1>
-          <p className="pagehead__sub">
-            {districtLabel(business.district)}
-            {paidToYou > 0 ? ` · ${formatAmount(paidToYou)} paid to you so far` : ""}
-          </p>
-        </div>
+      <div className="greeting">
+        <p className="greeting__date">{todayLong()}</p>
+        <h1 className="greeting__title">{greeting()}, {firstName}</h1>
+        <p className="greeting__sub">Here&rsquo;s what&rsquo;s happening with your business today</p>
+      </div>
+
+      {/* The three things the design offers a provider from here, in its words. */}
+      <div className="home-cards home-cards--three home-section">
+        {ACTIONS.map((a) => (
+          <Link key={a.href} href={a.href} className="home-card">
+            <span className="home-card__icon" aria-hidden="true"><Icon name={a.icon} size={24} /></span>
+            <span className="home-card__text">
+              <strong>{a.title}</strong>
+              <span>{a.body}</span>
+            </span>
+            <Icon name="chevron" size={24} />
+          </Link>
+        ))}
       </div>
 
       <div className="money-tiles">

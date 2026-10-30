@@ -28,11 +28,11 @@ const PILL: Record<string, string> = {
   cancelled: "cancelled",
 };
 
-const EMPTY: Record<BookingTab, string> = {
-  upcoming: "Nothing booked yet. Accept a quote on a request and it will appear here.",
-  in_progress: "No work is under way right now.",
-  completed: "Nothing finished yet.",
-  cancelled: "Nothing has been cancelled.",
+const EMPTY: Record<BookingTab, { title: string; body: string }> = {
+  upcoming: { title: "No bookings yet", body: "Your confirmed bookings will appear here" },
+  in_progress: { title: "No work under way", body: "A job appears here once the provider starts it" },
+  completed: { title: "Nothing finished yet", body: "Work you have confirmed will appear here" },
+  cancelled: { title: "Nothing cancelled", body: "Bookings that were called off will appear here" },
 };
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
@@ -59,8 +59,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
       unread={await unreadCount(farmer)}
     >
       <PageHead
-        title="My bookings"
-        subtitle="Work you have agreed to, and where each job has got to."
+        title="Bookings"
+        subtitle="View and track your confirmed bookings"
       />
 
       <nav className="tabs tabs--page" aria-label="Booking states">
@@ -78,7 +78,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
 
       {rows.length === 0 ? (
         <div className="table-card">
-          <p className="empty">{EMPTY[tab]}</p>
+          <p className="empty">
+            <strong className="empty__title">{EMPTY[tab].title}</strong>
+            <span className="empty__body">{EMPTY[tab].body}</span>
+          </p>
           {tab === "upcoming" ? (
             <p style={{ textAlign: "center", marginTop: -20, paddingBottom: 30 }}>
               <Link href="/farmer/book">Book a service</Link>
