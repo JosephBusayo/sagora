@@ -15,8 +15,13 @@ const env = {
   SAGORA_TEST_OUTBOX: "1",
 };
 
-for (const f of [DB, `${DB}-wal`, `${DB}-shm`, "data/dev-outbox.jsonl"]) {
-  fs.rmSync(path.join(process.cwd(), f), { force: true });
+// DATABASE_URL set runs the whole walkthrough against Postgres instead, which is what a
+// deployed Sagora uses. The sqlite file is then ignored.
+const postgres = Boolean(process.env.DATABASE_URL);
+
+fs.rmSync(path.join(process.cwd(), "data/dev-outbox.jsonl"), { force: true });
+if (!postgres) {
+  for (const f of [DB, `${DB}-wal`, `${DB}-shm`]) fs.rmSync(path.join(process.cwd(), f), { force: true });
 }
 
 function step(cmd, args, extra) {
@@ -24,8 +29,13 @@ function step(cmd, args, extra) {
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
+const tsx = ["tsx", "--conditions", "react-server", "--env-file-if-exists=.env.local"];
+
 step("npx", ["next", "build"]);
-step("npx", ["tsx", "--conditions", "react-server", "--env-file-if-exists=.env.local", "scripts/migrate.mts"]);
+step("npx", [...tsx, "scripts/migrate.mts"]);
+// Postgres has no file to throw away, so the tables are emptied instead: the walkthrough
+// expects a database with nothing in it.
+if (postgres) step("npx", [...tsx, "scripts/reset.mts", "--yes"]);
 
 // Refuse to run against something else already on the port: driving another server
 // (pointing at another database) looks like a hang rather than a clear failure.

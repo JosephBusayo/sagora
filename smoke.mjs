@@ -9,6 +9,7 @@ import { chromium } from "playwright";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import * as sdb from "./scripts/smoke-db.mjs";
 
 const BASE = "http://localhost:3200";
 // The system temp folder, so this works the same on Windows, macOS and Linux.
@@ -151,11 +152,8 @@ await step("Staff account is created and promoted", s.page, async () => {
   await s.page.getByLabel("Password", { exact: true }).fill(STAFF.pass);
   await s.page.getByRole("button", { name: "Create account" }).click();
   await verify(s.page, STAFF.email);
-  const { DatabaseSync } = await import("node:sqlite");
-  const db = new DatabaseSync("data/smoke.db");
-  db.exec("PRAGMA busy_timeout = 5000");
-  db.prepare("UPDATE user SET role='staff' WHERE email=?").run(STAFF.email);
-  db.close();
+  // "user" is a reserved word in Postgres; the quotes are required there and harmless on SQLite.
+  await sdb.run(`UPDATE "user" SET role='staff' WHERE email=?`, STAFF.email);
 });
 await step("A staff password alone does not open the staff screens", s.page, async () => {
   await s.page.goto("/provider/sign-in");
@@ -227,13 +225,10 @@ await step("Farmer sees the quote and accepts it", f.page, async () => {
   await f.page.screenshot({ path: path.join(OUT, "07-farmer-accepted.png"), fullPage: true });
 });
 await step("The accepted amount is frozen in an agreement", f.page, async () => {
-  const { DatabaseSync } = await import("node:sqlite");
-  const db = new DatabaseSync("data/smoke.db");
-  db.exec("PRAGMA busy_timeout = 5000");
-  const row = db.prepare(
+  const row = await sdb.get(
     "SELECT amount_minor FROM agreement WHERE request_id=(SELECT id FROM service_request WHERE reference=?)",
-  ).get(reference);
-  db.close();
+    reference,
+  );
   if (!row || Number(row.amount_minor) !== 240000) throw new Error(`agreement says ${JSON.stringify(row)}`);
 });
 await step("Provider is told their quote was accepted", p.page, async () => {
@@ -413,6 +408,7 @@ await step("Signing out closes the workspace", p.page, async () => {
 });
 
 await browser.close();
+await sdb.close();
 
 const failed = steps.filter((s) => !s.ok);
 console.log("\n================ SMOKE RUN ================");
