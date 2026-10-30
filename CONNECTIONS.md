@@ -56,3 +56,27 @@ The file is on the Starter plan, whose MCP connector has a call limit. It ran ou
 calls in one session, so "Figma access is solved" is only true for light use. When it says
 "tool call limit", new frames cannot be read until it resets or the plan is upgraded. Plan frame
 reads rather than exploring: `get_metadata` on a section is one call and holds all its text.
+
+## Update, 30 Oct 2026, 12:45
+
+Vercel deploys production from `main`, and previews from other branches. `RESEND_API_KEY` and
+`SAGORA_ENV` are now set, migrations 002-004 are on Neon, and `7ccf44d` is live. Sending email
+from the deployed site has not been proven yet: that needs a real sign-up. This replaces the
+"email is not configured" notes above.
+
+Email from the deployed site is **not** proven. An earlier note here said it was, on a mistaken
+report. What the database shows, 30 Oct 2026:
+
+- A provider sign-up to another Gmail address was rejected by Resend with a 403. That is what
+  Resend's shared sender does for any address but the account's own, though the code discards
+  the response body, so the reason is inferred.
+- No staff code was ever queued. No session has been created since 09:03 and `staff_mfa` is
+  empty, so the staff sign-in never succeeded and `/staff/verify` was never reached.
+- `signIn` reports every failure as "Incorrect email or password", including database errors.
+- Vercel logged Better Auth's "Could not validate the database schema" at 11:53 on
+  `/provider/sign-in`. That check runs in the background and does not itself stop a sign-in.
+
+**Root cause of the missing staff code, found 30 Oct 2026.** The staff sign-in did work at 12:07
+and queued its code, but the row stayed at `attempts: 0`. `notify` started sending with
+`void drain()`, and Vercel freezes a function once the response is sent. `waitUntil` fixes it.
+Nothing drains the queue on a timer, so a failed send also waits for the next event.

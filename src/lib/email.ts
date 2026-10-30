@@ -28,7 +28,8 @@ export async function sendEmail(email: Email): Promise<void> {
         text: email.text,
       }),
     });
-    if (!res.ok) throw new Error(`Email provider rejected the message (${res.status})`);
+    // The provider's own reason goes into the staff queue. It never contains the key.
+    if (!res.ok) throw new Error(`Email provider rejected the message (${res.status}): ${(await res.text()).slice(0, 200)}`);
     return;
   }
 

@@ -1,5 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { waitUntil } from "@vercel/functions";
 import { db } from "./db";
 import { sendEmail } from "./email";
 
@@ -94,9 +95,11 @@ export async function drain(limit = 25): Promise<{ sent: number; failed: number 
 export async function notify(message: Message): Promise<void> {
   const id = await enqueue(message);
   if (!id) return;
-  void drain().catch(() => {
+  // On Vercel an instance is frozen once the response is sent, which would stop a send halfway
+  // or before it starts. waitUntil keeps it alive until the send finishes; elsewhere it is harmless.
+  waitUntil(drain().catch(() => {
     // The message is saved. A later drain, or the staff queue, will deal with it.
-  });
+  }));
 }
 
 /* ------------------------------------------------------------ staff queue */
