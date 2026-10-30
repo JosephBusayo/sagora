@@ -94,7 +94,7 @@ export default async function Page() {
       <div className="home-cards home-cards--three home-section">
         {ACTIONS.map((a) => (
           <Link key={a.href} href={a.href} className="home-card">
-            <span className="home-card__icon" aria-hidden="true"><Icon name={a.icon} size={24} /></span>
+            <span className="home-card__icon" aria-hidden="true"><Icon name={a.icon} size={20} /></span>
             <span className="home-card__text">
               <strong>{a.title}</strong>
               <span>{a.body}</span>

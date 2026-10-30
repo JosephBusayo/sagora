@@ -51,16 +51,16 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, children
               className="topbar__round"
               aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
             >
-              <Icon name="bell" size={18} />
+              <Icon name="bell" size={20} />
               {unread > 0 ? <span className="topbar__dot" aria-hidden="true">{unread > 9 ? "9+" : unread}</span> : null}
             </Link>
             <Link href={`${base}/settings`} className="topbar__round" aria-label="Settings">
-              <Icon name="settings" size={18} />
+              <Icon name="settings" size={20} />
             </Link>
             <span className="topbar__user">
               <span className="topbar__avatar" aria-hidden="true">{initial(user.name)}</span>
               <span className="topbar__name" title={user.name}>{shortName(user.name)}</span>
-              <Icon name="chevron" size={16} />
+              <Icon name="chevron" size={24} />
             </span>
           </div>
         </header>

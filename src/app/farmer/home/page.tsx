@@ -64,7 +64,7 @@ export default async function Page() {
       <div className="home-cards home-cards--two home-section">
         {SERVICES.map((s) => (
           <Link key={s.href} href={s.href} className="home-card">
-            <span className="home-card__icon" aria-hidden="true"><Icon name={s.icon} size={24} /></span>
+            <span className="home-card__icon" aria-hidden="true"><Icon name={s.icon} size={20} /></span>
             <span className="home-card__text">
               <strong>{s.title}</strong>
               <span>{s.body}</span>
@@ -83,7 +83,7 @@ export default async function Page() {
         <div className="home-cards home-cards--three">
           {STEPS.map((s) => (
             <div key={s.title} className="home-card">
-              <span className="home-card__icon" aria-hidden="true"><Icon name={s.icon} size={24} /></span>
+              <span className="home-card__icon" aria-hidden="true"><Icon name={s.icon} size={20} /></span>
               <span className="home-card__text">
                 <strong>{s.title}</strong>
                 <span>{s.body}</span>
@@ -123,7 +123,7 @@ export default async function Page() {
                   <tr key={r.id}>
                     <td>
                       <span className="table__ref">
-                        <span className="table__ref-icon" aria-hidden="true"><Icon name="equipment" size={24} /></span>
+                        <span className="table__ref-icon" aria-hidden="true"><Icon name="equipment" size={20} /></span>
                         <Link href={`/farmer/requests/${r.id}`}>{r.reference}</Link>
                       </span>
                     </td>

@@ -466,14 +466,21 @@ a.topbar__round:hover { background: var(--color-nav-active); }
 .topbar__dot { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 4px;
   border-radius: 9px; background: var(--color-brand); color: var(--color-on-brand);
   font: 600 10px/18px var(--font-sans); text-align: center; }
-.topbar__user { display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 10px; border-radius: var(--radius-control);
-  border: 1px solid var(--color-shell-line); box-shadow: var(--shadow-control); color: var(--color-text-muted); font: 500 16px/1 var(--font-sans); }
+/* 146 wide. With the two 51px buttons and the 10px gaps between them, the whole right-hand
+   group comes to the 268 the design gives it. */
+/* 146px is what the design measures with "Mike L" in it: 10 padding, a 34 avatar, 10, the
+   name, 10, a 24 chevron, 10. It is a floor rather than a fixed width, so a longer name
+   widens the pill instead of spilling out of it. */
+.topbar__user { display: flex; align-items: center; gap: 10px; min-width: 146px; height: 50px; padding: 0 10px;
+  border-radius: var(--radius-control); border: 1px solid var(--color-shell-line); box-shadow: var(--shadow-control);
+  color: var(--color-text-muted); font: 500 16px/1 var(--font-sans); }
 /* flex: none is load-bearing. Without it a long name squeezes the avatar narrower than it is
    tall, and the circle renders as an egg. */
 .topbar__avatar { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 20px;
   border: 1px solid var(--color-avatar-line); background: var(--color-avatar-bg); color: #000;
   font: 500 16px/1 var(--font-sans); }
-.topbar__name { color: #1d1d1d; letter-spacing: -0.32px; white-space: nowrap; }
+.topbar__name { flex: 1; min-width: 0; color: #1d1d1d; letter-spacing: -0.32px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
 /* Equal insets, which at the 1728px the design is drawn at leaves the content just wider than
    its 1328px — enough that each "How it works" step keeps its line of explanation on one line.
    Six pixels narrower and all three cards grow a line taller than the design draws them. */
@@ -513,6 +520,7 @@ a.topbar__round:hover { background: var(--color-nav-active); }
 .table__ref { display: flex; align-items: center; gap: 10px; }
 .table__ref-icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 40px;
   background: var(--color-chip); color: var(--color-brand); }
+.table__ref-icon .icon { width: 20px; height: 20px; }
 .table__go { width: 56px; text-align: right; color: var(--color-icon); }
 .table__go .icon { vertical-align: middle; }
 .icon-button { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--color-text); cursor: pointer; }
@@ -753,8 +761,10 @@ a.tab { text-decoration: none; display: inline-block; text-align: center; }
   border: 1px solid var(--color-hairline); border-radius: var(--radius-card); text-decoration: none; color: inherit;
   box-shadow: var(--shadow-card); }
 a.home-card:hover { border-color: var(--color-brand); }
+/* The green tile is 48 and the icon inside it is 20 — the tile is mostly breathing room. */
 .home-card__icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 40px;
   background: var(--color-chip); color: var(--color-brand); }
+.home-card__icon .icon { width: 20px; height: 20px; }
 /* Figma trims a text box to its cap height; CSS keeps the whole line box. Left alone, the
    13px subtitle takes about 19px of height where the design gives it 9, and every card came
    out 4px taller than drawn. The gap is tightened to 8 to put the pair back at the 40px the
