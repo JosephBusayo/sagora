@@ -146,6 +146,11 @@ test("a quote is validated, then sent, and the farmer is told", async ({ page })
   await dialog.getByRole("button", { name: "Send a quote" }).click();
   await expect(dialog.getByText("Quote sent to the farmer.")).toBeVisible();
 
+  // The email is sent after the quote is saved, so it has to be waited for rather than read
+  // the instant the screen confirms: against a remote database the send is still in flight.
+  await expect
+    .poll(() => mailsTo(FARMER.email).filter((m) => m.subject.includes(`New quote for ${reference}`)).length, { timeout: 10_000 })
+    .toBeGreaterThan(0);
   const mail = mailsTo(FARMER.email).find((m) => m.subject.includes(`New quote for ${reference}`))!;
   expect(mail).toBeTruthy();
   expect(mail.text).toContain("Le 1,500.00");

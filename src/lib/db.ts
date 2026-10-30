@@ -92,6 +92,17 @@ function postgresDriver(connectionString: string): { db: Database; auth: Pool } 
     ssl: /\blocalhost\b|\b127\.0\.0\.1\b/.test(connectionString) ? undefined : { rejectUnauthorized: true },
   });
 
+  // On Vercel a server instance is frozen between requests and discarded without warning. Left
+  // to itself the pool keeps connections Vercel has already stopped running, and Neon counts
+  // them until new requests are refused. Telling Vercel about the pool lets it close the
+  // connections cleanly as an instance shuts down. Only on Vercel, and a failure here must
+  // never stop the site from serving — a pool that is merely untidy still works.
+  if (process.env.VERCEL) {
+    void import("@vercel/functions")
+      .then(({ attachDatabasePool }) => attachDatabasePool(pool))
+      .catch(() => {});
+  }
+
   const queriesOn = (run: (sql: string, values: Bound[]) => Promise<{ rows: unknown[]; rowCount: number | null }>): Queries => ({
     async get<T>(sql: string, ...params: unknown[]) {
       const r = await run(toPgPlaceholders(sql), bindPg(params));

@@ -14,6 +14,9 @@ if (!email) {
   process.exit(1);
 }
 
+const { preferDirectConnection } = await import("./direct-connection.mjs");
+preferDirectConnection();
+
 const { db, describe } = await import("../src/lib/db");
 
 console.log(`Database: ${describe()}`);

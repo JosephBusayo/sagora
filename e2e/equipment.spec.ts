@@ -246,6 +246,12 @@ test("a view-only teammate sees the register but cannot change it", async ({ pag
   await d.getByRole("button", { name: "Send invitation" }).click();
   await expect(page.getByText(`Invitation sent to ${MATE.email}`)).toBeVisible();
 
+  // Email is sent after the invitation is saved, not as part of saving it, so it has to be
+  // waited for. Reading the outbox the instant the screen confirms works only when the
+  // database is a local file; against a remote one the send has not finished yet.
+  await expect
+    .poll(() => mailsTo(MATE.email).filter((m) => /\/provider\/join\//.test(m.text)).length, { timeout: 10_000 })
+    .toBeGreaterThan(0);
   const mail = mailsTo(MATE.email).find((m) => /\/provider\/join\//.test(m.text))!;
   const link = mail.text.match(/(http\S+\/provider\/join\/\S+)/)![1];
   const m = await fresh(browser);

@@ -144,6 +144,11 @@ test("a farmer books work, gets a reference, and it is emailed", async ({ page }
   await page.screenshot({ path: `${SHOTS}/16-farmer-requests.png`, fullPage: true });
 
   // The reference reaches the farmer by email, with the "not a booking" rule stated.
+  // Sent after the request is saved, so it is waited for: reading the outbox the moment the
+  // screen confirms only works when the database is a local file.
+  await expect
+    .poll(() => mailsTo(FARMER.email).filter((m) => m.text.includes(reference)).length, { timeout: 10_000 })
+    .toBeGreaterThan(0);
   const mail = mailsTo(FARMER.email).find((m) => m.text.includes(reference))!;
   expect(mail).toBeTruthy();
   expect(mail.text).toContain("A request is not a booking");

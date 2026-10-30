@@ -8,6 +8,9 @@
 // It never drops tables, so migrations do not need to run again afterwards.
 process.env.SAGORA_SKIP_SCHEMA_CHECK = "1";
 
+const { preferDirectConnection } = await import("./direct-connection.mjs");
+preferDirectConnection();
+
 const { db, engine, describe } = await import("../src/lib/db");
 
 const confirmed = process.argv.includes("--yes");

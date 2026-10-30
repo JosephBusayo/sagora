@@ -21,6 +21,9 @@ if (!process.env.BETTER_AUTH_SECRET) {
   process.exit(1);
 }
 
+const { preferDirectConnection } = await import("./direct-connection.mjs");
+preferDirectConnection();
+
 const { getMigrations } = await import("better-auth/db/migration");
 const { auth } = await import("../src/lib/auth");
 const { migrate } = await import("../src/lib/migrate");

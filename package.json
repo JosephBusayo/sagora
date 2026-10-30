@@ -20,6 +20,7 @@
   "dependencies": {
     "@central-icons-react/round-filled-radius-2-stroke-2": "^1.2.22",
     "@types/pg": "^8.23.1",
+    "@vercel/functions": "^3.10.5",
     "better-auth": "^1.7.14",
     "geist": "^1.8.2",
     "next": "16.4.3",
@@ -37,7 +38,9 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "tsx": "^4.23.15",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@neon/config": "^1.9.6",
+    "@neon/env": "^1.6.6"
   },
   "engines": {
     "node": ">=22.5.0"

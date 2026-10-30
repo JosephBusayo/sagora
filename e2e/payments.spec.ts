@@ -239,8 +239,10 @@ test("paying the balance books the job and tells both sides", async ({ page }) =
   await expect
     .poll(() => mailsTo(FARMER.email).filter((m) => m.subject.includes("is booked")).length, { timeout: 8000 })
     .toBeGreaterThan(0);
-  const toProvider = mailsTo(PROV.email).filter((m) => m.subject.includes("paid and booked"));
-  expect(toProvider.length).toBeGreaterThan(0);
+  // The two emails are sent one after the other, so the provider's can lag the farmer's.
+  await expect
+    .poll(() => mailsTo(PROV.email).filter((m) => m.subject.includes("paid and booked")).length, { timeout: 10_000 })
+    .toBeGreaterThan(0);
 });
 
 test("the farmer sees payment and booking as two separate things", async ({ page }) => {

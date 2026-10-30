@@ -47,3 +47,4 @@ next-env.d.ts
 # test output
 /e2e/.results
 /e2e/screens
+.neon
