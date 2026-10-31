@@ -46,7 +46,7 @@ export default async function Page() {
   const money = await earningsFor(business.id);
 
   // Requests in this provider's districts that they have not quoted on yet.
-  const open = (await browse({ district: business.district }, 1)).rows.filter(
+  const open = (await browse({}, 1, business)).rows.filter(
     (r) => !quotes.some((q) => q.requestId === r.id),
   );
 

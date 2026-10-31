@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/guard";
 import { parseAmount, formatAmount } from "@/lib/money";
 import { sendQuote, withdrawQuote } from "@/lib/quotes";
-import { getById } from "@/lib/requests";
+import { covers, getById } from "@/lib/requests";
 import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
 import type { FormState } from "@/lib/auth-flows";
@@ -40,6 +40,10 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   }
   if (raw.note.length > 500) fieldErrors.note = "Use 500 characters or fewer";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
+
+  // The list only shows what a business covers. This stops a form posted by hand.
+  const target = await getById(requestId);
+  if (!target || !covers(business, target)) return { error: "This request is outside your district or services.", values };
 
   const result = await sendQuote(requestId, business.id, user.id, {
     amountMinor: amountMinor!,

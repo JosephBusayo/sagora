@@ -28,6 +28,8 @@ const secretFilter = SECRET_KINDS.map(() => "o.kind NOT LIKE ? || '%'").join(" A
  */
 const KINDS: Record<string, { label: string; icon: string; href?: (ref: string) => string }> = {
   "request.created": { label: "Request sent", icon: "requests" },
+  "request.new": { label: "New request", icon: "requests" },
+  "job.dispute_resolved": { label: "Concern resolved", icon: "jobs" },
   "quote.sent": { label: "New quote", icon: "quotes" },
   "quote.revised": { label: "Quote revised", icon: "quotes" },
   "quote.accepted": { label: "Quote accepted", icon: "quotes" },

@@ -16,7 +16,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
   const term = q.toLowerCase();
   const has = (...values: string[]) => values.some((v) => v.toLowerCase().includes(term));
 
-  const requests = q ? await searchForProvider(q) : [];
+  const requests = q ? await searchForProvider(q, business) : [];
   // Jobs and machines are this business's own: both lists are already scoped to it.
   const jobs = q ? (await listJobs(business.id)).filter((j) => has(j.reference, j.village, j.district)) : [];
   const assets = q ? (await listAssets(business.id)).filter((a) => has(a.name, a.identifier, kindLabel(a.kind))) : [];
@@ -32,7 +32,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
           <ul className="search-results">
             {requests.map((r) => (
               <li key={r.id}>
-                <Link href={`/provider/requests?district=${r.district}`}>{r.reference}</Link>
+                <Link href={`/provider/requests?open=${r.reference}`}>{r.reference}</Link>
                 <span>{serviceLabel(r.service)} · {r.village}, {districtLabel(r.district)}</span>
                 <span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span>
               </li>

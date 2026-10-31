@@ -137,7 +137,24 @@ export async function listForFarmer(farmerId: string): Promise<ServiceRequest[]>
 
 /* --------------------------------------------------------- provider browse */
 
-export type Filters = { service?: string; district?: string; window?: string };
+export type Filters = { service?: string; district?: string; window?: string; reference?: string };
+
+/** What a provider covers. Requests go only to businesses covering their district and service. */
+export type Coverage = { district: string; services: string[] };
+
+/** Setup requires both before a business can be approved, so empty means no limit was recorded. */
+export const covers = (c: Coverage, r: { district: string; service: string }) =>
+  !c.district || (c.district === r.district && c.services.includes(r.service));
+
+function coverageClause(c: Coverage, where: string[], params: (string | number)[]) {
+  if (!c.district) return;
+  where.push("district = ?");
+  params.push(c.district);
+  if (c.services.length > 0) {
+    where.push(`service IN (${c.services.map(() => "?").join(",")})`);
+    params.push(...c.services);
+  }
+}
 export const DATE_WINDOWS = [
   { id: "", label: "All dates" },
   { id: "30", label: "Next 30 days" },
@@ -151,9 +168,14 @@ export const PAGE_SIZE = 7;
  * What a provider can browse. Only the farmer's service details are listed: name, phone and
  * email stay out until there is a reason to share them, which is the quote stage.
  */
-export async function browse(filters: Filters, page: number): Promise<{ rows: ServiceRequest[]; total: number; pages: number }> {
+export async function browse(filters: Filters, page: number, coverage: Coverage): Promise<{ rows: ServiceRequest[]; total: number; pages: number }> {
   const where: string[] = ["status <> 'cancelled'", "private_to IS NULL"];
   const params: (string | number)[] = [];
+  coverageClause(coverage, where, params);
+  if (filters.reference) {
+    where.push("reference = ?");
+    params.push(filters.reference);
+  }
   if (filters.service && SERVICES.some((s) => s.id === filters.service)) {
     where.push("service = ?");
     params.push(filters.service);
@@ -190,10 +212,21 @@ export async function searchForFarmer(farmerId: string, q: string): Promise<Serv
 }
 
 /** The same list a provider can browse: no contact details, nothing withdrawn. */
-export async function searchForProvider(q: string): Promise<ServiceRequest[]> {
+export async function searchForProvider(q: string, coverage: Coverage): Promise<ServiceRequest[]> {
   const t = likeTerm(q);
-  const rows = await db.all(`SELECT * FROM service_request WHERE status <> 'cancelled' AND private_to IS NULL AND ${REQUEST_MATCH} ORDER BY created_at DESC LIMIT 25`, t, t, t) as Row[];
+  const where: string[] = [];
+  const params: (string | number)[] = [];
+  coverageClause(coverage, where, params);
+  const also = where.length ? ` AND ${where.join(" AND ")}` : "";
+  const rows = await db.all(`SELECT * FROM service_request WHERE status <> 'cancelled' AND private_to IS NULL${also} AND ${REQUEST_MATCH} ORDER BY created_at DESC LIMIT 25`, ...params, t, t, t) as Row[];
   return rows.map(fromRow);
+}
+
+/** Approved businesses covering this request, to tell them it exists. Their own sign-in email. */
+export async function providersCovering(r: { district: string; service: string }): Promise<{ businessId: string; email: string }[]> {
+  const rows = await db.all(`SELECT b.id AS id, b.services AS services, u.email AS email FROM provider_business b
+       JOIN "user" u ON u.id = b.user_id WHERE b.status = 'approved' AND b.district = ?`, r.district) as { id: string; services: string; email: string }[];
+  return rows.filter((b) => (JSON.parse(b.services) as string[]).includes(r.service)).map((b) => ({ businessId: b.id, email: b.email }));
 }
 
 /** A farmer can withdraw their own request while nobody has started work. */

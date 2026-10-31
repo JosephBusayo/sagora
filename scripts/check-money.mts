@@ -231,6 +231,35 @@ console.log("\nFees and reconciliation");
   await ok("money held on a finished job is flagged", r.heldAfterCompletion.some((h) => h.requestId === paid.req.id));
 }
 
+console.log("\nDisputes");
+{
+  async function disputed(label: string, ref: string) {
+    const d = await paidJobFixture(label);
+    await payments.recordPayment(staffA, { requestId: d.req.id, amountMinor: 150000, method: "bank", externalRef: ref, note: "" });
+    await jobs.startWork(d.biz, d.owner, d.jobId);
+    await jobs.reportWork(d.biz, d.owner, d.jobId, 4, "Done");
+    await jobs.raiseConcern(d.farmer, d.req.id, "Half the field was missed");
+    return d;
+  }
+
+  const paidOut = await disputed("dispute pay", "DP-0001");
+  await ok("a dispute is listed for staff", (await settlement.openDisputes()).some((x) => x.requestId === paidOut.req.id));
+  await ok("a disputed job cannot be paid out", !(await settlement.preparePayout(staffA, paidOut.req.id)).ok);
+  await ok("a dispute needs a note", !(await settlement.resolveDispute(staffA, paidOut.req.id, "release", "")).ok);
+  await ok("siding with the provider resolves it", (await settlement.resolveDispute(staffA, paidOut.req.id, "release", "Checked on site")).ok);
+  await ok("a dispute cannot be resolved twice", !(await settlement.resolveDispute(staffA, paidOut.req.id, "refund", "Again")).ok);
+  await ok("the resolved job can then be paid out", (await settlement.preparePayout(staffA, paidOut.req.id)).ok);
+
+  const refunded = await disputed("dispute refund", "DP-0002");
+  await ok("siding with the farmer resolves it", (await settlement.resolveDispute(staffA, refunded.req.id, "refund", "Work not done")).ok);
+  const prepared = (await settlement.releasesFor(refunded.req.id)).find((r) => r.kind === "refund");
+  await ok("the refund is prepared for the full amount held", prepared?.netMinor === 150000);
+  await ok("the refund still needs a second person", prepared?.status === "prepared");
+  await ok("the money is still held until that person approves", await payments.fundsFor(refunded.req.id) === 150000);
+  await ok("the job no longer holds its machine", (await jobs.clashesFor(refunded.asset.id, inDays(20), inDays(21), null)).length === 0);
+  await ok("the ledger still balances after disputes", await ledger.ledgerIsBalanced());
+}
+
 console.log(`\n${checks - fail.length}/${checks} checks passed.`);
 if (fail.length) {
   console.log(`\nFailures:\n${fail.map((f) => `  - ${f}`).join("\n")}`);

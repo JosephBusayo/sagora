@@ -53,6 +53,11 @@ export default async function Page({ params, searchParams }: {
   const booking = await bookingFor(id);
   const payments = await paymentsFor(id);
   const received = payments.reduce((n, p) => n + p.amountMinor, 0);
+  const land = [
+    request.landAccess && landLabel(LAND_ACCESS, request.landAccess),
+    request.landCondition && landLabel(LAND_CONDITION, request.landCondition),
+    request.landClearance && landLabel(LAND_CLEARANCE, request.landClearance),
+  ].filter(Boolean) as string[];
   const refunds = (await releasesFor(id)).filter((r) => r.kind === "refund" && r.status !== "void");
 
   return (
@@ -267,6 +272,11 @@ export default async function Page({ params, searchParams }: {
                         <p className="offer__label">Includes</p>
                         <p className="offer__text">{q.includes}</p>
                       </>
+                    ) : null}
+                    {land.length > 0 ? (
+                      <ul className="offer__chips">
+                        {land.map((l) => <li key={l}><span className="chip__icon" aria-hidden="true" />{l}</li>)}
+                      </ul>
                     ) : null}
                     <p className="offer__label">Message from provider</p>
                     <p className="offer__text">

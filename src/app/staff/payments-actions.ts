@@ -8,7 +8,7 @@ import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
 import { recordPayment, resolveCase } from "@/lib/payments";
 import {
-  approveRelease, closePayoutRequest, getRelease, markSent, prepareRefund, preparePayout, reviseAmount, voidRelease,
+  approveRelease, closePayoutRequest, getRelease, markSent, prepareRefund, resolveDispute, preparePayout, reviseAmount, voidRelease,
 } from "@/lib/settlement";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -155,4 +155,21 @@ export async function closePayoutRequestAction(fd: FormData) {
   const staff = await requireStaff();
   await closePayoutRequest(staff.id, String(fd.get("id") ?? ""));
   revalidatePath("/staff/payments");
+}
+
+export async function resolveDisputeAction(fd: FormData) {
+  const staff = await requireStaff();
+  const requestId = str(fd, "requestId");
+  const outcome = str(fd, "outcome") === "refund" ? "refund" : "release";
+  const note = str(fd, "note");
+  const r = await resolveDispute(staff.id, requestId, outcome, note);
+  if (r.ok) {
+    const who = await contactsFor(requestId);
+    const text = outcome === "refund" ? `Sagora has decided to refund the farmer. Note: ${note}` : `Sagora has decided the work stands, and the provider will be paid. Note: ${note}`;
+    for (const to of [who?.farmerEmail, who?.providerEmail]) {
+      if (to) await notify({ kind: "job.dispute_resolved", to, subject: `The concern on ${who?.reference} is resolved`, text });
+    }
+  }
+  revalidatePath("/staff/payments");
+  back("disputes", r.ok ? "Dispute resolved." : r.reason, r.ok ? "ok" : "err");
 }

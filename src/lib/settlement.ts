@@ -462,3 +462,47 @@ export async function closePayoutRequest(actorId: string, id: string): Promise<b
   if (res.changes) await audit(actorId, "payout.request_closed", id);
   return res.changes > 0;
 }
+
+/* ----------------------------------------------------------------- disputes */
+
+export type Dispute = { jobId: string; requestId: string; reference: string; concern: string; businessName: string; amountMinor: number };
+
+export async function openDisputes(): Promise<Dispute[]> {
+  const rows = await db.all(`SELECT j.id AS job_id, j.request_id AS request_id, j.concern AS concern, r.reference AS reference,
+         b.name AS business_name, a.amount_minor AS amount_minor
+       FROM job j JOIN service_request r ON r.id = j.request_id
+       JOIN provider_business b ON b.id = j.business_id
+       LEFT JOIN agreement a ON a.request_id = j.request_id
+       WHERE j.status = 'disputed' ORDER BY j.updated_at ASC`) as {
+    job_id: string; request_id: string; concern: string; reference: string; business_name: string; amount_minor: number | null;
+  }[];
+  return rows.map((r) => ({
+    jobId: r.job_id, requestId: r.request_id, reference: r.reference, concern: r.concern, businessName: r.business_name, amountMinor: r.amount_minor ?? 0,
+  }));
+}
+
+/**
+ * Ends a dispute. Neither outcome moves money by itself: siding with the provider lets a payout be
+ * prepared, and siding with the farmer prepares a refund, and both still need a second person.
+ */
+export async function resolveDispute(staffId: string, requestId: string, outcome: "release" | "refund", note: string): Promise<Outcome> {
+  if (note.length < 3) return { ok: false, reason: "Say how this was resolved." };
+  const job = await jobForRequest(requestId);
+  if (!job || job.status !== "disputed") return { ok: false, reason: "That dispute has already been resolved." };
+
+  const now = new Date().toISOString();
+  if (outcome === "refund") {
+    const held = await balance(account.funds(requestId));
+    if (held > 0) {
+      const refund = await prepareRefund(staffId, requestId, held, note);
+      if (!refund.ok) return refund;
+    }
+    await db.run("UPDATE job SET status='cancelled', updated_at=? WHERE id=?", now, job.id);
+    await db.run("UPDATE service_request SET status='cancelled', updated_at=? WHERE id=?", now, requestId);
+  } else {
+    await db.run("UPDATE job SET status='completed', confirmed_at=?, updated_at=? WHERE id=?", now, now, job.id);
+    await db.run("UPDATE service_request SET status='completed', updated_at=? WHERE id=?", now, requestId);
+  }
+  await audit(staffId, `dispute.${outcome}`, requestId, note);
+  return { ok: true };
+}

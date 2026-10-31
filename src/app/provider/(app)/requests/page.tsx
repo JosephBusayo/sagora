@@ -23,7 +23,7 @@ const fmtLong = (iso: string) =>
     day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
   });
 
-type Params = { service?: string; district?: string; window?: string; page?: string };
+type Params = { service?: string; district?: string; window?: string; page?: string; open?: string };
 
 /** The filters submit on change with JavaScript, and with a button without it. */
 function Filters({ current }: { current: Params }) {
@@ -62,7 +62,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
   const { user, business } = await requireWorkspace();
   const sp = await searchParams;
   const page = Number(sp.page ?? "1") || 1;
-  const { rows, pages } = await browse({ service: sp.service, district: sp.district, window: sp.window }, page);
+  const { rows, pages } = await browse({ service: sp.service, district: sp.district, window: sp.window, reference: sp.open }, page, business);
 
   const items: RequestRow[] = await Promise.all(rows.map(async (r) => ({
     id: r.id,
@@ -117,7 +117,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
         subtitle="Browse new requests from farmers and send a quote for the ones you can service"
         action={<Filters current={sp} />}
       />
-      <RequestsTable rows={items} />
+      <RequestsTable rows={items} initialOpen={sp.open} />
       {pages > 1 ? (
         <nav className="pager" aria-label="Pages">
           {Array.from({ length: pages }, (_, i) => i + 1).map((p) =>

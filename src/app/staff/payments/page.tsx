@@ -5,12 +5,12 @@ import { requireStaff } from "@/lib/session";
 import { formatAmount } from "@/lib/money";
 import { METHODS, awaitingPayment, methodLabel, openCases, paymentsFor } from "@/lib/payments";
 import {
-  FEE_POLICY, RELEASE_STATUS_LABEL, openPayoutRequests, pendingReleases, reconcile, releasesFor,
+  FEE_POLICY, RELEASE_STATUS_LABEL, openDisputes, openPayoutRequests, pendingReleases, reconcile, releasesFor,
 } from "@/lib/settlement";
 import { jobForRequest, JOB_STATUS_LABEL, type JobStatus } from "@/lib/jobs";
 import { signOut } from "@/app/provider/actions";
 import {
-  approveReleaseAction, closePayoutRequestAction, markSentAction, prepareRefundAction, preparePayoutAction,
+  approveReleaseAction, closePayoutRequestAction, markSentAction, prepareRefundAction, resolveDisputeAction, preparePayoutAction,
   recordPaymentAction, resolveCaseAction, reviseReleaseAction, voidReleaseAction,
 } from "../payments-actions";
 
@@ -20,6 +20,7 @@ export const dynamic = "force-dynamic";
 const TABS = [
   { id: "collect", label: "To collect" },
   { id: "cases", label: "Cases" },
+  { id: "disputes", label: "Disputes" },
   { id: "releases", label: "Money out" },
   { id: "books", label: "Reconciliation" },
 ] as const;
@@ -53,6 +54,7 @@ export default async function Page({
   const cases = await openCases();
   const releases = await pendingReleases();
   const withdrawals = await openPayoutRequests();
+  const disputes = await openDisputes();
   const books = await reconcile();
 
   // A component cannot await inside its own JSX, so every per-row query is answered first.
@@ -104,6 +106,7 @@ export default async function Page({
             >
               {t.label}
               {t.id === "cases" && cases.length > 0 ? ` (${cases.length})` : ""}
+              {t.id === "disputes" && disputes.length > 0 ? ` (${disputes.length})` : ""}
               {t.id === "releases" && releases.length > 0 ? ` (${releases.length})` : ""}
             </Link>
           ))}
@@ -351,6 +354,34 @@ export default async function Page({
               ))
             )}
           </>
+        ) : null}
+
+        {tab === "disputes" ? (
+          disputes.length === 0 ? <p className="empty">No open disputes.</p> : (
+            <>
+              {disputes.map((d) => (
+                <section key={d.jobId} className="staff__item">
+                  <h2>{d.reference}</h2>
+                  <dl className="setup__summary">
+                    <dt>Provider</dt><dd>{d.businessName}</dd>
+                    <dt>Agreed</dt><dd>{formatAmount(d.amountMinor)}</dd>
+                    <dt>Concern</dt><dd>{d.concern}</dd>
+                  </dl>
+                  <form action={resolveDisputeAction} className="form-soft">
+                    <input type="hidden" name="requestId" value={d.requestId} />
+                    <div className="field">
+                      <label className="field__label" htmlFor={`note-${d.jobId}`}>How was this resolved?</label>
+                      <div className="field__box"><input id={`note-${d.jobId}`} name="note" className="field__input" maxLength={300} /></div>
+                    </div>
+                    <div className="request-card__actions">
+                      <button type="submit" name="outcome" value="refund" className="button button--soft">Refund the farmer</button>
+                      <button type="submit" name="outcome" value="release" className="button">Pay the provider</button>
+                    </div>
+                  </form>
+                </section>
+              ))}
+            </>
+          )
         ) : null}
 
         {tab === "books" ? (

@@ -64,6 +64,14 @@ the Monday deadline, to be transferred afterwards.
 | Monime | nobody | cannot be opened by a developer, and must not be. Payments are recorded by hand by design, so nothing is blocked on it |
 
 
+## To revisit
+
+- **Providers covering several districts.** Matching uses the one district from provider setup, so
+  a business working across districts cannot say so yet. The Requests district filter has one useful
+  choice until this changes. A small follow-up, once it is known whether providers do work that way.
+- **The landing page.** A public landing page already exists and will connect to this app. Until
+  then `/` redirects to the provider sign-in, so farmers arrive at the wrong door.
+
 ## From the designer
 
 | # | What | Where it bites | Stand-in in use |

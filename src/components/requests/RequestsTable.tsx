@@ -7,8 +7,8 @@ import type { MyQuote } from "./QuoteForm";
 
 export type RequestRow = RequestDetail & { statusLabel: string; status: string; myQuote: MyQuote | null };
 
-export function RequestsTable({ rows }: { rows: RequestRow[] }) {
-  const [open, setOpen] = useState<RequestRow | null>(null);
+export function RequestsTable({ rows, initialOpen }: { rows: RequestRow[]; initialOpen?: string }) {
+  const [open, setOpen] = useState<RequestRow | null>(rows.find((r) => r.reference === initialOpen) ?? null);
   if (rows.length === 0) {
     return (
       <div className="table-card">

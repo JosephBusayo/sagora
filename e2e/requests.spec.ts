@@ -220,12 +220,12 @@ test("the farmer's contact details are never sent to the browse list", async ({ 
 
 test("a farmer can withdraw a request, and it leaves the provider list", async ({ page, browser }) => {
   await signInFarmer(page);
-  await book(page, { service: "harvesting", acres: "3", district: "Kono", village: "Yengema", days: 30 });
+  await book(page, { service: "ploughing", acres: "3", district: "Bombali", village: "Yengema", days: 30 });
   const reference = (await page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
 
   const p = await fresh(browser);
   await signInProvider(p.page);
-  await p.page.goto("/provider/requests?district=Kono");
+  await p.page.goto("/provider/requests?district=Bombali");
   await expect(p.page.getByRole("cell", { name: reference, exact: true })).toBeVisible();
 
   await page.goto("/farmer/requests");
@@ -275,4 +275,19 @@ test("a farmer edits a request nobody has quoted, in the design's two steps", as
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("heading", { name: "Request details" })).toBeVisible();
   await expect(page.getByText("9 acres")).toBeVisible();
+});
+
+test("a request reaches only the providers covering its district and service", async ({ page }) => {
+  await testRun("UPDATE provider_business SET district='Kono', services=? WHERE email=?", JSON.stringify(["ploughing"]), PROVIDER.email);
+  await signInProvider(page);
+  await page.goto("/provider/requests?window=");
+  await expect(page.getByRole("cell", { name: "Bombali District" })).toHaveCount(0);
+  await testRun("UPDATE provider_business SET district='', services='[]' WHERE email=?", PROVIDER.email);
+});
+
+test("a bad link is not a dead end", async ({ browser }) => {
+  const b = await fresh(browser);
+  await b.page.goto("/this-page-does-not-exist");
+  await expect(b.page.getByRole("heading", { name: "We can't find that page" })).toBeVisible();
+  await b.ctx.close();
 });

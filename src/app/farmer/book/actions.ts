@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { DISTRICTS, SERVICES } from "@/lib/business";
-import { createRequest, updateRequest } from "@/lib/requests";
+import { createRequest, providersCovering, updateRequest } from "@/lib/requests";
 import { requireFarmer } from "@/lib/session";
 import { notify } from "@/lib/outbox";
 import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION } from "@/lib/land";
@@ -110,6 +110,17 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
       `A request is not a booking. Providers will send you quotes, and nothing is confirmed ` +
       `until you accept one and pay.`,
   });
+
+  // Only the work itself: a provider gets no farmer's name or number from this.
+  for (const p of await providersCovering(d)) {
+    await notify({
+      kind: "request.new",
+      dedupeKey: `request.new:${created.id}:${p.businessId}`,
+      to: p.email,
+      subject: `New request ${created.reference} in ${d.district}`,
+      text: `A farmer in ${d.district} is asking for ${d.service} on ${d.acres} acres. Sign in to Sagora to send a quote.`,
+    });
+  }
 
   redirect(`/farmer/requests?new=${created.reference}`);
 }
