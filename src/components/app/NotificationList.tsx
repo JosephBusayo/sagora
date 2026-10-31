@@ -1,3 +1,4 @@
+import { openNotificationAction } from "@/app/notification-actions";
 import { PendingButton } from "@/components/app/PendingButton";
 import Link from "next/link";
 import { Icon, type IconName } from "./Icon";
@@ -78,6 +79,13 @@ export function NotificationList({
                   </p>
                 ) : null}
               </div>
+              {n.href ? (
+                <form action={openNotificationAction}>
+                  <input type="hidden" name="id" value={n.id} />
+                  <input type="hidden" name="href" value={n.href} />
+                  <PendingButton className="resend__button">View</PendingButton>
+                </form>
+              ) : null}
               {!n.read ? (
                 <form action={markReadAction}>
                   <input type="hidden" name="id" value={n.id} />

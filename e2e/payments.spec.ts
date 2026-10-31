@@ -93,7 +93,7 @@ async function scheduledJob(browser: Browser, acres: string, village: string, pr
   await d.getByLabel("Can start on").fill(inDays(day));
   await d.getByLabel("Price holds until").fill(inDays(20));
   await d.getByRole("button", { name: "Send a quote" }).click();
-  await expect(d.getByText("Quote sent to the farmer.")).toBeVisible();
+  await expect(d.page().getByText("Quote sent to the farmer.")).toBeVisible();
 
   await f.page.goto("/farmer/requests");
   await f.page.getByRole("link", { name: reference }).click();
@@ -204,7 +204,7 @@ test("a part payment does not book the job", async ({ page }) => {
   await row.getByLabel("Receipt or transaction reference").fill(`MM-${run}-A1`);
   await row.getByRole("button", { name: "Record it" }).click();
 
-  await expect(page.getByRole("status")).toContainText("not confirmed yet");
+  await expect(page.getByText("not confirmed yet").first()).toBeVisible();
   await expect(collectRow(page, refA).getByText("Le 500.00 to go")).toBeVisible();
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${SHOTS}/27-staff-payments.png`, fullPage: true });
@@ -220,7 +220,7 @@ test("the same receipt reference cannot be recorded twice", async ({ page }) => 
   await row.getByLabel("Receipt or transaction reference").fill(`MM-${run}-A1`);
   await row.getByRole("button", { name: "Record it" }).click();
 
-  await expect(page.getByRole("status")).toContainText("has already been recorded");
+  await expect(page.getByText("has already been recorded").first()).toBeVisible();
   // The money did not move: still 500 to go on a 900 job.
   await expect(collectRow(page, refA).getByText("Le 500.00 to go")).toBeVisible();
 });
@@ -234,7 +234,7 @@ test("paying the balance books the job and tells both sides", async ({ page }) =
   await row.getByLabel("Receipt or transaction reference").fill(`BK-${run}-A2`);
   await row.getByRole("button", { name: "Record it" }).click();
 
-  await expect(page.getByRole("status")).toContainText("Paid in full and booked");
+  await expect(page.getByText("Paid in full and booked").first()).toBeVisible();
   await expect(collectRow(page, refA).getByText("Booked", { exact: true })).toBeVisible();
 
   await expect
@@ -283,7 +283,7 @@ test("money arriving after the machine is taken opens a case instead of overbook
   await row.getByLabel("Receipt or transaction reference").fill(`MM-${run}-B1`);
   await row.getByRole("button", { name: "Record it" }).click();
 
-  await expect(page.getByRole("status")).toContainText("nothing was overbooked");
+  await expect(page.getByText("nothing was overbooked").first()).toBeVisible();
   await page.goto("/staff/payments?tab=cases");
   await expect(page.getByText(refB)).toBeVisible();
   await expect(page.getByText(/a machine is now committed to/)).toBeVisible();
@@ -298,13 +298,13 @@ test("a refund needs a second person, and the preparer cannot be it", async ({ p
   await page.getByText("Refund the farmer", { exact: true }).click();
   await page.getByLabel("Amount to refund").fill("500.00");
   await page.getByRole("button", { name: "Prepare the refund" }).click();
-  await expect(page.getByRole("status")).toContainText("A second person must approve it");
+  await expect(page.getByText("A second person must approve it").first()).toBeVisible();
 
   // The clerk who prepared it may not approve it.
   const release = page.locator("section.staff__item").filter({ hasText: "Refund" });
   await expect(release.getByText("Waiting for a second approver")).toBeVisible();
   await release.getByRole("button", { name: "Approve it" }).click();
-  await expect(page.getByRole("status")).toContainText("cannot approve it");
+  await expect(page.getByText(/cannot approve it/)).toBeVisible();
 
   // The other person can.
   const b = await fresh(browser);
@@ -312,14 +312,14 @@ test("a refund needs a second person, and the preparer cannot be it", async ({ p
   await passStaffCheck(b.page, BOSS.email);
   await b.page.goto("/staff/payments?tab=releases");
   await b.page.locator("section.staff__item").filter({ hasText: "Refund" }).getByRole("button", { name: "Approve it" }).click();
-  await expect(b.page.getByRole("status")).toContainText("Approved");
+  await expect(b.page.getByText("Approved").first()).toBeVisible();
 
   // Changing the amount withdraws that approval.
   const approved = b.page.locator("section.staff__item").filter({ hasText: "Refund" });
   await approved.getByText("Change the amount", { exact: true }).click();
   await approved.getByLabel("New amount").fill("400.00");
   await approved.getByRole("button", { name: "Change it" }).click();
-  await expect(b.page.getByRole("status")).toContainText("needs approving again");
+  await expect(b.page.getByText("needs approving again").first()).toBeVisible();
   await expect(
     b.page.locator("section.staff__item").filter({ hasText: "Refund" }).getByText("Waiting for a second approver"),
   ).toBeVisible();
@@ -357,7 +357,7 @@ test("a payout waits for the farmer's confirmation, not the provider's word", as
   await page.goto("/staff/payments?tab=releases");
   await expect(page.getByRole("heading", { name: "Ready to pay out" })).toBeVisible();
   await page.getByRole("button", { name: "Prepare the payout" }).click();
-  await expect(page.getByRole("status")).toContainText("A second person must approve it");
+  await expect(page.getByText("A second person must approve it").first()).toBeVisible();
 
   const b = await fresh(browser);
   await signIn(b.page, BOSS, "staff");
@@ -365,13 +365,13 @@ test("a payout waits for the farmer's confirmation, not the provider's word", as
   await b.page.goto("/staff/payments?tab=releases");
   const payout = b.page.locator("section.staff__item").filter({ hasText: "Payout" });
   await payout.getByRole("button", { name: "Approve it" }).click();
-  await expect(b.page.getByRole("status")).toContainText("Approved");
+  await expect(b.page.getByText("Approved").first()).toBeVisible();
 
   const ready = b.page.locator("section.staff__item").filter({ hasText: "Payout" });
   await ready.getByText("Record it as sent", { exact: true }).click();
   await ready.getByLabel("Transfer reference").fill(`OUT-${run}-1`);
   await ready.getByRole("button", { name: "It has been sent" }).click();
-  await expect(b.page.getByRole("status")).toContainText("Recorded as sent");
+  await expect(b.page.getByText("Recorded as sent").first()).toBeVisible();
   await b.ctx.close();
 
   // The provider sees it on their own payments screen.
@@ -391,14 +391,14 @@ test("changing where money goes withdraws an approval that has not been sent", a
   await row.getByText("Record a payment", { exact: true }).click();
   await row.getByLabel("Receipt or transaction reference").fill(`MM-${run}-C1`);
   await row.getByRole("button", { name: "Record it" }).click();
-  await expect(page.getByRole("status")).toContainText("Paid in full and booked");
+  await expect(page.getByText("Paid in full and booked").first()).toBeVisible();
   const c = await testGet("SELECT id FROM service_request WHERE reference=?", refC) as { id: string };
   await testRun("UPDATE job SET status='completed', reported_acres=3, confirmed_at=? WHERE request_id=?", new Date().toISOString(), c.id);
 
   await page.goto("/staff/payments?tab=releases");
   const ready = page.locator("section.staff__item").filter({ hasText: "Ready to pay out" });
   await ready.getByRole("button", { name: "Prepare the payout" }).click();
-  await expect(page.getByRole("status")).toContainText("A second person must approve it");
+  await expect(page.getByText("A second person must approve it").first()).toBeVisible();
 
   const boss = await fresh(browser);
   await signIn(boss.page, BOSS, "staff");
@@ -406,7 +406,7 @@ test("changing where money goes withdraws an approval that has not been sent", a
   await boss.page.goto("/staff/payments?tab=releases");
   const payout = boss.page.locator("section.staff__item").filter({ hasText: `Payout · ${refC}` });
   await payout.getByRole("button", { name: "Approve it" }).click();
-  await expect(boss.page.getByRole("status")).toContainText("Approved");
+  await expect(boss.page.getByText("Approved").first()).toBeVisible();
 
   // The provider now changes their payout number.
   const p = await fresh(browser);
@@ -415,7 +415,7 @@ test("changing where money goes withdraws an approval that has not been sent", a
   await p.page.getByLabel("Name on the account").fill("Sesay Tractors Ltd");
   await p.page.getByLabel("Mobile money number").fill("76 111 222");
   await p.page.getByRole("button", { name: "Save where money goes" }).click();
-  await expect(p.page.getByRole("status")).toContainText("gone back for approval");
+  await expect(p.page.getByText("gone back for approval").first()).toBeVisible();
   await p.ctx.close();
 
   await boss.page.goto("/staff/payments?tab=releases");

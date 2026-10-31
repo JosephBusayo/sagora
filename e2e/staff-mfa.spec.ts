@@ -144,7 +144,7 @@ test("five wrong codes burn the code, not the account", async ({ page, browser }
   await expect(b.page.getByRole("button", { name: /Resend in 00:/ })).toBeDisabled();
   await expect(b.page.getByRole("button", { name: "Resend code" })).toBeEnabled({ timeout: 35_000 });
   await b.page.getByRole("button", { name: "Resend code" }).click();
-  await expect(b.page.getByRole("status")).toContainText("We sent a new code");
+  await expect(b.page.getByText("We sent a new code").first()).toBeVisible();
   await b.page.waitForTimeout(100);
   await typeCode(b.page, await latestCode(STAFF.email));
   await expect(b.page).toHaveURL(/\/staff\/providers$/);

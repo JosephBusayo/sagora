@@ -1,5 +1,6 @@
 "use server";
 
+import { logError } from "@/lib/log";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
@@ -29,7 +30,8 @@ export async function saveFarmerAccount(_prev: FormState, fd: FormData): Promise
 
   try {
     await auth.api.updateUser({ body: { name, phone }, headers: await headers() });
-  } catch {
+  } catch (err) {
+    logError("farmer.settings", err);
     return { error: "We couldn't save your details. Please try again.", values };
   }
   revalidatePath("/farmer/settings/account");

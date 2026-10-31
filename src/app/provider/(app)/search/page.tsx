@@ -23,7 +23,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
   const nothing = requests.length + jobs.length + assets.length === 0;
 
   return (
-    <Shell crumb={{ label: "Search", icon: "search" }} user={{ name: user.name || business.name }} audience="provider">
+    <Shell crumb={{ label: "Search", icon: "search" }} user={{ name: user.name || business.name }} audience="provider" search={q}>
       <PageHead title="Search" subtitle={q ? `Results for “${q}”` : "Search requests, jobs, equipments..."} />
       {nothing ? <p className="empty">{q ? "Nothing matches that search." : "Type a reference, place or machine."}</p> : null}
       {requests.length > 0 ? (

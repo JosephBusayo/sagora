@@ -1,5 +1,6 @@
 "use server";
 
+import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -62,6 +63,7 @@ export async function startWorkAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
   await startWork(business.id, user.id, str(fd, "jobId"));
+  await flash("Work started.");
   revalidatePath("/provider/jobs");
 }
 
@@ -104,6 +106,7 @@ export async function noReplacementAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
   await reportNoReplacement(business.id, user.id, str(fd, "jobId"));
+  await flash("Sagora has been told. Staff will follow up.");
   revalidatePath("/provider/jobs");
 }
 

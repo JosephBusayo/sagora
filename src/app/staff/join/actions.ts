@@ -1,5 +1,6 @@
 "use server";
 
+import { logError } from "@/lib/log";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -26,7 +27,8 @@ export async function acceptStaffInviteAction(_prev: FormState, fd: FormData): P
   try {
     const res = await auth.api.signUpEmail({ body: { name, email: invite.email, password }, headers: await headers() });
     await completeStaffInvite(invite.id, res.user.id, invite.role);
-  } catch {
+  } catch (err) {
+    logError("staff.join", err);
     return { error: "We couldn't create your account. Please try again.", values: { name } };
   }
   redirect("/staff/sign-in");

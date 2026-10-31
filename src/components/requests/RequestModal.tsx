@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useModal } from "@/components/app/useModal";
+import { useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/app/Icon";
 import { QuoteForm, type MyQuote } from "./QuoteForm";
 
@@ -49,16 +50,11 @@ function LandRows({ request }: { request: RequestDetail }) {
 export function RequestModal({ request, myQuote, onClose }: { request: RequestDetail; myQuote: MyQuote | null; onClose: () => void }) {
   const [tab, setTab] = useState<"details" | "quote" | "activity">("details");
   const ref = useRef<HTMLDivElement>(null);
+  const close = useModal(ref, onClose);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    ref.current?.querySelector<HTMLElement>("button")?.focus();
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
       <div className="modal modal--request" role="dialog" aria-modal="true" aria-labelledby="req-title" ref={ref}>
         {/* Three concentric circles, each a lighter shade outwards, as in the design. */}
         <div className="modal__banner" aria-hidden="true">

@@ -1,5 +1,7 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
+import { FormNotice } from "@/components/app/FormNotice";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
@@ -20,15 +22,14 @@ type Action = (prev: FormState, fd: FormData) => Promise<FormState>;
 
 function Alert({ state }: { state: FormState }) {
   if (state.error) return <p className="notice notice--error" role="alert">{state.error}</p>;
-  if (state.notice) return <p className="notice notice--success" role="status">{state.notice}</p>;
-  return null;
+  return <FormNotice state={state} />;
 }
 
 /** The only real difference between the two sign-up screens is this first field. */
 export type NameField = { name: string; label: string; placeholder: string; autoComplete: string };
 
 export function SignUpForm({ action, nameField }: { action: Action; nameField: NameField }) {
-  const [state, formAction] = useActionState(action, initial);
+  const [state, formAction] = useActionState(useSafely(action), initial);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   return (
@@ -53,7 +54,7 @@ export function SignUpForm({ action, nameField }: { action: Action; nameField: N
 }
 
 export function SignInForm({ action, forgotHref }: { action: Action; forgotHref: string }) {
-  const [state, formAction] = useActionState(action, initial);
+  const [state, formAction] = useActionState(useSafely(action), initial);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   return (
@@ -79,7 +80,7 @@ export function SignInForm({ action, forgotHref }: { action: Action; forgotHref:
 }
 
 export function ForgotPasswordForm({ action }: { action: Action }) {
-  const [state, formAction] = useActionState(action, initial);
+  const [state, formAction] = useActionState(useSafely(action), initial);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   return (
@@ -117,8 +118,8 @@ function ResendButton({ sent }: { sent: unknown }) {
 }
 
 export function VerifyCodeForm({ action, resendAction }: { action: Action; resendAction: Action }) {
-  const [state, formAction] = useActionState(action, initial);
-  const [resendState, resend] = useActionState(resendAction, initial);
+  const [state, formAction] = useActionState(useSafely(action), initial);
+  const [resendState, resend] = useActionState(useSafely(resendAction), initial);
   const e = state.fieldErrors ?? {};
   return (
     <>
@@ -145,7 +146,7 @@ export function VerifyCodeForm({ action, resendAction }: { action: Action; resen
 }
 
 export function ResetPasswordForm({ action }: { action: Action }) {
-  const [state, formAction] = useActionState(action, initial);
+  const [state, formAction] = useActionState(useSafely(action), initial);
   const e = state.fieldErrors ?? {};
   return (
     <form action={formAction} className="auth__form">

@@ -1,5 +1,7 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
+import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { reviewBusiness } from "@/app/staff/actions";
@@ -18,7 +20,7 @@ function Buttons() {
 
 /** One business's decision. Every outcome is shown, so nothing fails silently. */
 export function ReviewForm({ id }: { id: string }) {
-  const [state, action] = useActionState(reviewBusiness, {} as FormState);
+  const [state, action] = useActionState(useSafely(reviewBusiness), {} as FormState);
   return (
     <form action={action} className="staff__form">
       <input type="hidden" name="id" value={id} />
@@ -26,7 +28,7 @@ export function ReviewForm({ id }: { id: string }) {
       <textarea id={`n-${id}`} name="note" rows={2} maxLength={500} className="staff__note" />
       {state.fieldErrors?.note ? <p className="field__error">{state.fieldErrors.note}</p> : null}
       {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
-      {state.notice ? <p className="notice notice--success" role="status">{state.notice}</p> : null}
+      <FormNotice state={state} />
       <Buttons />
     </form>
   );

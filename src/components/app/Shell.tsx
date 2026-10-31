@@ -13,6 +13,8 @@ type Props = {
   audience?: Audience;
   /** Unread notifications, shown on the bell. */
   unread?: number;
+  /** What is in the search box, on the search results page. */
+  search?: string;
   children: React.ReactNode;
 };
 
@@ -29,7 +31,7 @@ function shortName(name: string): string {
   return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}`;
 }
 
-export function Shell({ crumb, user, audience = "provider", unread = 0, children }: Props) {
+export function Shell({ crumb, user, audience = "provider", unread = 0, search, children }: Props) {
   const base = `/${audience}`;
   return (
     <div className="app">
@@ -43,7 +45,7 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, children
           {/* A plain GET form, so search works with JavaScript off. */}
           <form className="topbar__search" action={`${base}/search`} role="search">
             <Icon name="search" size={18} />
-            <input type="search" name="q" placeholder="Search requests, jobs, equipments..." aria-label="Search" maxLength={80} />
+            <input key={search} type="search" name="q" defaultValue={search} placeholder="Search requests, jobs, equipments..." aria-label="Search" maxLength={80} />
           </form>
           <div className="topbar__actions">
             <Link

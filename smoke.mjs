@@ -217,7 +217,7 @@ await step("Provider sends a quote", p.page, async () => {
   await d.getByLabel("Can start on").fill(inDays(20));
   await d.getByLabel("Price holds until").fill(inDays(15));
   await d.getByRole("button", { name: "Send a quote" }).click();
-  await d.getByText("Quote sent to the farmer.").waitFor();
+  await d.page().getByText("Quote sent to the farmer.").waitFor();
   await p.page.screenshot({ path: path.join(OUT, "06-quote-sent.png") });
 });
 

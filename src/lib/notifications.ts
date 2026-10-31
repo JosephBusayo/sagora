@@ -48,6 +48,8 @@ const KINDS: Record<string, { label: string; icon: string; href?: (ref: string) 
 export type Notification = {
   id: string; subject: string; body: string; kind: string;
   label: string; icon: string; at: string; read: boolean; delivered: boolean;
+  /** Where this is about, when that can be worked out. */
+  href: string | null;
 };
 
 export type Filter = "all" | "unread";
@@ -75,12 +77,28 @@ function toNotification(r: Row): Notification {
     read: r.read_at !== null,
     // Worth showing: a notification the farmer is reading here may never have reached their inbox.
     delivered: r.status === "sent",
+    href: null,
   };
+}
+
+const referenceIn = (subject: string) => subject.match(/SG-\d+/)?.[0] ?? null;
+
+async function hrefFor(n: Notification, user: { id: string; role?: string | null }): Promise<string | null> {
+  if (n.kind.startsWith("business.")) return "/provider/setup";
+  if (n.kind.startsWith("payout")) return "/provider/payments";
+  const reference = referenceIn(n.subject);
+  if (!reference) return null;
+  if (user.role === "farmer") {
+    const r = await db.get("SELECT id FROM service_request WHERE reference=? AND farmer_id=?", reference, user.id) as { id: string } | undefined;
+    return r ? `/farmer/requests/${r.id}` : null;
+  }
+  if (n.kind.startsWith("job.") || n.kind === "booking.confirmed" || n.kind === "quote.accepted") return "/provider/jobs";
+  return `/provider/requests?open=${reference}`;
 }
 
 const LIMIT = 50;
 
-export async function listFor(user: { id: string; email: string }, filter: Filter = "all"): Promise<Notification[]> {
+export async function listFor(user: { id: string; email: string; role?: string | null }, filter: Filter = "all"): Promise<Notification[]> {
   const rows = await db.all(`SELECT o.id, o.subject, o.body, o.kind, o.created_at, o.status, r.read_at
        FROM notification_outbox o
        LEFT JOIN notification_read r ON r.notification_id = o.id AND r.user_id = ?
@@ -88,7 +106,10 @@ export async function listFor(user: { id: string; email: string }, filter: Filte
          ${filter === "unread" ? "AND r.read_at IS NULL" : ""}
        ORDER BY o.created_at DESC
        LIMIT ${LIMIT}`, user.id, user.email, ...SECRET_KINDS) as Row[];
-  return rows.map(toNotification);
+  return Promise.all(rows.map(async (r) => {
+    const n = toNotification(r);
+    return { ...n, href: await hrefFor(n, user) };
+  }));
 }
 
 export async function unreadCount(user: { id: string; email: string }): Promise<number> {

@@ -1,5 +1,8 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
+import { useModal } from "@/components/app/useModal";
+import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { reportFaultAction } from "@/app/provider/(app)/equipment/actions";
@@ -19,8 +22,9 @@ function Buttons({ onClose }: { onClose: () => void }) {
 }
 
 export function FaultModal({ asset, onClose }: { asset: AssetView; onClose: () => void }) {
-  const [state, action] = useActionState(reportFaultAction, {} as FormState);
+  const [state, action] = useActionState(useSafely(reportFaultAction), {} as FormState);
   const ref = useRef<HTMLDivElement>(null);
+  const close = useModal(ref, onClose);
   const done = Boolean(state.notice);
 
   useEffect(() => {
@@ -30,16 +34,11 @@ export function FaultModal({ asset, onClose }: { asset: AssetView; onClose: () =
     }
   }, [done, onClose]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const e = state.fieldErrors ?? {};
 
   return (
-    <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) onClose(); }}>
+    <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) close(); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="fault-title" ref={ref}>
         <div className="modal__head">
           <h2 id="fault-title">Report a fault</h2>
@@ -73,7 +72,7 @@ export function FaultModal({ asset, onClose }: { asset: AssetView; onClose: () =
             A fault never erases work already committed. It marks the machine so it is not given out again.
           </p>
           {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
-          {state.notice ? <p className="notice notice--success" role="status">{state.notice}</p> : null}
+          <FormNotice state={state} />
           <Buttons onClose={onClose} />
         </form>
       </div>

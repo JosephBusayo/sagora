@@ -1,5 +1,6 @@
 "use server";
 
+import { logError } from "@/lib/log";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -41,7 +42,8 @@ export async function acceptInviteAction(_prev: FormState, fd: FormData): Promis
         headers: await headers(),
       });
       userId = res.user.id;
-    } catch {
+    } catch (err) {
+      logError("team.join", err);
       return { error: "We couldn't create your account. Please try again.", values: { name } };
     }
     // The invite link proves they received the email, so the address is already confirmed.

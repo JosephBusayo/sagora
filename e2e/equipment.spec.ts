@@ -135,7 +135,7 @@ test("a blocking fault takes a machine out of service; a minor one does not", as
   let d = page.getByRole("dialog");
   await d.getByLabel("What is wrong?").fill("Hydraulic leak on the left arm");
   await d.getByRole("button", { name: "Record fault" }).click();
-  await expect(d.getByText("now out of service")).toBeVisible();
+  await expect(d.page().getByText("now out of service")).toBeVisible();
   await page.reload();
   await expect(card(page, "Three furrow plough").getByText("Out of service")).toBeVisible();
   await page.waitForLoadState("networkidle");
@@ -151,7 +151,7 @@ test("a blocking fault takes a machine out of service; a minor one does not", as
   await d.getByRole("radio", { name: "Still usable" }).check();
   await d.getByLabel("What is wrong?").fill("Cracked mirror");
   await d.getByRole("button", { name: "Record fault" }).click();
-  await expect(d.getByText("can still be used")).toBeVisible();
+  await expect(d.page().getByText("can still be used")).toBeVisible();
   await page.reload();
   const h = card(page, "Rice harvester");
   await expect(h.getByText("Available")).toBeVisible();

@@ -1,3 +1,4 @@
+import { logError } from "./log";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { waitUntil } from "@vercel/functions";
@@ -79,6 +80,7 @@ export async function drain(limit = 25): Promise<{ sent: number; failed: number 
     } catch (err) {
       const attempts = row.attempts + 1;
       const message = String(err instanceof Error ? err.message : err).slice(0, 300);
+      logError("outbox.send", message);
       if (attempts >= MAX_ATTEMPTS) {
         await db.run("UPDATE notification_outbox SET status='failed', last_error=? WHERE id=?", message, row.id);
       } else {

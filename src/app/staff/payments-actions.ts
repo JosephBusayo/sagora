@@ -1,5 +1,6 @@
 "use server";
 
+import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
@@ -12,8 +13,13 @@ import {
 } from "@/lib/settlement";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
-const back = (tab: string, message: string, kind: "ok" | "err" = "ok") =>
-  redirect(`/staff/payments?tab=${tab}&${kind}=${encodeURIComponent(message)}`);
+async function back(tab: string, message: string, kind: "ok" | "err" = "ok") {
+  if (kind === "ok") {
+    await flash(message);
+    redirect(`/staff/payments?tab=${tab}`);
+  }
+  redirect(`/staff/payments?tab=${tab}&err=${encodeURIComponent(message)}`);
+}
 
 /** Who to tell about money, looked up rather than passed in a form. */
 async function contactsFor(requestId: string) {
@@ -35,7 +41,7 @@ export async function recordPaymentAction(fd: FormData) {
   const staff = await requireStaff();
   const requestId = str(fd, "requestId");
   const minor = parseAmount(str(fd, "amount"));
-  if (minor === null) back("collect", "Enter an amount like 1,500.00", "err");
+  if (minor === null) await back("collect", "Enter an amount like 1,500.00", "err");
 
   const result = await recordPayment(staff.id, {
     requestId,
@@ -44,7 +50,7 @@ export async function recordPaymentAction(fd: FormData) {
     externalRef: str(fd, "reference"),
     note: str(fd, "note"),
   });
-  if (!result.ok) back("collect", result.reason, "err");
+  if (!result.ok) await back("collect", result.reason, "err");
 
   const who = await contactsFor(requestId);
   if (result.ok && result.outcome === "booked" && who) {
@@ -76,39 +82,39 @@ export async function recordPaymentAction(fd: FormData) {
   }
 
   revalidatePath("/staff/payments");
-  back("collect", (result as { message: string }).message);
+  await back("collect", (result as { message: string }).message);
 }
 
 export async function preparePayoutAction(fd: FormData) {
   const staff = await requireStaff();
   const r = await preparePayout(staff.id, str(fd, "requestId"));
   revalidatePath("/staff/payments");
-  back("releases", r.ok ? "Payout prepared. A second person must approve it." : r.reason, r.ok ? "ok" : "err");
+  await back("releases", r.ok ? "Payout prepared. A second person must approve it." : r.reason, r.ok ? "ok" : "err");
 }
 
 export async function prepareRefundAction(fd: FormData) {
   const staff = await requireStaff();
   const minor = parseAmount(str(fd, "amount"));
-  if (minor === null) back("cases", "Enter an amount like 1,500.00", "err");
+  if (minor === null) await back("cases", "Enter an amount like 1,500.00", "err");
   const r = await prepareRefund(staff.id, str(fd, "requestId"), minor as number, str(fd, "reason"));
   revalidatePath("/staff/payments");
-  back("releases", r.ok ? "Refund prepared. A second person must approve it." : r.reason, r.ok ? "ok" : "err");
+  await back("releases", r.ok ? "Refund prepared. A second person must approve it." : r.reason, r.ok ? "ok" : "err");
 }
 
 export async function approveReleaseAction(fd: FormData) {
   const staff = await requireStaff();
   const r = await approveRelease(staff.id, str(fd, "id"));
   revalidatePath("/staff/payments");
-  back("releases", r.ok ? "Approved. It can now be sent." : r.reason, r.ok ? "ok" : "err");
+  await back("releases", r.ok ? "Approved. It can now be sent." : r.reason, r.ok ? "ok" : "err");
 }
 
 export async function reviseReleaseAction(fd: FormData) {
   const staff = await requireStaff();
   const minor = parseAmount(str(fd, "amount"));
-  if (minor === null) back("releases", "Enter an amount like 1,500.00", "err");
+  if (minor === null) await back("releases", "Enter an amount like 1,500.00", "err");
   const r = await reviseAmount(staff.id, str(fd, "id"), minor as number);
   revalidatePath("/staff/payments");
-  back("releases", r.ok ? "Amount changed, so the approval was withdrawn. It needs approving again." : r.reason, r.ok ? "ok" : "err");
+  await back("releases", r.ok ? "Amount changed, so the approval was withdrawn. It needs approving again." : r.reason, r.ok ? "ok" : "err");
 }
 
 export async function markSentAction(fd: FormData) {
@@ -134,26 +140,27 @@ export async function markSentAction(fd: FormData) {
       });
     }
   }
-  back("releases", r.ok ? "Recorded as sent." : (r as { reason: string }).reason, r.ok ? "ok" : "err");
+  await back("releases", r.ok ? "Recorded as sent." : (r as { reason: string }).reason, r.ok ? "ok" : "err");
 }
 
 export async function voidReleaseAction(fd: FormData) {
   const staff = await requireStaff();
   const r = await voidRelease(staff.id, str(fd, "id"), str(fd, "reason") || "Cancelled by staff");
   revalidatePath("/staff/payments");
-  back("releases", r.ok ? "Cancelled." : r.reason, r.ok ? "ok" : "err");
+  await back("releases", r.ok ? "Cancelled." : r.reason, r.ok ? "ok" : "err");
 }
 
 export async function resolveCaseAction(fd: FormData) {
   await requireStaff();
   const done = await resolveCase(str(fd, "id"), str(fd, "resolution") || "Resolved by staff");
   revalidatePath("/staff/payments");
-  back("cases", done ? "Case closed." : "That case was already closed.", done ? "ok" : "err");
+  await back("cases", done ? "Case closed." : "That case was already closed.", done ? "ok" : "err");
 }
 
 export async function closePayoutRequestAction(fd: FormData) {
   const staff = await requireStaff();
   await closePayoutRequest(staff.id, String(fd.get("id") ?? ""));
+  await flash("Request closed.");
   revalidatePath("/staff/payments");
 }
 
@@ -171,5 +178,5 @@ export async function resolveDisputeAction(fd: FormData) {
     }
   }
   revalidatePath("/staff/payments");
-  back("disputes", r.ok ? "Dispute resolved." : r.reason, r.ok ? "ok" : "err");
+  await back("disputes", r.ok ? "Dispute resolved." : r.reason, r.ok ? "ok" : "err");
 }

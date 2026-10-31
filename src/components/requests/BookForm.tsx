@@ -1,5 +1,6 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
@@ -90,7 +91,7 @@ export function BookForm({ services, districts, service = "", requestId, initial
   /** Set when the farmer came from one provider's link. It stays with them. */
   direct?: { id: string; name: string };
 }) {
-  const [state, action] = useActionState(bookService, {} as BookState);
+  const [state, action] = useActionState(useSafely(bookService), {} as BookState);
   const e = state.fieldErrors ?? {};
   // Step one posts the second step's fields as blanks, which must not wipe the saved answers.
   const typed = Object.entries(state.values ?? {}).filter(([, value]) => value !== "");

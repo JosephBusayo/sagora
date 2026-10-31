@@ -1,3 +1,4 @@
+import { ModalShell } from "@/components/app/ModalShell";
 import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -67,8 +68,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
       </section>
 
       {sp.withdraw && destination && wallet > 0 && !open ? (
-        <div className="modal-backdrop">
-          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="po-confirm">
+        <ModalShell closeHref="/provider/payments" label="Confirm payout request">
             <header className="modal__head">
               <h2 id="po-confirm">Confirm payout request</h2>
               <p>Review the details before submitting</p>
@@ -83,13 +83,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
               <Link href="/provider/payments" className="button button--soft">Cancel</Link>
               <form action={requestPayoutAction}><PendingButton className="button">Submit request</PendingButton></form>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       ) : null}
 
       {submitted ? (
-        <div className="modal-backdrop">
-          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="po-done">
+        <ModalShell closeHref="/provider/payments" label="Payout request submitted">
             <header className="modal__head">
               <h2 id="po-done">Payout request submitted</h2>
             </header>
@@ -101,8 +99,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
             <div className="request-card__actions">
               <Link href="/provider/payments" className="button">Done</Link>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       ) : null}
 
       <div className="money-tiles">

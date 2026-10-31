@@ -189,7 +189,7 @@ test("a farmer books work and the provider quotes it", async ({ page, browser })
   await d.getByLabel("Can start on").fill(inDays(20));
   await d.getByLabel("Price holds until").fill(inDays(15));
   await d.getByRole("button", { name: "Send a quote" }).click();
-  await expect(d.getByText("Quote sent to the farmer.")).toBeVisible();
+  await expect(d.page().getByText("Quote sent to the farmer.")).toBeVisible();
   await p.ctx.close();
 });
 
@@ -282,7 +282,7 @@ test("a farmer can change their own details but not their sign-in email", async 
 
   await page.getByLabel("First and last name").fill("Mariama B Bangura");
   await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByRole("status")).toContainText("saved");
+  await expect(page.getByText("saved").first()).toBeVisible();
 
   // The new name shows in the top bar, which reads it from the session. The design shows the
   // first name and the last initial there, so the full name lives in the title attribute.

@@ -40,9 +40,8 @@ export function OtpInput({ length, label, error, footer, attempt }: Props) {
     if (error) setDigits(Array(length).fill(""));
   }
   useEffect(() => {
-    if (!error) return;
     sent.current = "";
-    refs.current[0]?.focus();
+    if (error) refs.current[0]?.focus();
   }, [attempt, error]);
 
   function set(index: number, value: string) {

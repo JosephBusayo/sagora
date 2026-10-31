@@ -1,5 +1,6 @@
 "use server";
 
+import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -69,6 +70,7 @@ export async function logContactAction(fd: FormData) {
   const requestId = str(fd, "requestId");
   const outcome = str(fd, "outcome").slice(0, 400);
   if (outcome.length >= 2 && (await getById(requestId))?.assistedBy) await logContact(staff.id, requestId, outcome);
+  await flash("Call saved.");
   revalidatePath(`/staff/requests/${requestId}`);
 }
 
@@ -99,5 +101,6 @@ export async function confirmOnBehalfAction(fd: FormData) {
   const requestId = str(fd, "requestId");
   const result = await confirmOnBehalf(staff.id, requestId);
   if (result.ok) await logContact(staff.id, requestId, "Work confirmed on the farmer's behalf");
+  await flash("Work confirmed.");
   revalidatePath(`/staff/requests/${requestId}`);
 }

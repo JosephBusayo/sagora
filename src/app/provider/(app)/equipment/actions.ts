@@ -1,5 +1,6 @@
 "use server";
 
+import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/guard";
 import { KINDS, addAsset, reportFault, resolveFault, restoreAsset, retireAsset, updateAsset } from "@/lib/equipment";
@@ -51,6 +52,7 @@ export async function retireAssetAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
   await retireAsset(business.id, user.id, str(fd, "id"), str(fd, "reason") || "No reason given");
+  await flash("Machine retired.");
   revalidatePath("/provider/equipment");
 }
 
@@ -58,6 +60,7 @@ export async function restoreAssetAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
   await restoreAsset(business.id, user.id, str(fd, "id"));
+  await flash("Machine back in service.");
   revalidatePath("/provider/equipment");
 }
 
@@ -89,5 +92,6 @@ export async function resolveFaultAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
   await resolveFault(business.id, user.id, str(fd, "faultId"), str(fd, "resolution") || "Fixed");
+  await flash("Fault marked as fixed.");
   revalidatePath("/provider/equipment");
 }

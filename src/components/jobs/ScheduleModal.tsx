@@ -1,5 +1,8 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
+import { useModal } from "@/components/app/useModal";
+import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { scheduleJobAction } from "@/app/provider/(app)/jobs/actions";
@@ -21,8 +24,9 @@ function Buttons({ onClose }: { onClose: () => void }) {
 export function ScheduleModal({ job, assets, operators, onClose }: {
   job: JobView; assets: Option[]; operators: Option[]; onClose: () => void;
 }) {
-  const [state, action] = useActionState(scheduleJobAction, {} as FormState);
+  const [state, action] = useActionState(useSafely(scheduleJobAction), {} as FormState);
   const ref = useRef<HTMLDivElement>(null);
+  const close = useModal(ref, onClose);
   const done = Boolean(state.notice);
 
   useEffect(() => {
@@ -31,18 +35,13 @@ export function ScheduleModal({ job, assets, operators, onClose }: {
       return () => clearTimeout(t);
     }
   }, [done, onClose]);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   const chosen = new Set(job.schedule.assetIds);
 
   return (
-    <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) onClose(); }}>
+    <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) close(); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="sched-title" ref={ref}>
         <div className="modal__head">
           <h2 id="sched-title">Schedule {job.reference}</h2>
@@ -98,7 +97,7 @@ export function ScheduleModal({ job, assets, operators, onClose }: {
             A machine can only be on one job at a time. If it is already committed for these dates, this will be refused.
           </p>
           {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
-          {state.notice ? <p className="notice notice--success" role="status">{state.notice}</p> : null}
+          <FormNotice state={state} />
           <Buttons onClose={onClose} />
         </form>
       </div>

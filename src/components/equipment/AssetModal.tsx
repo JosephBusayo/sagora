@@ -1,5 +1,8 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
+import { useModal } from "@/components/app/useModal";
+import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
@@ -22,8 +25,9 @@ function Buttons({ label, onClose }: { label: string; onClose: () => void }) {
 }
 
 export function AssetModal({ asset, kinds, onClose }: { asset: AssetView | null; kinds: Option[]; onClose: () => void }) {
-  const [state, action] = useActionState(saveAsset, {} as FormState);
+  const [state, action] = useActionState(useSafely(saveAsset), {} as FormState);
   const ref = useRef<HTMLDivElement>(null);
+  const close = useModal(ref, onClose);
   const done = Boolean(state.notice);
 
   useEffect(() => {
@@ -33,19 +37,13 @@ export function AssetModal({ asset, kinds, onClose }: { asset: AssetView | null;
     }
   }, [done, onClose]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    ref.current?.querySelector<HTMLElement>("select, input")?.focus();
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   const val = (k: string, fallback = "") => v[k] ?? fallback;
 
   return (
-    <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) onClose(); }}>
+    <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) close(); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="asset-title" ref={ref}>
         <div className="modal__head">
           <h2 id="asset-title">{asset ? "Edit machine" : "Add equipment"}</h2>
@@ -85,7 +83,7 @@ export function AssetModal({ asset, kinds, onClose }: { asset: AssetView | null;
             {e.notes ? <p className="field__error">{e.notes}</p> : null}
           </div>
           {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
-          {state.notice ? <p className="notice notice--success" role="status">{state.notice}</p> : null}
+          <FormNotice state={state} />
           <Buttons label={asset ? "Save changes" : "Add machine"} onClose={onClose} />
         </form>
       </div>

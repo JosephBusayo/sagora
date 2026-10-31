@@ -85,7 +85,7 @@ async function agreedJob(browser: Browser, acres: string, village: string): Prom
   await d.getByLabel("Can start on").fill(inDays(20));
   await d.getByLabel("Price holds until").fill(inDays(15));
   await d.getByRole("button", { name: "Send a quote" }).click();
-  await expect(d.getByText("Quote sent to the farmer.")).toBeVisible();
+  await expect(d.page().getByText("Quote sent to the farmer.")).toBeVisible();
   await p.ctx.close();
 
   await f.page.goto("/farmer/requests");
@@ -166,7 +166,7 @@ test("scheduling commits the machines for those dates", async ({ page }) => {
   await d.getByLabel("Green Tractor").check();
   await d.getByLabel("Shared Plough").check();
   await d.getByRole("button", { name: "Commit the machines" }).click();
-  await expect(d.getByText("Work scheduled.")).toBeVisible();
+  await expect(d.page().getByText("Work scheduled.")).toBeVisible();
 
   await page.reload();
   const card = jobCard(page, refA);
@@ -199,7 +199,7 @@ test("the same plough cannot be committed to an overlapping job", async ({ page 
   await d2.getByLabel("Work ends").fill(inDays(25));
   await d2.getByLabel("Shared Plough").check();
   await d2.getByRole("button", { name: "Commit the machines" }).click();
-  await expect(d2.getByText("Work scheduled.")).toBeVisible();
+  await expect(d2.page().getByText("Work scheduled.")).toBeVisible();
 });
 
 test("a fault flags the job without erasing the commitment", async ({ page }) => {
@@ -211,7 +211,7 @@ test("a fault flags the job without erasing the commitment", async ({ page }) =>
   const d = page.getByRole("dialog");
   await d.getByLabel("What is wrong?").fill("Broken shear bolt");
   await d.getByRole("button", { name: "Record fault" }).click();
-  await expect(d.getByText("now out of service")).toBeVisible();
+  await expect(d.page().getByText("now out of service")).toBeVisible();
 
   await page.goto("/provider/jobs");
   const card = jobCard(page, refA);
@@ -239,7 +239,7 @@ test("work reported is not delivery: the farmer must confirm", async ({ page, br
   await d.getByLabel("How much was done (acres)").fill("4");
   await d.getByLabel("Anything the farmer should know").fill("Finished both passes.");
   await d.getByRole("button", { name: "Report the work" }).click();
-  await expect(d.getByText("asked to confirm")).toBeVisible();
+  await expect(d.page().getByText("asked to confirm")).toBeVisible();
 
   await page.reload();
   await expect(jobCard(page, refA).getByText("Awaiting farmer confirmation")).toBeVisible();
@@ -268,7 +268,7 @@ test("a farmer can raise a concern instead of confirming", async ({ page, browse
   const d = page.getByRole("dialog");
   await d.getByLabel("How much was done (acres)").fill("3");
   await d.getByRole("button", { name: "Report the work" }).click();
-  await expect(d.getByText("asked to confirm")).toBeVisible();
+  await expect(d.page().getByText("asked to confirm")).toBeVisible();
 
   const f = await fresh(browser);
   await signInFarmer(f.page);

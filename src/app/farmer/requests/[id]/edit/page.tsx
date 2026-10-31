@@ -1,3 +1,4 @@
+import { ModalShell } from "@/components/app/ModalShell";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { DISTRICTS, SERVICES } from "@/lib/business";
@@ -26,8 +27,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       unread={await unreadCount(farmer)}
     >
       <PageHead title="Requests" subtitle="All requests you’ve sent out to service providers" />
-      <div className="modal-backdrop">
-        <div className="modal modal--book" role="dialog" aria-modal="true" aria-label="Edit details">
+      <ModalShell closeHref={`/farmer/requests/${request.id}`} label="Edit details" className="modal--book">
           <BookForm
             services={SERVICES}
             districts={DISTRICTS}
@@ -40,8 +40,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               alternateDate: request.alternateDate ?? "",
             }}
           />
-        </div>
-      </div>
+      </ModalShell>
     </Shell>
   );
 }

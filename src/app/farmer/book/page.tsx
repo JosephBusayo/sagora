@@ -1,3 +1,4 @@
+import { ModalShell } from "@/components/app/ModalShell";
 import type { Metadata } from "next";
 import { DISTRICTS, SERVICES, getApprovedBusiness } from "@/lib/business";
 import { requireFarmer } from "@/lib/session";
@@ -34,11 +35,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
     >
       <FarmerHome name={farmer.name} requests={(await listForFarmer(farmer.id)).slice(0, 3)} />
       {/* Rendered by the server over Home, so it opens with JavaScript off. */}
-      <div className="modal-backdrop">
-        <div className="modal modal--book" role="dialog" aria-modal="true" aria-label="Book a service">
-          <BookForm services={SERVICES} districts={DISTRICTS} service={previous?.service ?? service} initial={previous} direct={direct} />
-        </div>
-      </div>
+      <ModalShell closeHref="/farmer/home" label="Book a service" className="modal--book">
+        <BookForm services={SERVICES} districts={DISTRICTS} service={previous?.service ?? service} initial={previous} direct={direct} />
+      </ModalShell>
     </Shell>
   );
 }

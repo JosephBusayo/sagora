@@ -1,5 +1,8 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
+import { useModal } from "@/components/app/useModal";
+import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
@@ -45,8 +48,9 @@ function Buttons({ label, onClose }: { label: string; onClose: () => void }) {
 
 export function MemberModal({ mode, member, roles, permissions, onClose }: Props) {
   const action = mode === "invite" ? inviteMember : editMember;
-  const [state, formAction] = useActionState(action, {} as FormState);
+  const [state, formAction] = useActionState(useSafely(action), {} as FormState);
   const ref = useRef<HTMLDivElement>(null);
+  const close = useModal(ref, onClose);
   const done = Boolean(state.notice);
 
   // Close once the server confirms, and allow Escape at any time.
@@ -57,19 +61,13 @@ export function MemberModal({ mode, member, roles, permissions, onClose }: Props
     }
   }, [done, onClose]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    ref.current?.querySelector<HTMLElement>("input, select")?.focus();
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   const val = (k: string, fallback = "") => v[k] ?? fallback;
 
   return (
-    <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) onClose(); }}>
+    <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) close(); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" ref={ref}>
         <div className="modal__head">
           <h2 id="modal-title">{mode === "invite" ? "Invite team member" : "Edit team member"}</h2>
@@ -87,7 +85,7 @@ export function MemberModal({ mode, member, roles, permissions, onClose }: Props
             <Select name="permission" label="Permissions" options={permissions} placeholder="Select permissions" defaultValue={val("permission", member?.permission ?? "")} error={e.permission} />
           </div>
           {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
-          {state.notice ? <p className="notice notice--success" role="status">{state.notice}</p> : null}
+          <FormNotice state={state} />
           <Buttons label={mode === "invite" ? "Send invitation" : "Save changes"} onClose={onClose} />
         </form>
       </div>

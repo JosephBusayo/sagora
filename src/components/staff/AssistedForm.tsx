@@ -1,5 +1,6 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
@@ -31,7 +32,7 @@ function Select({ name, label, options, placeholder, value, error }: { name: str
 export function AssistedForm({ services, districts, access, condition, clearance }: {
   services: readonly Option[]; districts: readonly string[]; access: readonly Option[]; condition: readonly Option[]; clearance: readonly Option[];
 }) {
-  const [state, action] = useActionState(createAssistedAction, {} as FormState);
+  const [state, action] = useActionState(useSafely(createAssistedAction), {} as FormState);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   return (

@@ -1,5 +1,7 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
+import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
@@ -24,12 +26,12 @@ type Props = {
 
 /** Shared wrapper so every settings form reports errors and success the same way. */
 export function SoftForm({ action, children }: Props) {
-  const [state, formAction] = useActionState(action, {} as FormState);
+  const [state, formAction] = useActionState(useSafely(action), {} as FormState);
   return (
     <form action={formAction} className="form-soft">
       {children(state)}
       {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
-      {state.notice ? <p className="notice notice--success" role="status">{state.notice}</p> : null}
+      <FormNotice state={state} />
     </form>
   );
 }

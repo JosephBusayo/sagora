@@ -1,5 +1,6 @@
 "use server";
 
+import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/guard";
 import { parseAmount, formatAmount } from "@/lib/money";
@@ -81,6 +82,7 @@ export async function withdrawQuoteAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
   await withdrawQuote(String(fd.get("requestId") ?? ""), business.id, user.id);
+  await flash("Quote withdrawn.");
   revalidatePath("/provider/quotes");
   revalidatePath("/provider/requests");
 }

@@ -21,6 +21,15 @@ const backTo = (role: string | null | undefined, filter: string) => {
   return filter === "unread" ? `${base}?filter=unread` : base;
 };
 
+/** Opens what a notification is about, and marks it read on the way. */
+export async function openNotificationAction(fd: FormData) {
+  const user = await me();
+  await markRead(user, String(fd.get("id") ?? ""));
+  const href = String(fd.get("href") ?? "");
+  // Only ever a path on this site, whatever the form says.
+  redirect(/^\/[a-z]/.test(href) ? href : "/");
+}
+
 export async function markNotificationRead(fd: FormData) {
   const user = await me();
   await markRead(user, String(fd.get("id") ?? ""));

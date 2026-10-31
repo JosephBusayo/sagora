@@ -1,5 +1,6 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
 import { useActionState } from "react";
 import { Field } from "@/components/auth/Field";
 import { PasswordField } from "@/components/auth/PasswordField";
@@ -8,7 +9,7 @@ import { acceptStaffInviteAction } from "@/app/staff/join/actions";
 import type { FormState } from "@/lib/auth-flows";
 
 export function StaffJoinForm({ token, name }: { token: string; name: string }) {
-  const [state, action] = useActionState(acceptStaffInviteAction, {} as FormState);
+  const [state, action] = useActionState(useSafely(acceptStaffInviteAction), {} as FormState);
   const e = state.fieldErrors ?? {};
   return (
     <form action={action} className="auth__form">

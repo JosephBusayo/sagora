@@ -1,5 +1,7 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
+import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
@@ -43,7 +45,7 @@ function DateField({ name, label, defaultValue, error, helper }: {
 }
 
 export function QuoteForm({ requestId, existing, onDone }: { requestId: string; existing: MyQuote | null; onDone: () => void }) {
-  const [state, action] = useActionState(sendQuoteAction, {} as FormState);
+  const [state, action] = useActionState(useSafely(sendQuoteAction), {} as FormState);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   const locked = existing && (existing.status === "accepted" || existing.status === "not_selected");
@@ -95,7 +97,7 @@ export function QuoteForm({ requestId, existing, onDone }: { requestId: string; 
         {e.note ? <p className="field__error">{e.note}</p> : null}
       </div>
       {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
-      {state.notice ? <p className="notice notice--success" role="status">{state.notice}</p> : null}
+      <FormNotice state={state} />
       <div className="form-actions">
         <button type="button" className="button button--soft" onClick={onDone}>Close</button>
         <Submit label={existing ? "Replace quote" : "Send a quote"} />

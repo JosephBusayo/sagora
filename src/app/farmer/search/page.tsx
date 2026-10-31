@@ -15,7 +15,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
   const rows = q ? await searchForFarmer(farmer.id, q) : [];
 
   return (
-    <Shell crumb={{ label: "Search", icon: "search" }} user={{ name: farmer.name }} audience="farmer" unread={await unreadCount(farmer)}>
+    <Shell crumb={{ label: "Search", icon: "search" }} user={{ name: farmer.name }} audience="farmer" unread={await unreadCount(farmer)} search={q}>
       <PageHead title="Search" subtitle={q ? `Results for “${q}”` : "Search your requests"} />
       {rows.length === 0 ? <p className="empty">{q ? "Nothing matches that search." : "Type a reference, village or district."}</p> : (
         <ul className="search-results">

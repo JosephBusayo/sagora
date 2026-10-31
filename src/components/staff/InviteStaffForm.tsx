@@ -1,5 +1,6 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
@@ -12,7 +13,7 @@ function Send() {
 }
 
 export function InviteStaffForm() {
-  const [state, action] = useActionState(inviteStaffAction, {} as FormState);
+  const [state, action] = useActionState(useSafely(inviteStaffAction), {} as FormState);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   return (

@@ -1,5 +1,6 @@
 "use server";
 
+import { flash } from "@/lib/flash";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -148,5 +149,6 @@ export async function cancelRequest(fd: FormData) {
   const farmer = await requireFarmer();
   const { cancel } = await import("@/lib/requests");
   await cancel(farmer.id, String(fd.get("id") ?? ""));
+  await flash("Request withdrawn.");
   redirect("/farmer/requests");
 }

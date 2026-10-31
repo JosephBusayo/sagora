@@ -146,7 +146,7 @@ test("a quote is validated, then sent, and the farmer is told", async ({ page })
 
   await dialog.getByLabel("Price holds until").fill(inDays(14));
   await dialog.getByRole("button", { name: "Send a quote" }).click();
-  await expect(dialog.getByText("Quote sent to the farmer.")).toBeVisible();
+  await expect(dialog.page().getByText("Quote sent to the farmer.")).toBeVisible();
 
   // The email is sent after the quote is saved, so it has to be waited for rather than read
   // the instant the screen confirms: against a remote database the send is still in flight.

@@ -27,9 +27,10 @@ type Params = { service?: string; district?: string; window?: string; page?: str
 
 /** The filters submit on change with JavaScript, and with a button without it. */
 function Filters({ current }: { current: Params }) {
+  const active = [current.service, current.district, current.window].filter(Boolean).length;
   return (
     <form className="filters" method="get">
-      <label className="filter">
+      <label className={`filter${current.service ? " filter--on" : ""}`}>
         <Icon name="dots" size={16} />
         <span className="sr-only">Service</span>
         <select name="service" defaultValue={current.service ?? ""}>
@@ -37,7 +38,7 @@ function Filters({ current }: { current: Params }) {
           {SERVICES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
       </label>
-      <label className="filter">
+      <label className={`filter${current.district ? " filter--on" : ""}`}>
         <Icon name="pin" size={16} />
         <span className="sr-only">District</span>
         <select name="district" defaultValue={current.district ?? ""}>
@@ -45,13 +46,14 @@ function Filters({ current }: { current: Params }) {
           {DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
       </label>
-      <label className="filter">
+      <label className={`filter${current.window ? " filter--on" : ""}`}>
         <Icon name="requests" size={16} />
         <span className="sr-only">Dates</span>
         <select name="window" defaultValue={current.window ?? ""}>
           {DATE_WINDOWS.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
         </select>
       </label>
+      {active > 0 ? <Link href="/provider/requests" className="filters__clear">Clear filters ({active})</Link> : null}
       <noscript><button type="submit" className="button button--inline">Apply</button></noscript>
       <FilterAutoSubmit />
     </form>

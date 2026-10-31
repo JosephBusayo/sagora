@@ -1079,3 +1079,28 @@ form.resend { margin: 0; }
   .skeleton, [aria-busy="true"].button::after, [aria-busy="true"].resend__button::after { animation: none; }
   .button:active:not(:disabled) { transform: none; }
 }
+
+/* -------- toasts: the design's card, not a new look -------- */
+.toasts { position: fixed; top: 20px; right: 20px; z-index: 40; display: flex; flex-direction: column; gap: 10px; width: min(380px, calc(100vw - 32px)); pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid #f2f2f2; border-radius: 16px; background: var(--color-surface);
+  box-shadow: 0 4px 13px rgba(221, 221, 221, 0.58); font: 500 14px/21px var(--font-sans); color: #191919; animation: toast-in 0.18s ease-out; }
+.toast__text { flex: 1; min-width: 0; }
+.toast__icon { flex: none; width: 24px; height: 24px; background: url(/icons/check-on.svg) center / 24px no-repeat; }
+.toast--error { border-color: #f0c6cc; }
+.toast--error .toast__icon { background: none; border-radius: 50%; width: 10px; height: 10px; margin: 7px; background-color: var(--color-error); }
+.toast__close { flex: none; width: 32px; height: 32px; margin: -4px -6px -4px 0; border: 0; border-radius: 8px; background: none; color: #808080; font: 400 20px/1 var(--font-sans); cursor: pointer; }
+.toast__close:hover { background: #f5f5f5; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+/* -------- active filters -------- */
+.filter--on { border-color: var(--color-brand); }
+.filters__clear { flex: none; align-self: center; font: 500 14px/21px var(--font-sans); color: var(--color-brand); white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .toasts { top: auto; right: 16px; left: 16px; width: auto; bottom: max(16px, env(safe-area-inset-bottom)); }
+  .toast__close { width: 44px; height: 44px; margin: -10px -10px -10px 0; }
+}
+@media (max-width: 900px) {
+  .filters__clear { display: inline-flex; align-items: center; min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }

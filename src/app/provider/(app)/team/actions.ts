@@ -1,5 +1,6 @@
 "use server";
 
+import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { siteUrl } from "@/lib/site";
 import { z } from "zod";
@@ -83,5 +84,6 @@ export async function removeTeamMember(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission !== "full_access") return;
   await removeMember(business.id, user.id, str(fd, "id"));
+  await flash("Removed from the team.");
   revalidatePath("/provider/team");
 }

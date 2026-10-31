@@ -1,5 +1,7 @@
 "use client";
 
+import { useSafely } from "@/components/app/safely";
+import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useId } from "react";
 import { useFormStatus } from "react-dom";
 import { saveSetup } from "@/app/provider/setup/actions";
@@ -27,7 +29,7 @@ function Buttons() {
 }
 
 export function SetupForm({ initial, districts, services }: Props) {
-  const [state, action] = useActionState(saveSetup, {} as FormState);
+  const [state, action] = useActionState(useSafely(saveSetup), {} as FormState);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   const val = (k: keyof Initial) => (v[k] !== undefined ? v[k] : (initial[k] as string));
@@ -76,7 +78,7 @@ export function SetupForm({ initial, districts, services }: Props) {
       </div>
 
       {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
-      {state.notice ? <p className="notice notice--success" role="status">{state.notice}</p> : null}
+      <FormNotice state={state} />
       <Buttons />
     </form>
   );

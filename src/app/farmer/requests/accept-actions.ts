@@ -1,5 +1,6 @@
 "use server";
 
+import { flash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { acceptQuote, declineQuote } from "@/lib/quotes";
 import { requireFarmer } from "@/lib/session";
@@ -55,5 +56,6 @@ export async function declineQuoteAction(fd: FormData) {
       });
     }
   }
+  await flash("Quote declined.");
   redirect(`/farmer/requests/${requestId}`);
 }

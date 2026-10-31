@@ -1,5 +1,6 @@
 "use server";
 
+import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { FormState } from "@/lib/auth-flows";
@@ -38,11 +39,13 @@ export async function inviteStaffAction(_prev: FormState, fd: FormData): Promise
 export async function cancelInviteAction(fd: FormData) {
   const admin = await requireAdmin();
   await cancelInvite(admin.id, str(fd, "id"));
+  await flash("Invitation cancelled.");
   revalidatePath("/staff/team");
 }
 
 export async function removeStaffAction(fd: FormData) {
   const admin = await requireAdmin();
   await removeStaff(admin.id, str(fd, "id"));
+  await flash("Removed from staff.");
   revalidatePath("/staff/team");
 }

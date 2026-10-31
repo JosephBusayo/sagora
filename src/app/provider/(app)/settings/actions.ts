@@ -1,5 +1,6 @@
 "use server";
 
+import { logError } from "@/lib/log";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
@@ -60,7 +61,8 @@ export async function saveAccount(_prev: FormState, fd: FormData): Promise<FormS
 
   try {
     await auth.api.updateUser({ body: { name, phone }, headers: await headers() });
-  } catch {
+  } catch (err) {
+    logError("provider.settings", err);
     return { error: "We couldn't save your account details. Please try again.", values };
   }
   // The email address is deliberately read-only here: changing it has to re-verify,

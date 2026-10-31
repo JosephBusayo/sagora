@@ -149,6 +149,7 @@ test("invite, accept, and the teammate sees the same business", async ({ page, b
   await d2.getByLabel("Permissions").selectOption("view_jobs");
   await d2.getByRole("button", { name: "Send invitation" }).click();
   await expect(page.getByText(/already on your team/)).toBeVisible();
+  page.once("dialog", (d) => d.accept());
   await page.keyboard.press("Escape");
 
   // The teammate accepts from the emailed link.
