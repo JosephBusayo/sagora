@@ -1,5 +1,5 @@
+import { StaffNav } from "@/components/staff/StaffNav";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { requireAdmin } from "@/lib/session";
 import { listStaff, openInvites } from "@/lib/staff";
 import { signOut } from "@/app/provider/actions";
@@ -18,6 +18,7 @@ export default async function Page() {
   return (
     <main className="setup">
       <div className="setup__card setup__card--wide">
+        <StaffNav current="team" role={admin.role} />
         <h1 className="auth__title">Staff</h1>
         <section className="staff__item">
           <h2>Invite someone</h2>
@@ -55,7 +56,6 @@ export default async function Page() {
             </ul>
           </section>
         ) : null}
-        <p className="auth__footer"><Link href="/staff/providers">Back to providers</Link></p>
         <form action={signOut} className="setup__signout"><button type="submit" className="resend__button">Sign out</button></form>
       </div>
     </main>

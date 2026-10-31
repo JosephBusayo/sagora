@@ -99,8 +99,8 @@ test("a wrong code is refused and the right one still works", async ({ page }) =
   await expect(page).toHaveURL(/\/staff\/verify$/);
 
   await typeCode(page, code);
-  await expect(page).toHaveURL(/\/staff\/payments$/);
-  await expect(page.getByRole("heading", { name: "Payments" })).toBeVisible();
+  await expect(page).toHaveURL(/\/staff\/providers$/);
+  await expect(page.getByRole("heading", { name: "Providers waiting for review" })).toBeVisible();
 });
 
 test("a used code cannot be replayed, and one browser's check does not cover another", async ({ page, browser }) => {
@@ -109,7 +109,7 @@ test("a used code cannot be replayed, and one browser's check does not cover ano
   await page.goto("/staff/payments");
   const used = await latestCode(STAFF.email);
   await typeCode(page, used);
-  await expect(page).toHaveURL(/\/staff\/payments$/);
+  await expect(page).toHaveURL(/\/staff\/providers$/);
 
   // Browser B has the same password and has seen that code. Neither gets it in.
   const b = await fresh(browser);
@@ -145,7 +145,7 @@ test("five wrong codes burn the code, not the account", async ({ page, browser }
   await expect(b.page.getByRole("status")).toContainText("We sent a new code");
   await b.page.waitForTimeout(100);
   await typeCode(b.page, await latestCode(STAFF.email));
-  await expect(b.page).toHaveURL(/\/staff\/payments$/);
+  await expect(b.page).toHaveURL(/\/staff\/providers$/);
   await b.ctx.close();
   expect(page.url()).toBeTruthy();
 });
@@ -154,7 +154,7 @@ test("signing out ends it: coming back needs a new code", async ({ page }) => {
   await signIn(page);
   await page.goto("/staff/payments");
   await typeCode(page, await latestCode(STAFF.email));
-  await expect(page).toHaveURL(/\/staff\/payments$/);
+  await expect(page).toHaveURL(/\/staff\/providers$/);
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/provider\/sign-in$/);
@@ -189,7 +189,7 @@ test("staff have their own door, and an admin adds and removes staff", async ({ 
   // Plain staff cannot reach the team screen. An admin can.
   await signIn(page);
   await typeCode(page, await latestCode(STAFF.email));
-  await page.waitForURL(/\/staff\/payments/);
+  await page.waitForURL(/\/staff\/providers/);
   await page.goto("/staff/team");
   await expect(page).toHaveURL(/\/staff\/providers$/);
   await testRun(`UPDATE "user" SET role='admin' WHERE email=?`, STAFF.email);

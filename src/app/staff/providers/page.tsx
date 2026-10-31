@@ -1,5 +1,5 @@
+import { StaffNav } from "@/components/staff/StaffNav";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { listForReview, SERVICES } from "@/lib/business";
 import { requireStaff } from "@/lib/session";
 import { ReviewForm } from "@/components/staff/ReviewForm";
@@ -10,11 +10,12 @@ export const dynamic = "force-dynamic";
 
 /** Plain working screen for staff. There is no design for this yet. */
 export default async function Page() {
-  await requireStaff();
+  const staff = await requireStaff();
   const items = await listForReview();
   return (
     <main className="setup">
       <div className="setup__card setup__card--wide">
+        <StaffNav current="providers" role={staff.role} />
         <h1 className="auth__title">Providers waiting for review</h1>
         {items.length === 0 ? <p className="auth__subtitle">Nothing is waiting.</p> : null}
         {items.map((b) => (
@@ -31,7 +32,6 @@ export default async function Page() {
             <ReviewForm id={b.id} />
           </section>
         ))}
-        <p className="auth__footer"><Link href="/staff/outbox">Notification queue</Link> · <Link href="/staff/team">Staff</Link></p>
         <form action={signOut} className="setup__signout"><button type="submit" className="resend__button">Sign out</button></form>
       </div>
     </main>

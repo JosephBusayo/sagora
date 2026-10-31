@@ -23,5 +23,5 @@ export async function verifyStaffCode(_prev: FormState, fd: FormData): Promise<F
 
   const result = await checkCode(sessionId, raw);
   if (!result.ok) return { fieldErrors: { code: result.reason } };
-  redirect("/staff/payments");
+  redirect("/staff/providers");
 }

@@ -1,3 +1,4 @@
+import { StaffNav } from "@/components/staff/StaffNav";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
@@ -44,7 +45,7 @@ export default async function Page({
 }: {
   searchParams: Promise<{ tab?: string; ok?: string; err?: string }>;
 }) {
-  await requireStaff();
+  const staff = await requireStaff();
   const sp = await searchParams;
   const tab = TABS.some((t) => t.id === sp.tab) ? sp.tab! : "collect";
 
@@ -81,6 +82,7 @@ export default async function Page({
   return (
     <main className="setup">
       <div className="setup__card setup__card--wide setup__card--finance">
+        <StaffNav current="payments" role={staff.role} />
         <h1 className="auth__title">Payments</h1>
         <p className="auth__subtitle">
           Every amount here was recorded by hand from a receipt — <strong>manual, not verified by a
@@ -401,9 +403,6 @@ export default async function Page({
           </>
         ) : null}
 
-        <p className="auth__footer">
-          <Link href="/staff/providers">Provider review</Link> · <Link href="/staff/outbox">Notification queue</Link>
-        </p>
         <form action={signOut} className="setup__signout">
           <button type="submit" className="resend__button">Sign out</button>
         </form>

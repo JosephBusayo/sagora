@@ -1,5 +1,5 @@
+import { StaffNav } from "@/components/staff/StaffNav";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { requireStaff } from "@/lib/session";
 import { counts, listProblems } from "@/lib/outbox";
 import { drainNowAction, retryMessageAction } from "../outbox-actions";
@@ -14,13 +14,14 @@ const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { dateStyle:
  * with the error and a way to try again. Nothing here blocked the work that created it.
  */
 export default async function Page() {
-  await requireStaff();
+  const staff = await requireStaff();
   const { pending, failed, sent } = await counts();
   const rows = await listProblems();
 
   return (
     <main className="setup">
       <div className="setup__card setup__card--wide">
+        <StaffNav current="outbox" role={staff.role} />
         <h1 className="auth__title">Notification queue</h1>
         <p className="auth__subtitle">
           Messages are saved before they are sent, so nothing is lost when email fails.
@@ -72,7 +73,6 @@ export default async function Page() {
             </table>
           </div>
         )}
-        <p className="auth__footer"><Link href="/staff/providers">Provider review</Link></p>
       </div>
     </main>
   );
