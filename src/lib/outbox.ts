@@ -59,6 +59,9 @@ const backoffMinutes = (attempts: number) => Math.min(2 ** attempts, 16);
  */
 export async function drain(limit = 25): Promise<{ sent: number; failed: number }> {
   const now = new Date().toISOString();
+  // A sign-in code outlives its use within minutes. Sending one late only confuses people.
+  await db.run(`UPDATE notification_outbox SET status='failed', last_error='Expired before it could be sent'
+       WHERE status='pending' AND (kind LIKE 'otp.%' OR kind='staff.mfa') AND created_at < ?`, new Date(Date.now() - 15 * 60_000).toISOString());
   const due = await db.all(`SELECT id, recipient, subject, body, attempts FROM notification_outbox
        WHERE status='pending' AND next_attempt_at <= ? ORDER BY created_at ASC LIMIT ?`, now, limit) as Row[];
 

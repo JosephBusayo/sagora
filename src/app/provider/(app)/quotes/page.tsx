@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireWorkspace } from "@/lib/guard";
 import { Shell, PageHead } from "@/components/app/Shell";
+import { Pager, pageOf } from "@/components/app/Pager";
 import { Icon } from "@/components/app/Icon";
 import { districtLabel } from "@/lib/business";
 import { formatAmount } from "@/lib/money";
@@ -23,9 +24,9 @@ const PILL: Record<string, string> = {
   superseded: "awaiting_quotes",
 };
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const { user, business } = await requireWorkspace();
-  const quotes = await listForBusiness(business.id);
+  const { rows: quotes, page, pages } = pageOf(await listForBusiness(business.id), (await searchParams).page);
 
   return (
     <Shell crumb={{ label: "My quotes", icon: "quotes" }} user={{ name: user.name }}>
@@ -83,6 +84,7 @@ export default async function Page() {
           </table>
         </div>
       )}
+      <Pager page={page} pages={pages} path="/provider/quotes" />
     </Shell>
   );
 }

@@ -224,3 +224,8 @@ test("changing the password signs other browsers out", async ({ page, browser })
   await expect(p2).toHaveURL(/\/provider\/dashboard$/);
   await ctx.close();
 });
+
+test("the cron route refuses anyone without the secret", async ({ request }) => {
+  const res = await request.get("/api/cron/outbox");
+  expect(res.status()).toBe(401);
+});

@@ -37,7 +37,7 @@ const fmt = (iso: string | null) =>
  * the same data the other screens use, never stored separately and never estimated.
  */
 export default async function Page() {
-  const { user, business } = await requireWorkspace();
+  const { user, business, permission } = await requireWorkspace();
   const firstName = user.name.trim().split(/\s+/)[0];
 
   const quotes = await listQuotes(business.id);
@@ -71,7 +71,7 @@ export default async function Page() {
     { icon: "requests", value: String(open.length), label: "Requests you have not quoted", href: "/provider/requests" },
     { icon: "quotes", value: String(waiting.length), label: "Quotes waiting on a farmer", href: "/provider/quotes" },
     { icon: "jobs", value: String(toSchedule.length + toReport.length), label: "Jobs needing you", href: "/provider/jobs" },
-    { icon: "payments", value: formatAmount(owedToYou), label: "Money on its way to you", href: "/provider/payments" },
+    ...(permission === "full_access" ? [{ icon: "payments" as const, value: formatAmount(owedToYou), label: "Money on its way to you", href: "/provider/payments" }] : []),
   ];
 
   // Things that are actually wrong, worst first. An empty list is the good outcome.

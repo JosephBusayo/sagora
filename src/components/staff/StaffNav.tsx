@@ -1,9 +1,13 @@
 import Link from "next/link";
+import { waitUntil } from "@vercel/functions";
+import { drain } from "@/lib/outbox";
 import { listForReview } from "@/lib/business";
 import { openDisputes } from "@/lib/settlement";
 
 /** The way around the staff screens, with what is waiting on them. */
 export async function StaffNav({ current, role }: { current: "providers" | "requests" | "payments" | "outbox" | "team"; role?: string | null }) {
+  // Vercel's free plan runs the scheduled send once a day, so a staff visit also nudges the queue.
+  waitUntil(drain().catch(() => {}));
   const waiting = (await listForReview()).length;
   const disputes = (await openDisputes()).length;
   const items = [

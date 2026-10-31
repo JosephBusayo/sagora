@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/guard";
 import { Shell, PageHead } from "@/components/app/Shell";
+import { Pager, pageOf } from "@/components/app/Pager";
 import { districtLabel } from "@/lib/business";
 import { serviceLabel } from "@/lib/requests";
 import { getAsset, selectableAssets } from "@/lib/equipment";
@@ -15,13 +16,14 @@ export const dynamic = "force-dynamic";
 const fmt = (iso: string | null) =>
   iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : null;
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const { user, business, permission } = await requireWorkspace();
+  const paged = pageOf(await listJobs(business.id), (await searchParams).page);
   const members = await listMembers(business.id);
   const available = await selectableAssets(business.id);
 
   const jobs: JobView[] = await Promise.all(
-    (await listJobs(business.id)).map(async (j) => {
+    paged.rows.map(async (j) => {
     const names = await Promise.all(
       j.assetIds.map(async (id) => (await getAsset(business.id, id))?.name ?? "A machine"),
     );
@@ -81,6 +83,7 @@ export default async function Page() {
         operators={members.map((m) => ({ id: m.id, label: m.name }))}
         canEdit={permission !== "view_jobs"}
       />
+      <Pager page={paged.page} pages={paged.pages} path="/provider/jobs" />
     </Shell>
   );
 }

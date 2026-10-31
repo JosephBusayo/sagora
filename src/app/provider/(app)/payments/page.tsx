@@ -19,6 +19,15 @@ const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ withdraw?: string; submitted?: string; error?: string }> }) {
   const { user, business, permission } = await requireWorkspace();
+  // Earnings and payout details are the owner's business, not every operator's.
+  if (permission !== "full_access") {
+    return (
+      <Shell crumb={{ label: "Payments", icon: "payments" }} user={{ name: user.name }}>
+        <PageHead title="Payments" subtitle="View your earnings, payout details and transaction history" />
+        <p className="empty">Only someone with full access can see payments.</p>
+      </Shell>
+    );
+  }
   const sp = await searchParams;
   const wallet = await walletBalance(business.id);
   const open = await openPayoutRequest(business.id);

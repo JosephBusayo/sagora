@@ -5,6 +5,7 @@ import { districtLabel } from "@/lib/business";
 import { STATUS_LABEL, listForFarmer, serviceLabel } from "@/lib/requests";
 import { cancelRequest } from "../book/actions";
 import { Shell, PageHead } from "@/components/app/Shell";
+import { Pager, pageOf } from "@/components/app/Pager";
 import { unreadCount } from "@/lib/notifications";
 
 export const metadata: Metadata = { title: "My requests" };
@@ -15,10 +16,11 @@ const fmt = (iso: string) =>
     day: "2-digit", month: "short", year: "numeric", timeZone: "UTC",
   });
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ new?: string; page?: string }> }) {
   const farmer = await requireFarmer();
-  const justCreated = (await searchParams).new;
-  const rows = await listForFarmer(farmer.id);
+  const sp = await searchParams;
+  const justCreated = sp.new;
+  const { rows, page, pages } = pageOf(await listForFarmer(farmer.id), sp.page);
 
   return (
     <Shell
@@ -78,6 +80,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
             </table>
           </div>
         )}
+        <Pager page={page} pages={pages} path="/farmer/requests" />
       </>
     </Shell>
   );
