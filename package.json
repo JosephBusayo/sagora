@@ -10,6 +10,7 @@
     "db:migrate": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/migrate.mts",
     "typecheck": "tsc --noEmit",
     "test:e2e": "node scripts/e2e.mjs",
+    "demo:accounts": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/demo-accounts.mts",
     "staff:make": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/make-staff.mts",
     "dev:approve": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/dev-approve.mts",
     "smoke": "node scripts/smoke.mjs",

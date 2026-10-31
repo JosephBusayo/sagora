@@ -94,3 +94,12 @@ unexplained. Reading login codes out of the production queue is blocked for agen
 **Staff sign-in, 30 Oct 2026.** Staff sign in at `/staff/sign-in`, which nothing links to. The
 public sign-in pages reject staff accounts. Admins add staff at `/staff/team`.
 `npm run staff:make -- <email> --admin` makes an admin from the command line.
+
+**DNS landed, 31 Oct 2026.** `resend._domainkey`, `rsend`, `send` and `_dmarc` on `sagora.sl` all
+resolve from `ns1.netim.net`, 8.8.8.8 and 1.1.1.1. `sagora.sl` and `www` still point at
+185.26.106.234, not Vercel. Next: verify the domain in Resend, set `EMAIL_FROM`, redeploy.
+
+**Domain live, 31 Oct 2026.** `sagora.sl` and `www.sagora.sl` are valid in Vercel and resolve to it
+from 8.8.8.8 and 1.1.1.1. `sagora.sl` redirects to `www`. This machine's own network was still
+caching the old `www` address when checked, so a timeout here does not mean the site is down.
+`BETTER_AUTH_URL` and `EMAIL_FROM` are the remaining steps.
