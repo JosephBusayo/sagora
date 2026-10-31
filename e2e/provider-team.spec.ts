@@ -38,7 +38,6 @@ async function signUpAndVerify(page: Page, u: { business: string; phone: string;
     await page.getByLabel("Digit 1 of 7").click();
     await page.keyboard.press("Control+A");
     await page.keyboard.type(code);
-    await page.getByRole("button", { name: "Verify" }).click();
     try {
       await page.waitForURL((p) => !p.pathname.includes("verify-email"), { timeout: 5000 });
       return;

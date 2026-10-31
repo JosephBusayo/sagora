@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { IconEyeOpen, IconEyeSlash } from "@central-icons-react/round-filled-radius-2-stroke-2";
+import { focusFirstError } from "./focus-first-error";
 
 type Props = {
   name: string;
@@ -22,6 +23,10 @@ function Eye({ off }: { off: boolean }) {
 export function PasswordField({ name, label, autoComplete, placeholder = "Enter your password", error, helper }: Props) {
   const id = useId();
   const [visible, setVisible] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (error) focusFirstError(input.current?.form);
+  }, [error]);
   const describedBy = error ? `${id}-err` : helper ? `${id}-help` : undefined;
   return (
     <div className={`field${error ? " field--invalid" : ""}`}>
@@ -30,6 +35,7 @@ export function PasswordField({ name, label, autoComplete, placeholder = "Enter 
       </label>
       <div className="field__box">
         <input
+          ref={input}
           id={id}
           className="field__input"
           name={name}

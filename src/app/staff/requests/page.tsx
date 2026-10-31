@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
@@ -36,7 +37,7 @@ export default async function Page() {
           <h2>New request</h2>
           <AssistedForm services={SERVICES} districts={DISTRICTS} access={LAND_ACCESS} condition={LAND_CONDITION} clearance={LAND_CLEARANCE} />
         </section>
-        <form action={signOut} className="setup__signout"><button type="submit" className="resend__button">Sign out</button></form>
+        <form action={signOut} className="setup__signout"><PendingButton className="resend__button">Sign out</PendingButton></form>
       </div>
     </main>
   );

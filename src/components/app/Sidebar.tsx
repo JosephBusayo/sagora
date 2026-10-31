@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingButton } from "@/components/app/PendingButton";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -74,10 +75,10 @@ export function Sidebar({ audience, signOutAction }: { audience: Audience; signO
           })}
           <li>
             <form action={signOutAction}>
-              <button type="submit" className="nav__item nav__item--button">
+              <PendingButton className="nav__item nav__item--button">
                 <Icon name="logout" />
                 <span>Logout</span>
-              </button>
+              </PendingButton>
             </form>
           </li>
         </ul>

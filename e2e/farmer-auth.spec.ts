@@ -30,7 +30,6 @@ async function enterCode(page: Page, email: string, min = 1) {
     await page.getByLabel("Digit 1 of 7").click();
     await page.keyboard.press("Control+A");
     await page.keyboard.type(code);
-    await page.getByRole("button", { name: "Verify" }).click();
     try {
       await page.waitForURL((u) => !u.pathname.includes("verify-email"), { timeout: 5000 });
       return;
@@ -135,7 +134,6 @@ test("farmer password reset returns to the farmer sign-in, not the provider one"
   const code = await latestCode(F.email, before + 1);
   await page.getByLabel("Digit 1 of 7").click();
   await page.keyboard.type(code);
-  await page.getByRole("button", { name: "Verify" }).click();
   await expect(page).toHaveURL(/\/farmer\/reset-password$/);
 
   await page.getByLabel("Password", { exact: true }).fill("new-farmer-pass-1");

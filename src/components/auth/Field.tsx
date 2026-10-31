@@ -1,4 +1,7 @@
-import { useId } from "react";
+"use client";
+
+import { useEffect, useId, useRef, useState } from "react";
+import { focusFirstError } from "./focus-first-error";
 
 type Props = {
   name: string;
@@ -31,15 +34,30 @@ export function Field({
   maxLength,
 }: Props) {
   const id = useId();
-  const describedBy = error ? `${id}-err` : helper ? `${id}-help` : undefined;
+  const input = useRef<HTMLInputElement>(null);
+  // Checked when someone leaves the field, so nobody is told off while still typing.
+  const [local, setLocal] = useState("");
+  const shown = error || local;
+  const describedBy = shown ? `${id}-err` : helper ? `${id}-help` : undefined;
+  useEffect(() => {
+    if (error) focusFirstError(input.current?.form);
+  }, [error]);
+
+  function check(el: HTMLInputElement) {
+    if (el.validity.valueMissing) setLocal(`Enter ${label.toLowerCase()}`);
+    else if (el.validity.typeMismatch && type === "email") setLocal("Enter a valid email address");
+    else setLocal("");
+  }
+
   return (
-    <div className={`field${error ? " field--invalid" : ""}`}>
+    <div className={`field${shown ? " field--invalid" : ""}`}>
       <label className="field__label" htmlFor={id}>
         {label}
       </label>
       <div className="field__box">
         {prefix ? <span className="field__prefix">{prefix}</span> : null}
         <input
+          ref={input}
           id={id}
           className="field__input"
           name={name}
@@ -50,13 +68,15 @@ export function Field({
           defaultValue={defaultValue}
           required={required}
           maxLength={maxLength}
-          aria-invalid={error ? true : undefined}
+          aria-invalid={shown ? true : undefined}
           aria-describedby={describedBy}
+          onBlur={(e) => check(e.currentTarget)}
+          onInput={() => setLocal("")}
         />
       </div>
-      {error ? (
+      {shown ? (
         <p className="field__error" id={`${id}-err`}>
-          {error}
+          {shown}
         </p>
       ) : helper ? (
         <p className="field__helper" id={`${id}-help`}>

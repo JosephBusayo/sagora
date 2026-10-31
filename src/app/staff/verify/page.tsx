@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/AuthShell";
@@ -36,7 +37,7 @@ export default async function Page() {
       subtitle={`These screens move money, so a password is not enough. Enter the code we sent to ${masked(user.email)}`}
       footer={
         <form action={signOut}>
-          <button type="submit" className="resend__button">Sign out instead</button>
+          <PendingButton className="resend__button">Sign out instead</PendingButton>
         </form>
       }
     >

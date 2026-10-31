@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { districtLabel } from "@/lib/business";
@@ -58,7 +59,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                     <form action={acceptOnBehalfAction}>
                       <input type="hidden" name="quoteId" value={q.id} />
                       <input type="hidden" name="requestId" value={r.id} />
-                      <button type="submit" className="resend__button">Accept for {r.mayAccept}</button>
+                      <PendingButton className="resend__button">Accept for {r.mayAccept}</PendingButton>
                     </form>
                   ) : <span className="field__helper">{q.status === "accepted" ? "Accepted" : ""}</span>}
                 </li>
@@ -74,7 +75,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             {job.status === "work_reported" ? (
               <form action={confirmOnBehalfAction}>
                 <input type="hidden" name="requestId" value={r.id} />
-                <button type="submit" className="button button--inline">Farmer confirmed the work</button>
+                <PendingButton className="button button--inline">Farmer confirmed the work</PendingButton>
               </form>
             ) : null}
           </section>
@@ -88,7 +89,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               <label className="field__label" htmlFor="outcome">What happened on the call</label>
               <div className="field__box"><input id="outcome" name="outcome" className="field__input" maxLength={400} /></div>
             </div>
-            <button type="submit" className="button button--inline">Save</button>
+            <PendingButton className="button button--inline">Save</PendingButton>
           </form>
           {log.length > 0 ? (
             <ul className="asset__faults">

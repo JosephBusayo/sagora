@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import { StaffNav } from "@/components/staff/StaffNav";
 import type { Metadata } from "next";
 import { requireStaff } from "@/lib/session";
@@ -29,7 +30,7 @@ export default async function Page() {
         </p>
 
         <form action={drainNowAction}>
-          <button type="submit" className="button button--inline">Try the queue now</button>
+          <PendingButton className="button button--inline">Try the queue now</PendingButton>
         </form>
 
         {rows.length === 0 ? (
@@ -63,7 +64,7 @@ export default async function Page() {
                       {r.status === "failed" ? (
                         <form action={retryMessageAction}>
                           <input type="hidden" name="id" value={r.id} />
-                          <button type="submit" className="resend__button">Try again</button>
+                          <PendingButton className="resend__button">Try again</PendingButton>
                         </form>
                       ) : null}
                     </td>

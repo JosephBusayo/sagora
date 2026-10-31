@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import { StaffNav } from "@/components/staff/StaffNav";
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/session";
@@ -33,7 +34,7 @@ export default async function Page() {
                 {s.id === admin.id ? null : (
                   <form action={removeStaffAction}>
                     <input type="hidden" name="id" value={s.id} />
-                    <button type="submit" className="resend__button">Remove</button>
+                    <PendingButton confirm="Remove this person from staff? Their access ends immediately." className="resend__button">Remove</PendingButton>
                   </form>
                 )}
               </li>
@@ -49,14 +50,14 @@ export default async function Page() {
                   <span className="asset__fault-text">{i.name} · {i.email}</span>
                   <form action={cancelInviteAction}>
                     <input type="hidden" name="id" value={i.id} />
-                    <button type="submit" className="resend__button">Cancel</button>
+                    <PendingButton className="resend__button">Cancel</PendingButton>
                   </form>
                 </li>
               ))}
             </ul>
           </section>
         ) : null}
-        <form action={signOut} className="setup__signout"><button type="submit" className="resend__button">Sign out</button></form>
+        <form action={signOut} className="setup__signout"><PendingButton className="resend__button">Sign out</PendingButton></form>
       </div>
     </main>
   );

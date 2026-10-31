@@ -80,7 +80,6 @@ test("provider signs up, must verify, then reaches setup", async ({ page }) => {
 
   // Wrong code is refused and does not sign anyone in.
   await typeCode(page, "0000000");
-  await page.getByRole("button", { name: "Verify" }).click();
   await expect(page.getByText("incorrect")).toBeVisible();
 
   // Before verifying, setup is closed even with the right URL.
@@ -93,7 +92,6 @@ test("provider signs up, must verify, then reaches setup", async ({ page }) => {
   await page.getByLabel("Digit 1 of 7").click();
   await page.keyboard.press("Control+A");
   await typeCode(page, code);
-  await page.getByRole("button", { name: "Verify" }).click();
   await expect(page).toHaveURL(/\/provider\/setup$/);
   await expect(page.getByRole("heading", { name: "Set up your business" })).toBeVisible();
 });
@@ -106,7 +104,6 @@ test("a used code cannot be used again", async ({ page }) => {
   await page.getByRole("button", { name: "Get verification code" }).click();
   await expect(page).toHaveURL(/\/provider\/verify-email$/);
   await typeCode(page, spent);
-  await page.getByRole("button", { name: "Verify" }).click();
   await expect(page.getByText(/incorrect|expired|didn't work/i)).toBeVisible();
 });
 
@@ -166,7 +163,6 @@ test("password reset signs out other browsers and the old password stops working
   await expect(p2).toHaveURL(/\/provider\/verify-email$/);
   const code = await latestCode(A.email, countBefore + 1);
   await typeCode(p2, code);
-  await p2.getByRole("button", { name: "Verify" }).click();
   await expect(p2).toHaveURL(/\/provider\/reset-password$/);
   await p2.waitForLoadState("networkidle");
   await p2.screenshot({ path: `${SHOTS}/5-reset-password.png` });

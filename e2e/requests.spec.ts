@@ -30,7 +30,6 @@ async function enterCode(page: Page, email: string) {
     await page.getByLabel("Digit 1 of 7").click();
     await page.keyboard.press("Control+A");
     await page.keyboard.type(code);
-    await page.getByRole("button", { name: "Verify" }).click();
     try {
       await page.waitForURL((u) => !u.pathname.includes("verify-email"), { timeout: 5000 });
       return;
@@ -229,6 +228,7 @@ test("a farmer can withdraw a request, and it leaves the provider list", async (
   await expect(p.page.getByRole("cell", { name: reference, exact: true })).toBeVisible();
 
   await page.goto("/farmer/requests");
+  page.once("dialog", (d) => d.accept());
   await page.getByRole("row").filter({ hasText: reference }).getByRole("button", { name: "Withdraw" }).click();
   await expect(page.getByRole("row").filter({ hasText: reference }).getByText("Cancelled")).toBeVisible();
 

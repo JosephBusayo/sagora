@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useFormStatus } from "react-dom";
 import type { FormState } from "@/lib/auth-flows";
 import { OTP_LENGTH_PUBLIC } from "@/lib/constants";
 import { Field } from "./Field";
@@ -92,6 +93,29 @@ export function ForgotPasswordForm({ action }: { action: Action }) {
   );
 }
 
+const RESEND_SECONDS = 30;
+
+function ResendButton({ sent }: { sent: unknown }) {
+  const { pending } = useFormStatus();
+  const [left, setLeft] = useState(RESEND_SECONDS);
+  const [counted, setCounted] = useState(sent);
+  if (counted !== sent) {
+    setCounted(sent);
+    setLeft(RESEND_SECONDS);
+  }
+  useEffect(() => {
+    if (left <= 0) return;
+    const t = setTimeout(() => setLeft((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [left]);
+  const waiting = left > 0 || pending;
+  return (
+    <button type="submit" formNoValidate className="resend__button" disabled={waiting} aria-busy={pending}>
+      {left > 0 ? `Resend in 00:${String(left).padStart(2, "0")}` : "Resend code"}
+    </button>
+  );
+}
+
 export function VerifyCodeForm({ action, resendAction }: { action: Action; resendAction: Action }) {
   const [state, formAction] = useActionState(action, initial);
   const [resendState, resend] = useActionState(resendAction, initial);
@@ -99,26 +123,22 @@ export function VerifyCodeForm({ action, resendAction }: { action: Action; resen
   return (
     <>
       {/* Separate form so "Resend code" can sit under the boxes, as in the design. */}
-      <form id="resend-form" action={resend} />
       <form action={formAction} className="auth__form">
         <OtpInput
           length={OTP_LENGTH_PUBLIC}
           label="OTP"
           error={e.code}
-          footer={
-            <p className="resend">
-              Didn’t get any code?{" "}
-              <button type="submit" form="resend-form" formNoValidate className="resend__button">
-                Resend code
-              </button>
-            </p>
-          }
+          attempt={state}
         />
         <div className="auth__actions">
           <Alert state={resendState} />
           <Alert state={state} />
           <SubmitButton pendingLabel="Checking…">Verify</SubmitButton>
         </div>
+      </form>
+      {/* Its own form, because a form cannot sit inside another and this one has its own pending state. */}
+      <form action={resend} className="resend">
+        Didn’t get any code? <ResendButton sent={resendState} />
       </form>
     </>
   );

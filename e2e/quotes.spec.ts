@@ -31,7 +31,6 @@ async function enterCode(page: Page, email: string) {
     await page.getByLabel("Digit 1 of 7").click();
     await page.keyboard.press("Control+A");
     await page.keyboard.type(code);
-    await page.getByRole("button", { name: "Verify" }).click();
     try {
       await page.waitForURL((u) => !u.pathname.includes("verify-email"), { timeout: 5000 });
       return;
@@ -276,8 +275,8 @@ test("one farmer cannot open another farmer's request", async ({ page, browser }
   await other.page.getByRole("button", { name: "Create account" }).click();
   await enterCode(other.page, email);
   const r = await testGet("SELECT id FROM service_request WHERE reference=?", reference) as { id: string };
-  const res = await other.page.goto(`/farmer/requests/${r.id}`);
-  expect(res!.status()).toBe(404);
+  await other.page.goto(`/farmer/requests/${r.id}`);
+  await expect(other.page.getByRole("heading", { name: "We can't find that page" })).toBeVisible();
   await other.ctx.close();
   await page.goto("/farmer/sign-in");
 });

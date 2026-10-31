@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import { requireWorkspace } from "@/lib/guard";
 import { Shell, PageHead } from "@/components/app/Shell";
@@ -73,7 +74,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
                       {q.status === "sent" ? (
                         <form action={withdrawQuoteAction}>
                           <input type="hidden" name="requestId" value={q.requestId} />
-                          <button type="submit" className="resend__button">Withdraw</button>
+                          <PendingButton confirm="Withdraw this quote?" className="resend__button">Withdraw</PendingButton>
                         </form>
                       ) : null}
                     </td>

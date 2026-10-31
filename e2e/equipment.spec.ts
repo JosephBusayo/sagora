@@ -30,7 +30,6 @@ async function enterCode(page: Page, email: string) {
     await page.getByLabel("Digit 1 of 7").click();
     await page.keyboard.press("Control+A");
     await page.keyboard.type(code);
-    await page.getByRole("button", { name: "Verify" }).click();
     try {
       await page.waitForURL((u) => !u.pathname.includes("verify-email"), { timeout: 5000 });
       return;
@@ -187,6 +186,7 @@ test("a retired machine stays readable but cannot be chosen", async ({ page }) =
   await page.goto("/provider/equipment");
   const harvester = card(page, "Rice harvester");
   await harvester.getByRole("button", { name: /Actions for Rice harvester/ }).click();
+  page.once("dialog", (d) => d.accept());
   await harvester.getByRole("menuitem", { name: "Retire" }).click();
   await expect(card(page, "Rice harvester").getByText("Retired", { exact: true })).toBeVisible();
   await page.reload();

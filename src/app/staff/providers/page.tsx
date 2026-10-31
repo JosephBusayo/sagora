@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import { StaffNav } from "@/components/staff/StaffNav";
 import type { Metadata } from "next";
 import { listForReview, SERVICES } from "@/lib/business";
@@ -32,7 +33,7 @@ export default async function Page() {
             <ReviewForm id={b.id} />
           </section>
         ))}
-        <form action={signOut} className="setup__signout"><button type="submit" className="resend__button">Sign out</button></form>
+        <form action={signOut} className="setup__signout"><PendingButton className="resend__button">Sign out</PendingButton></form>
       </div>
     </main>
   );

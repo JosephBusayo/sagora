@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireFarmer } from "@/lib/session";
@@ -70,7 +71,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
                       {r.status === "awaiting_quotes" || r.status === "quotes_sent" ? (
                         <form action={cancelRequest}>
                           <input type="hidden" name="id" value={r.id} />
-                          <button type="submit" className="resend__button">Withdraw</button>
+                          <PendingButton confirm="Withdraw this request? Providers will no longer see it." className="resend__button">Withdraw</PendingButton>
                         </form>
                       ) : null}
                     </td>

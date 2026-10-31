@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 
 type Props = {
   length: number;
@@ -8,6 +9,8 @@ type Props = {
   error?: string;
   /** Shown under the boxes, e.g. the resend link. */
   footer?: React.ReactNode;
+  /** A new value means the server answered, so the boxes clear for another try. */
+  attempt?: unknown;
 };
 
 /**
@@ -15,9 +18,32 @@ type Props = {
  * The boxes feed one hidden field named "code". With JavaScript off, the boxes are
  * hidden and a plain text field named "codeFallback" is shown instead.
  */
-export function OtpInput({ length, label, error, footer }: Props) {
+export function OtpInput({ length, label, error, footer, attempt }: Props) {
   const [digits, setDigits] = useState<string[]>(() => Array(length).fill(""));
   const refs = useRef<Array<HTMLInputElement | null>>([]);
+  const { pending } = useFormStatus();
+  const sent = useRef("");
+  const code = digits.join("");
+
+  // The last digit submits by itself. Remembering the code stops the same one going twice.
+  useEffect(() => {
+    if (code.length === length && !digits.includes("") && code !== sent.current && !pending) {
+      sent.current = code;
+      refs.current[0]?.form?.requestSubmit();
+    }
+  }, [code, digits, length, pending]);
+
+  // A refused code clears, ready for the next try.
+  const [answered, setAnswered] = useState(attempt);
+  if (answered !== attempt) {
+    setAnswered(attempt);
+    if (error) setDigits(Array(length).fill(""));
+  }
+  useEffect(() => {
+    if (!error) return;
+    sent.current = "";
+    refs.current[0]?.focus();
+  }, [attempt, error]);
 
   function set(index: number, value: string) {
     setDigits((prev) => {
@@ -95,6 +121,7 @@ export function OtpInput({ length, label, error, footer }: Props) {
             pattern="[0-9]*"
             maxLength={length}
             value={d}
+            readOnly={pending}
             onChange={(e) => onChange(i, e.target.value)}
             onKeyDown={(e) => onKeyDown(i, e)}
             onPaste={(e) => onPaste(i, e)}

@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingButton } from "@/components/app/PendingButton";
 import { useState } from "react";
 import { Icon } from "@/components/app/Icon";
 import { MemberModal } from "./MemberModal";
@@ -55,7 +56,7 @@ export function TeamTable({ rows, roles, permissions }: { rows: Row[]; roles: Op
                           <button type="button" role="menuitem" onClick={() => { setMenu(null); setEditing(m); }}>Edit member</button>
                           <form action={removeTeamMember}>
                             <input type="hidden" name="id" value={m.id} />
-                            <button type="submit" role="menuitem" className="rowmenu__danger">Remove from team</button>
+                            <PendingButton confirm="Remove this person from the team?" role="menuitem" className="rowmenu__danger">Remove from team</PendingButton>
                           </form>
                         </div>
                       ) : null}

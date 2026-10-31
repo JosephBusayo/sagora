@@ -27,7 +27,6 @@ async function typeCode(page: Page, code: string) {
   await page.getByLabel("Digit 1 of 7").click();
   await page.keyboard.press("Control+A");
   await page.keyboard.type(code);
-  await page.getByRole("button", { name: "Verify" }).click();
 }
 async function enterCode(page: Page, email: string) {
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -141,6 +140,9 @@ test("five wrong codes burn the code, not the account", async ({ page, browser }
   await expect(b.page.getByText("Too many wrong codes. Ask for a new one.")).toBeVisible();
 
   // A new code is a fresh start, which is the point: the account is not locked out.
+  test.setTimeout(90_000);
+  await expect(b.page.getByRole("button", { name: /Resend in 00:/ })).toBeDisabled();
+  await expect(b.page.getByRole("button", { name: "Resend code" })).toBeEnabled({ timeout: 35_000 });
   await b.page.getByRole("button", { name: "Resend code" }).click();
   await expect(b.page.getByRole("status")).toContainText("We sent a new code");
   await b.page.waitForTimeout(100);
@@ -219,6 +221,7 @@ test("staff have their own door, and an admin adds and removes staff", async ({ 
   await page.goto("/staff/team");
   const row = page.getByRole("listitem").filter({ hasText: hire });
   await expect(row).toBeVisible();
+  page.once("dialog", (d) => d.accept());
   await row.getByRole("button", { name: "Remove" }).click();
   await expect(page.getByRole("listitem").filter({ hasText: hire })).toHaveCount(0);
 });

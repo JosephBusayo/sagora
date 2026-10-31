@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, landLabel } from "@/lib/land";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -80,7 +81,7 @@ export default async function Page({ params, searchParams }: {
               {request.status === "awaiting_quotes" || request.status === "quotes_sent" ? (
                 <form action={cancelRequest}>
                   <input type="hidden" name="id" value={request.id} />
-                  <button type="submit" className="request-card__delete" aria-label="Withdraw request"><Icon name="trash" size={24} /></button>
+                  <PendingButton confirm="Withdraw this request? Providers will no longer see it." className="request-card__delete" aria-label="Withdraw request"><Icon name="trash" size={24} /></PendingButton>
                 </form>
               ) : null}
             </div>
@@ -224,7 +225,7 @@ export default async function Page({ params, searchParams }: {
                 <p className="field__helper">Nothing is settled until you confirm. If something is wrong, say so instead.</p>
                 <form action={confirmDeliveryAction}>
                   <input type="hidden" name="requestId" value={request.id} />
-                  <button type="submit" className="button button--inline">Confirm the work was done</button>
+                  <PendingButton className="button button--inline">Confirm the work was done</PendingButton>
                 </form>
                 <form action={raiseConcernAction} className="form-soft" style={{ maxWidth: "none" }}>
                   <input type="hidden" name="requestId" value={request.id} />
@@ -235,7 +236,7 @@ export default async function Page({ params, searchParams }: {
                         placeholder="Only half the field was ploughed" style={{ resize: "vertical" }} />
                     </div>
                   </div>
-                  <button type="submit" className="button button--soft button--inline">Raise a concern</button>
+                  <PendingButton className="button button--soft button--inline">Raise a concern</PendingButton>
                 </form>
               </>
             ) : null}
@@ -299,12 +300,12 @@ export default async function Page({ params, searchParams }: {
                         <form action={declineQuoteAction}>
                           <input type="hidden" name="quoteId" value={q.id} />
                           <input type="hidden" name="requestId" value={request.id} />
-                          <button type="submit" className="button button--soft">Decline</button>
+                          <PendingButton confirm="Decline this quote?" className="button button--soft">Decline</PendingButton>
                         </form>
                         <form action={acceptQuoteAction}>
                           <input type="hidden" name="quoteId" value={q.id} />
                           <input type="hidden" name="requestId" value={request.id} />
-                          <button type="submit" className="button">Accept quote</button>
+                          <PendingButton className="button">Accept quote</PendingButton>
                         </form>
                       </div>
                     )}

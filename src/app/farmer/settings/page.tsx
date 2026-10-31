@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireFarmer } from "@/lib/session";
@@ -49,7 +50,7 @@ export default async function Page() {
           <summary className="button button--ghost">Sign out of Sagora</summary>
           <form action={signOutFarmer} className="inline-form">
             <p className="field__helper">Sign out on this device?</p>
-            <button type="submit" className="button">Yes, sign me out</button>
+            <PendingButton className="button">Yes, sign me out</PendingButton>
           </form>
         </details>
       </section>

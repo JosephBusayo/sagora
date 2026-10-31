@@ -71,7 +71,6 @@ async function verify(page, email) {
   const c = await code(email);
   await page.getByLabel("Digit 1 of 7").click();
   await page.keyboard.type(c);
-  await page.getByRole("button", { name: "Verify" }).click();
   await page.waitForURL((u) => !u.pathname.includes("verify-email"), { timeout: WAIT });
 }
 
@@ -82,7 +81,6 @@ async function passStaffCheck(page, email, landing) {
   const c = await code(email);
   await page.getByLabel("Digit 1 of 7").click();
   await page.keyboard.type(c);
-  await page.getByRole("button", { name: "Verify" }).click();
   await page.waitForURL((u) => !u.pathname.includes("/staff/verify"), { timeout: WAIT });
   await page.goto(landing);
 }

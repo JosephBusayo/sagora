@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingButton } from "@/components/app/PendingButton";
 import { useState } from "react";
 import { Icon } from "@/components/app/Icon";
 import { AssetModal } from "./AssetModal";
@@ -57,13 +58,13 @@ export function EquipmentList({ assets, kinds, canEdit }: { assets: AssetView[];
                             <form action={retireAssetAction}>
                               <input type="hidden" name="id" value={a.id} />
                               <input type="hidden" name="reason" value="Taken off the register" />
-                              <button type="submit" role="menuitem" className="rowmenu__danger">Retire</button>
+                              <PendingButton confirm="Retire this machine? It stays on record but can no longer be used." role="menuitem" className="rowmenu__danger">Retire</PendingButton>
                             </form>
                           </>
                         ) : (
                           <form action={restoreAssetAction}>
                             <input type="hidden" name="id" value={a.id} />
-                            <button type="submit" role="menuitem">Bring back into service</button>
+                            <PendingButton role="menuitem">Bring back into service</PendingButton>
                           </form>
                         )}
                       </div>
@@ -95,7 +96,7 @@ export function EquipmentList({ assets, kinds, canEdit }: { assets: AssetView[];
                         <form action={resolveFaultAction}>
                           <input type="hidden" name="faultId" value={f.id} />
                           <input type="hidden" name="resolution" value="Fixed" />
-                          <button type="submit" className="resend__button">Mark fixed</button>
+                          <PendingButton className="resend__button">Mark fixed</PendingButton>
                         </form>
                       ) : null}
                     </li>

@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/guard";
@@ -80,7 +81,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
             <p className="field__helper">This is your current available balance.</p>
             <div className="request-card__actions">
               <Link href="/provider/payments" className="button button--soft">Cancel</Link>
-              <form action={requestPayoutAction}><button type="submit" className="button">Submit request</button></form>
+              <form action={requestPayoutAction}><PendingButton className="button">Submit request</PendingButton></form>
             </div>
           </div>
         </div>

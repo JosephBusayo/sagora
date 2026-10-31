@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import Link from "next/link";
 import { Icon, type IconName } from "./Icon";
 import { FILTERS, type Filter, type Notification } from "@/lib/notifications";
@@ -46,7 +47,7 @@ export function NotificationList({
         {unread > 0 ? (
           <form action={markAllAction}>
             <input type="hidden" name="filter" value={filter} />
-            <button type="submit" className="button button--ghost button--inline">Mark all as read</button>
+            <PendingButton className="button button--ghost button--inline">Mark all as read</PendingButton>
           </form>
         ) : null}
       </div>
@@ -81,7 +82,7 @@ export function NotificationList({
                 <form action={markReadAction}>
                   <input type="hidden" name="id" value={n.id} />
                   <input type="hidden" name="filter" value={filter} />
-                  <button type="submit" className="resend__button">Mark as read</button>
+                  <PendingButton className="resend__button">Mark as read</PendingButton>
                 </form>
               ) : null}
             </li>

@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
@@ -73,7 +74,7 @@ export default async function Page() {
         )}
 
         <form action={signOut} className="setup__signout">
-          <button type="submit" className="resend__button">Sign out</button>
+          <PendingButton className="resend__button">Sign out</PendingButton>
         </form>
       </div>
     </main>

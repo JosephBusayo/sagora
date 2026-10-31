@@ -1,3 +1,4 @@
+import { PendingButton } from "@/components/app/PendingButton";
 import { StaffNav } from "@/components/staff/StaffNav";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -183,7 +184,7 @@ export default async function Page({
                                   <span className="field__label">Note (optional)</span>
                                   <input name="note" className="field__input" />
                                 </label>
-                                <button type="submit" className="button" formNoValidate>Record it</button>
+                                <PendingButton className="button" formNoValidate>Record it</PendingButton>
                               </form>
                             </details>
                           )}
@@ -218,7 +219,7 @@ export default async function Page({
                       <span className="field__label">Why</span>
                       <input name="reason" className="field__input" defaultValue={c.detail} />
                     </label>
-                    <button type="submit" className="button" formNoValidate>Prepare the refund</button>
+                    <PendingButton className="button" formNoValidate>Prepare the refund</PendingButton>
                     <p className="field__helper">
                       A refund needs a second person to approve it before any money moves.
                     </p>
@@ -230,7 +231,7 @@ export default async function Page({
                     <span className="field__label">Or close it with a note</span>
                     <input name="resolution" className="field__input" placeholder="e.g. new dates agreed with the farmer" />
                   </label>
-                  <button type="submit" className="button button--ghost" formNoValidate>Close the case</button>
+                  <PendingButton className="button button--ghost" formNoValidate>Close the case</PendingButton>
                 </form>
               </section>
             ))
@@ -249,7 +250,7 @@ export default async function Page({
                       <span className="asset__fault-text">{w.reference} · {w.businessName} · {formatAmount(w.amountMinor)}</span>
                       <form action={closePayoutRequestAction}>
                         <input type="hidden" name="id" value={w.id} />
-                        <button type="submit" className="resend__button">Close</button>
+                        <PendingButton className="resend__button">Close</PendingButton>
                       </form>
                     </li>
                   ))}
@@ -271,7 +272,7 @@ export default async function Page({
                       </span>
                       <form action={preparePayoutAction}>
                         <input type="hidden" name="requestId" value={p.requestId} />
-                        <button type="submit" className="button button--ghost">Prepare the payout</button>
+                        <PendingButton className="button button--ghost">Prepare the payout</PendingButton>
                       </form>
                     </li>
                   ))}
@@ -309,7 +310,7 @@ export default async function Page({
                   {r.status === "prepared" ? (
                     <form action={approveReleaseAction}>
                       <input type="hidden" name="id" value={r.id} />
-                      <button type="submit" className="button">Approve it</button>
+                      <PendingButton className="button">Approve it</PendingButton>
                       <p className="field__helper">
                         Only someone other than the person who prepared it can approve it.
                       </p>
@@ -327,7 +328,7 @@ export default async function Page({
                           <span className="field__label">Transfer reference</span>
                           <input name="reference" className="field__input" />
                         </label>
-                        <button type="submit" className="button" formNoValidate>It has been sent</button>
+                        <PendingButton className="button" formNoValidate>It has been sent</PendingButton>
                       </form>
                     </details>
                   )}
@@ -340,7 +341,7 @@ export default async function Page({
                         <span className="field__label">New amount</span>
                         <input name="amount" className="field__input" inputMode="decimal" defaultValue={String(r.grossMinor / 100)} />
                       </label>
-                      <button type="submit" className="button button--ghost" formNoValidate>Change it</button>
+                      <PendingButton className="button button--ghost" formNoValidate>Change it</PendingButton>
                       <p className="field__helper">Changing the amount withdraws any approval.</p>
                     </form>
                   </details>
@@ -348,7 +349,7 @@ export default async function Page({
                   <form action={voidReleaseAction} className="inline-form">
                     <input type="hidden" name="id" value={r.id} />
                     <input type="hidden" name="reason" value="Cancelled at the finance desk" />
-                    <button type="submit" className="resend__button">Cancel this release</button>
+                    <PendingButton className="resend__button">Cancel this release</PendingButton>
                   </form>
                 </section>
               ))
@@ -374,8 +375,8 @@ export default async function Page({
                       <div className="field__box"><input id={`note-${d.jobId}`} name="note" className="field__input" maxLength={300} /></div>
                     </div>
                     <div className="request-card__actions">
-                      <button type="submit" name="outcome" value="refund" className="button button--soft">Refund the farmer</button>
-                      <button type="submit" name="outcome" value="release" className="button">Pay the provider</button>
+                      <PendingButton name="outcome" value="refund" className="button button--soft">Refund the farmer</PendingButton>
+                      <PendingButton name="outcome" value="release" className="button">Pay the provider</PendingButton>
                     </div>
                   </form>
                 </section>
@@ -435,7 +436,7 @@ export default async function Page({
         ) : null}
 
         <form action={signOut} className="setup__signout">
-          <button type="submit" className="resend__button">Sign out</button>
+          <PendingButton className="resend__button">Sign out</PendingButton>
         </form>
       </div>
     </main>

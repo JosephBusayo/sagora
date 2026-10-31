@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingButton } from "@/components/app/PendingButton";
 import { useState } from "react";
 import { Icon } from "@/components/app/Icon";
 import { ScheduleModal } from "./ScheduleModal";
@@ -73,7 +74,7 @@ export function JobsList({ jobs, assets, operators, canEdit }: {
             {j.atRisk.length > 0 && canEdit && !j.privateCustomer ? (
               <form action={noReplacementAction}>
                 <input type="hidden" name="jobId" value={j.id} />
-                <button type="submit" className="resend__button">No replacement available</button>
+                <PendingButton className="resend__button">No replacement available</PendingButton>
               </form>
             ) : null}
             {j.changes.length > 0 ? <p className="field__helper">Changes: {j.changes.join(" · ")}</p> : null}
@@ -100,7 +101,7 @@ export function JobsList({ jobs, assets, operators, canEdit }: {
                 {j.status === "scheduled" ? (
                   <form action={startWorkAction}>
                     <input type="hidden" name="jobId" value={j.id} />
-                    <button type="submit" className="button button--ghost">Start work</button>
+                    <PendingButton className="button button--ghost">Start work</PendingButton>
                   </form>
                 ) : null}
                 {["scheduled", "in_progress"].includes(j.status) ? (
