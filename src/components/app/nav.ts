@@ -45,7 +45,7 @@ export const NAV: Record<Audience, { home: string; groups: NavGroup[]; personal:
         title: "General",
         items: [
           { href: "/farmer/home", label: "Home", icon: "home" },
-          { href: "/farmer/book", label: "Book a service", icon: "plus" },
+          { href: "/farmer/book", label: "Book a service", icon: "requests" },
           { href: "/farmer/requests", label: "My requests", icon: "requests" },
           { href: "/farmer/bookings", label: "My bookings", icon: "jobs" },
           { href: "/farmer/payments", label: "Payments", icon: "payments" },

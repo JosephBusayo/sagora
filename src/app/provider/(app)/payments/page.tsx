@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/app/EmptyState";
 import { ModalShell } from "@/components/app/ModalShell";
 import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
@@ -19,13 +20,13 @@ export const dynamic = "force-dynamic";
 
 const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ withdraw?: string; submitted?: string; error?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ withdraw?: string; submitted?: string; error?: string; payout?: string }> }) {
   const { user, business, permission } = await requireWorkspace();
   // Earnings and payout details are the owner's business, not every operator's.
   if (permission !== "full_access") {
     return (
       <Shell crumb={{ label: "Payments", icon: "payments" }} user={{ name: user.name }}>
-        <PageHead title="Payments" subtitle="View your earnings, payout details and transaction history" />
+        <PageHead title="Payments" subtitle="View your earnings, payout details and transactions." />
         <p className="empty">Only someone with full access can see payments.</p>
       </Shell>
     );
@@ -37,33 +38,28 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
   const rows = await earningsFor(business.id);
   const destination = await destinationFor(business.id);
 
-  const agreed = rows.reduce((n, r) => n + r.amountMinor, 0);
-  const paidOut = rows.reduce((n, r) => n + (r.release?.status === "paid" ? r.release.netMinor : 0), 0);
-  const dueToYou = rows.reduce(
-    (n, r) => n + (r.release && r.release.status !== "paid" ? r.release.netMinor : 0),
-    0,
-  );
-
   return (
     <Shell crumb={{ label: "Payments", icon: "payments" }} user={{ name: user.name }}>
       <PageHead
         title="Payments"
-        subtitle="View your earnings, payout details and transaction history"
+        subtitle="View your earnings, payout details and transactions."
       />
 
       {sp.error ? <p className="notice notice--error" role="alert">{sp.error}</p> : null}
       <section className="wallet">
-        <div>
-          <p className="wallet__label">Your wallet</p>
-          <p className="wallet__sub">Total balance</p>
-          <p className="wallet__amount">{formatAmount(wallet)}</p>
-          {open ? <p className="field__helper">Payout request {open.reference} is in progress.</p> : null}
-        </div>
-        <div className="wallet__actions">
-          <a href="#payout-details" className="button button--soft">Payout details</a>
-          {permission === "full_access" && wallet > 0 && destination && !open
-            ? <Link href="/provider/payments?withdraw=1" className="button">Withdraw funds</Link>
-            : <button type="button" className="button" disabled>Withdraw funds</button>}
+        <h2 className="wallet__label">Your wallet</h2>
+        <div className="wallet__body">
+          <div>
+            <p className="wallet__sub">Total balance</p>
+            <p className="wallet__amount">{formatAmount(wallet)}</p>
+            {open ? <p className="field__helper">Payout request {open.reference} is in progress.</p> : null}
+          </div>
+          <div className="wallet__actions">
+            <Link href="/provider/payments?payout=1" className="wallet__details"><Icon name="info" size={20} />Payout details</Link>
+            {permission === "full_access" && wallet > 0 && destination && !open
+              ? <Link href="/provider/payments?withdraw=1" className="button"><Icon name="arrowOut" size={20} />Withdraw funds</Link>
+              : <button type="button" className="button" disabled><Icon name="arrowOut" size={20} />Withdraw funds</button>}
+          </div>
         </div>
       </section>
 
@@ -102,27 +98,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
         </ModalShell>
       ) : null}
 
-      <div className="money-tiles">
-        <article className="money-tile">
-          <span className="money-tile__icon" aria-hidden="true"><Icon name="quotes" size={20} /></span>
-          <p className="money-tile__value">{formatAmount(agreed)}</p>
-          <p className="money-tile__label">Agreed across all jobs</p>
-        </article>
-        <article className="money-tile">
-          <span className="money-tile__icon" aria-hidden="true"><Icon name="payments" size={20} /></span>
-          <p className="money-tile__value">{formatAmount(dueToYou)}</p>
-          <p className="money-tile__label">Approved or waiting to be sent</p>
-        </article>
-        <article className="money-tile">
-          <span className="money-tile__icon" aria-hidden="true"><Icon name="store" size={20} /></span>
-          <p className="money-tile__value">{formatAmount(paidOut)}</p>
-          <p className="money-tile__label">Already paid to you</p>
-        </article>
-      </div>
-
       {rows.length === 0 ? (
         <div className="table-card">
-          <p className="empty">No money yet. A job appears here once a farmer accepts your quote.</p>
+          <EmptyState icon="payments" title="You have not received any payments yet" body="Set up a payout wallet to start receiving payments for your services" href="/provider/payments?payout=1" action="Set up your payout wallet" />
         </div>
       ) : (
         <div className="table-card">
@@ -180,18 +158,21 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
         </div>
       )}
 
-      <section className="panel" id="payout-details">
-        <h2 className="quotes__heading">Payout details</h2>
-        <p className="field__helper">
-          {destination
-            ? `Currently ${destination.method === "bank" ? `${destination.bank} account` : "mobile money"} ${destination.accountRef}, in the name of ${destination.accountName}.`
-            : "Not set yet. Add it so a payout can be sent without chasing you for details."}
-        </p>
-        <p className="field__helper">
-          Payments are sent by hand by the Sagora team today and recorded with a transfer reference.
-          Automatic payouts need the payment provider account, which we are still waiting on.
-        </p>
-        {permission === "full_access" ? (
+      {sp.payout ? (
+        <ModalShell closeHref="/provider/payments" label="Payout details">
+          <header className="modal__head">
+            <h2>Add payment method</h2>
+            <p>Choose how you want to receive your payouts.</p>
+          </header>
+          <p className="field__helper">
+            {destination
+              ? `Currently ${destination.method === "bank" ? `${destination.bank} account` : "mobile money"} ${destination.accountRef}, in the name of ${destination.accountName}.`
+              : "Not set yet. Add it so a payout can be sent without chasing you for details."}
+          </p>
+          <p className="field__helper">
+            Payments are sent by hand by the Sagora team today and recorded with a transfer reference.
+            Automatic payouts need the payment provider account, which we are still waiting on.
+          </p>
           <DestinationForm
             initial={{
               method: destination?.method ?? "mobile_money",
@@ -200,10 +181,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
               bank: destination?.bank ?? "",
             }}
           />
-        ) : (
-          <p className="field__helper">Only someone with full access can change this.</p>
-        )}
-      </section>
+        </ModalShell>
+      ) : null}
     </Shell>
   );
 }

@@ -45,7 +45,7 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, search, 
           </p>
           {/* A plain GET form, so search works with JavaScript off. */}
           <form className="topbar__search" action={`${base}/search`} role="search">
-            <Icon name="search" size={18} />
+            <img src="/icons/search.svg" alt="" width={18} height={18} />
             <input key={search} type="search" name="q" defaultValue={search} placeholder="Search requests, jobs, equipments..." aria-label="Search" maxLength={80} />
           </form>
           <div className="topbar__actions">
@@ -63,7 +63,7 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, search, 
             <span className="topbar__user">
               <span className="topbar__avatar" aria-hidden="true">{initial(user.name)}</span>
               <span className="topbar__name" title={user.name}>{shortName(user.name)}</span>
-              <Icon name="chevron" size={24} />
+              <span className="topbar__chev"><Icon name="chevron" size={14} /></span>
             </span>
           </div>
         </header>

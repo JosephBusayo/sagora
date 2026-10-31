@@ -46,7 +46,7 @@ export function ScheduleModal({ job, assets, operators, onClose }: {
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="sched-title" ref={ref}>
         <div className="modal__head">
           <h2 id="sched-title">Schedule {job.reference}</h2>
-          <p>{job.serviceLabel} · {job.acres} acres · {job.where}</p>
+          <p>{job.serviceLabel} · {job.acres} acres · {job.village}, {job.district}</p>
         </div>
         <form action={action} className="form-soft">
           <input type="hidden" name="jobId" value={job.id} />

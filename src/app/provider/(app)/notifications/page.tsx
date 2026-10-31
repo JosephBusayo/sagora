@@ -17,12 +17,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ f
     <Shell crumb={{ label: "Notifications", icon: "bell" }} user={{ name: user.name }} unread={await unreadCount(user)}>
       <PageHead
         title="Notifications"
-        subtitle="Everything Sagora has sent you. The same messages go to your email."
       />
       <NotificationList
         notifications={notifications}
         filter={filter}
-        basePath="/provider/notifications"
         markReadAction={markNotificationRead}
         markAllAction={markAllNotificationsRead}
       />

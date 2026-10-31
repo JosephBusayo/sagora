@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/app/EmptyState";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireFarmer } from "@/lib/session";
@@ -29,16 +30,10 @@ export default async function Page() {
       audience="farmer"
       unread={await unreadCount(farmer)}
     >
-      <PageHead title="Payments" subtitle="Every payment you have made and every refund sent back to you." />
+      <PageHead title="Payments" subtitle="View your earnings, payout details and transactions." />
       <>
         {rows.length === 0 ? (
-          <>
-            <p className="empty">
-              <strong className="empty__title">No payments yet</strong>
-              <span className="empty__body">Your payment records will appear here after you complete a booking</span>
-            </p>
-            <p style={{ textAlign: "center" }}><Link href="/farmer/requests">See my requests</Link></p>
-          </>
+          <EmptyState icon="payments" title="No payments yet" body="Your payment records will appear here after you complete a booking" href="/farmer/book" action="Book a service" />
         ) : (
           <div className="table-card">
             <table className="table">
@@ -47,7 +42,7 @@ export default async function Page() {
                   <th scope="col">Transaction ID</th>
                   <th scope="col">Type</th>
                   <th scope="col">Amount</th>
-                  <th scope="col">Date</th>
+                  <th scope="col">Date received</th>
                   <th scope="col">Status</th>
                 </tr>
               </thead>

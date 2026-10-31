@@ -1,6 +1,6 @@
 import { EmptyState } from "@/components/app/EmptyState";
 import Link from "next/link";
-import { Icon, type IconName } from "@/components/app/Icon";
+import { Icon, ServiceIcon, type IconName } from "@/components/app/Icon";
 import { districtLabel } from "@/lib/business";
 import { STATUS_LABEL, serviceLabel, type ServiceRequest } from "@/lib/requests";
 import { greeting, todayLong } from "@/lib/greeting";
@@ -15,16 +15,16 @@ const fmt = (iso: string) =>
  * The wording is the design's, not a paraphrase: this screen is the first thing a farmer
  * reads, and it is the designer's job to decide what it says.
  */
-const SERVICES: { href: string; icon: IconName; title: string; body: string }[] = [
+const SERVICES: { href: string; service: string; title: string; body: string }[] = [
   {
     href: "/farmer/book?service=ploughing",
-    icon: "equipment",
+    service: "ploughing",
     title: "Book ploughing service",
     body: "Prepare your land for planting",
   },
   {
     href: "/farmer/book?service=harvesting",
-    icon: "quotes",
+    service: "harvesting",
     title: "Book harvesting service",
     // The design reads "crups"; corrected here, and raised with the designer.
     body: "Harvest your crops efficiently",
@@ -51,7 +51,7 @@ export function FarmerHome({ name, requests }: { name: string; requests: Service
       <div className="home-cards home-cards--two home-section">
         {SERVICES.map((s) => (
           <Link key={s.href} href={s.href} className="home-card">
-            <span className="home-card__icon" aria-hidden="true"><Icon name={s.icon} size={20} /></span>
+            <ServiceIcon service={s.service} />
             <span className="home-card__text">
               <strong>{s.title}</strong>
               <span>{s.body}</span>
@@ -110,7 +110,7 @@ export function FarmerHome({ name, requests }: { name: string; requests: Service
                   <tr key={r.id}>
                     <td>
                       <span className="table__ref">
-                        <span className="table__ref-icon" aria-hidden="true"><Icon name="equipment" size={20} /></span>
+                        <ServiceIcon service={r.service} />
                         <Link href={`/farmer/requests/${r.id}`}>{r.reference}</Link>
                       </span>
                     </td>

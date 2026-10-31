@@ -19,30 +19,50 @@ export function EquipmentList({ assets, kinds, canEdit }: { assets: AssetView[];
   const [editing, setEditing] = useState<AssetView | null | "new">(null);
   const [faulting, setFaulting] = useState<AssetView | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
+  const [show, setShow] = useState("");
+  const shown = assets.filter((a) => !show || (show === "available") === !a.unavailable);
 
   return (
     <>
-      {canEdit ? (
-        <div className="equipment__top">
+      <div className="equipment__top">
+        <label className="filter">
+          <img src="/icons/funnel.svg" alt="" width={20} height={20} />
+          <span className="sr-only">Availability</span>
+          <select value={show} onChange={(e) => setShow(e.target.value)}>
+            <option value="">Filter</option>
+            <option value="available">Available</option>
+            <option value="unavailable">Not available</option>
+          </select>
+          <span className="filter__chev" aria-hidden="true"><Icon name="chevron" size={16} /></span>
+        </label>
+        {canEdit ? (
           <button type="button" className="button button--inline" onClick={() => setEditing("new")}>
             <Icon name="plus" size={18} />
             Add equipment
           </button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       {assets.length === 0 ? (
         <div className="table-card"><p className="empty">No machines on your register yet.</p></div>
       ) : (
         <div className="equipment-grid">
-          {assets.map((a) => (
+          {shown.map((a) => (
             <article key={a.id} className={`asset${a.status === "retired" ? " asset--retired" : ""}`}>
               <div className="asset__head">
-                <span className="request-icon" aria-hidden="true"><Icon name="equipment" size={22} /></span>
+                <span className="asset__photo" aria-hidden="true"><img src="/icons/plough.svg" alt="" width={44} height={34} /></span>
                 <div className="asset__title">
                   <h3>{a.name}</h3>
-                  <p>{a.kindLabel} · {a.ownership === "owned" ? "Owned" : "Leased"}{a.identifier ? ` · ${a.identifier}` : ""}</p>
+                  <p>
+                    <span><img src="/icons/plough-grey.svg" alt="" width={20} height={15} />{a.kindLabel}</span>
+                    <span><Icon name="settings" size={18} />{a.ownership === "owned" ? "Owned" : "Leased"}{a.identifier ? ` · ${a.identifier}` : ""}</span>
+                  </p>
                 </div>
+                {a.unavailable ? (
+                  <span className="pill pill--cancelled">{a.unavailable}</span>
+                ) : (
+                  <span className="pill pill--quotes_sent">Available</span>
+                )}
                 {canEdit ? (
                   <div className="rowmenu">
                     <button type="button" className="icon-button" aria-haspopup="menu" aria-expanded={menu === a.id}
@@ -73,14 +93,7 @@ export function EquipmentList({ assets, kinds, canEdit }: { assets: AssetView[];
                 ) : null}
               </div>
 
-              <p className="asset__state">
-                {a.unavailable ? (
-                  <span className="pill pill--cancelled">{a.unavailable}</span>
-                ) : (
-                  <span className="pill pill--quotes_sent">Available</span>
-                )}
-                {a.status === "retired" && a.retiredReason ? <span className="field__helper"> {a.retiredReason}</span> : null}
-              </p>
+              {a.status === "retired" && a.retiredReason ? <p className="asset__state"><span className="field__helper">{a.retiredReason}</span></p> : null}
 
               {a.notes ? <p className="asset__notes">{a.notes}</p> : null}
 

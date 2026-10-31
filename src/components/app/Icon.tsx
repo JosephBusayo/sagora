@@ -81,3 +81,13 @@ export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const C = ICONS[name];
   return <C size={size} className="icon" aria-hidden />;
 }
+
+/** The tile the design puts beside a request: a truck for ploughing, cherries for harvesting. */
+export function ServiceIcon({ service }: { service: string }) {
+  const harvesting = service === "harvesting";
+  return (
+    <span className={`request-icon${harvesting ? " request-icon--harvest" : ""}`} aria-hidden="true">
+      <img src={harvesting ? "/icons/harvest.svg" : "/icons/plough.svg"} alt="" width={harvesting ? 24 : 22} height={harvesting ? 24 : 17} />
+    </span>
+  );
+}

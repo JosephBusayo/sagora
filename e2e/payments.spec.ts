@@ -103,7 +103,8 @@ async function scheduledJob(browser: Browser, acres: string, village: string, pr
   await f.ctx.close();
 
   await p.page.goto("/provider/jobs");
-  const card = p.page.locator("article.asset").filter({ hasText: reference });
+  await p.page.getByRole("button", { name: `Open job ${reference}` }).click();
+  const card = p.page.getByRole("dialog", { name: `Job ${reference}` });
   await card.getByRole("button", { name: "Schedule" }).click();
   const s = p.page.getByRole("dialog");
   await s.getByLabel("Work starts").fill(inDays(day));
@@ -332,9 +333,10 @@ test("a payout waits for the farmer's confirmation, not the provider's word", as
   const p = await fresh(browser);
   await signIn(p.page, PROV, "provider");
   await p.page.goto("/provider/jobs");
-  const card = p.page.locator("article.asset").filter({ hasText: refA });
+  await p.page.getByRole("button", { name: `Open job ${refA}` }).click();
+  const card = p.page.getByRole("dialog", { name: `Job ${refA}` });
   await card.getByRole("button", { name: "Start work" }).click();
-  await p.page.locator("article.asset").filter({ hasText: refA }).getByRole("button", { name: "Report work done" }).click();
+  await card.getByRole("button", { name: "Report work done" }).click();
   const d = p.page.getByRole("dialog");
   await d.getByLabel("How much was done (acres)").fill("4");
   await d.getByRole("button", { name: "Report the work" }).click();
@@ -412,7 +414,7 @@ test("changing where money goes withdraws an approval that has not been sent", a
   // The provider now changes their payout number.
   const p = await fresh(browser);
   await signIn(p.page, PROV, "provider");
-  await p.page.goto("/provider/payments");
+  await p.page.goto("/provider/payments?payout=1");
   await p.page.getByLabel("Name on the account").fill("Sesay Tractors Ltd");
   await p.page.getByLabel("Mobile money number").fill("76 111 222");
   await p.page.getByRole("button", { name: "Save where money goes" }).click();

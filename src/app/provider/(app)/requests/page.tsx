@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/guard";
 import { Shell, PageHead } from "@/components/app/Shell";
-import { Icon } from "@/components/app/Icon";
+import { FilterPill } from "@/components/app/FilterPill";
 import { DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
 import { DATE_WINDOWS, STATUS_LABEL, browse, serviceLabel, type RequestStatus } from "@/lib/requests";
 import { QUOTE_STATUS_LABEL, activityFor, currentQuote, isExpired, type QuoteStatus } from "@/lib/quotes";
@@ -30,29 +30,12 @@ function Filters({ current }: { current: Params }) {
   const active = [current.service, current.district, current.window].filter(Boolean).length;
   return (
     <form className="filters" method="get">
-      <label className={`filter${current.service ? " filter--on" : ""}`}>
-        <Icon name="dots" size={16} />
-        <span className="sr-only">Service</span>
-        <select name="service" defaultValue={current.service ?? ""}>
-          <option value="">All services</option>
-          {SERVICES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-        </select>
-      </label>
-      <label className={`filter${current.district ? " filter--on" : ""}`}>
-        <Icon name="pin" size={16} />
-        <span className="sr-only">District</span>
-        <select name="district" defaultValue={current.district ?? ""}>
-          <option value="">All districts</option>
-          {DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
-        </select>
-      </label>
-      <label className={`filter${current.window ? " filter--on" : ""}`}>
-        <Icon name="requests" size={16} />
-        <span className="sr-only">Dates</span>
-        <select name="window" defaultValue={current.window ?? ""}>
-          {DATE_WINDOWS.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
-        </select>
-      </label>
+      <FilterPill name="service" label="Service" value={current.service} icon="/icons/service.svg"
+        options={[{ value: "", label: "All services" }, ...SERVICES.map((s) => ({ value: s.id, label: s.label }))]} />
+      <FilterPill name="district" label="District" value={current.district} icon="/icons/pin.svg"
+        options={[{ value: "", label: "All districts" }, ...DISTRICTS.map((d) => ({ value: d, label: d }))]} />
+      <FilterPill name="window" label="Dates" value={current.window} icon="/icons/calendar.svg"
+        options={DATE_WINDOWS.map((w) => ({ value: w.id, label: w.label }))} />
       {active > 0 ? <Link href="/provider/requests" className="filters__clear">Clear filters ({active})</Link> : null}
       <noscript><button type="submit" className="button button--inline">Apply</button></noscript>
       <FilterAutoSubmit />

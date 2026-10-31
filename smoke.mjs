@@ -248,7 +248,8 @@ await step("Provider is told their quote was accepted", p.page, async () => {
 /* ------------------------------------------------------------- the money */
 await step("Provider schedules the work, committing the tractor", p.page, async () => {
   await p.page.goto("/provider/jobs");
-  const card = p.page.locator("article.asset").filter({ hasText: reference });
+  await p.page.getByRole("button", { name: `Open job ${reference}` }).click();
+  const card = p.page.getByRole("dialog", { name: `Job ${reference}` });
   await card.getByRole("button", { name: "Schedule" }).click();
   const d = p.page.getByRole("dialog");
   await d.getByLabel("Work starts").fill(inDays(20));
@@ -308,9 +309,10 @@ await step("No payout before the farmer confirms the work", s.page, async () => 
 });
 await step("Provider reports the work and the farmer confirms it", p.page, async () => {
   await p.page.goto("/provider/jobs");
-  await p.page.locator("article.asset").filter({ hasText: reference }).getByRole("button", { name: "Start work" }).click();
+  await p.page.getByRole("button", { name: `Open job ${reference}` }).click();
+  await p.page.getByRole("dialog", { name: `Job ${reference}` }).getByRole("button", { name: "Start work" }).click();
   await p.page.waitForTimeout(500);
-  await p.page.locator("article.asset").filter({ hasText: reference }).getByRole("button", { name: "Report work done" }).click();
+  await p.page.getByRole("dialog", { name: `Job ${reference}` }).getByRole("button", { name: "Report work done" }).click();
   const d = p.page.getByRole("dialog");
   await d.getByLabel("How much was done (acres)").fill("6");
   await d.getByRole("button", { name: "Report the work" }).click();
@@ -360,11 +362,11 @@ await step("The booked job shows under the farmer's bookings", f.page, async () 
 });
 await step("Both sides see the same events in their notifications", f.page, async () => {
   await f.page.goto("/farmer/notifications");
-  await f.page.getByText(`${reference} is booked`).first().waitFor({ timeout: WAIT });
+  await f.page.getByText("Booking confirmed").first().waitFor({ timeout: WAIT });
   await f.page.screenshot({ path: path.join(OUT, "16-farmer-notifications.png"), fullPage: true });
 
   await p.page.goto("/provider/notifications");
-  await p.page.getByText("was accepted").first().waitFor({ timeout: WAIT });
+  await p.page.getByText("Quote accepted").first().waitFor({ timeout: WAIT });
 });
 await step("A verification code never appears in the notification list", f.page, async () => {
   await f.page.goto("/farmer/notifications");
@@ -374,8 +376,8 @@ await step("A verification code never appears in the notification list", f.page,
 });
 await step("The provider dashboard counts real work, not invented numbers", p.page, async () => {
   await p.page.goto("/provider/dashboard");
-  await p.page.getByText("Needs attention").waitFor({ timeout: WAIT });
-  await p.page.getByText("Money on its way to you").waitFor();
+  await p.page.getByText("Business overview").waitFor({ timeout: WAIT });
+  await p.page.getByText("All jobs").waitFor();
   await p.page.waitForLoadState("networkidle");
   await p.page.screenshot({ path: path.join(OUT, "17-provider-dashboard.png"), fullPage: true });
 });

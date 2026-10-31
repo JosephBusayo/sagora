@@ -97,7 +97,13 @@ async function agreedJob(browser: Browser, acres: string, village: string): Prom
   return reference;
 }
 
-const jobCard = (page: Page, reference: string) => page.locator("article.asset").filter({ hasText: reference });
+const jobCard = (page: Page, reference: string) => page.locator("tbody tr").filter({ hasText: reference });
+const openJob = async (page: Page, reference: string) => {
+  const dialog = page.getByRole("dialog", { name: `Job ${reference}` });
+  if (!(await dialog.isVisible())) await page.getByRole("button", { name: `Open job ${reference}` }).click();
+  await expect(dialog).toBeVisible();
+  return dialog;
+};
 
 let refA = "";
 let refB = "";
@@ -160,7 +166,7 @@ test("an accepted quote creates an unscheduled job", async ({ page }) => {
 test("scheduling commits the machines for those dates", async ({ page }) => {
   await signInProvider(page);
   await page.goto("/provider/jobs");
-  await jobCard(page, refA).getByRole("button", { name: "Schedule" }).click();
+  await (await openJob(page, refA)).getByRole("button", { name: "Schedule" }).click();
   const d = page.getByRole("dialog");
   await d.getByLabel("Work starts").fill(inDays(20));
   await d.getByLabel("Work ends").fill(inDays(22));
@@ -170,8 +176,8 @@ test("scheduling commits the machines for those dates", async ({ page }) => {
   await expect(d.page().getByText("Work scheduled.")).toBeVisible();
 
   await page.reload();
-  const card = jobCard(page, refA);
-  await expect(card.getByText("Scheduled")).toBeVisible();
+  const card = await openJob(page, refA);
+  await expect(card.getByText("Scheduled", { exact: true })).toBeVisible();
   await expect(card.locator("p.asset__notes")).toContainText("Green Tractor");
   await expect(card.locator("p.asset__notes")).toContainText("Shared Plough");
 });
@@ -179,7 +185,7 @@ test("scheduling commits the machines for those dates", async ({ page }) => {
 test("the same plough cannot be committed to an overlapping job", async ({ page }) => {
   await signInProvider(page);
   await page.goto("/provider/jobs");
-  await jobCard(page, refB).getByRole("button", { name: "Schedule" }).click();
+  await (await openJob(page, refB)).getByRole("button", { name: "Schedule" }).click();
   const d = page.getByRole("dialog");
   // Overlaps the first job by one day.
   await d.getByLabel("Work starts").fill(inDays(22));
@@ -194,7 +200,7 @@ test("the same plough cannot be committed to an overlapping job", async ({ page 
   await expect(jobCard(page, refB).getByText("Not scheduled yet")).toBeVisible();
 
   // Moving past the first job's dates works.
-  await jobCard(page, refB).getByRole("button", { name: "Schedule" }).click();
+  await (await openJob(page, refB)).getByRole("button", { name: "Schedule" }).click();
   const d2 = page.getByRole("dialog");
   await d2.getByLabel("Work starts").fill(inDays(23));
   await d2.getByLabel("Work ends").fill(inDays(25));
@@ -215,9 +221,9 @@ test("a fault flags the job without erasing the commitment", async ({ page }) =>
   await expect(d.page().getByText("now out of service")).toBeVisible();
 
   await page.goto("/provider/jobs");
-  const card = jobCard(page, refA);
+  const card = await openJob(page, refA);
   await expect(card.getByText(/At risk: Shared Plough/)).toBeVisible();
-  await expect(card.getByText("Scheduled")).toBeVisible();          // the commitment is kept
+  await expect(card.getByText("Scheduled", { exact: true })).toBeVisible();          // the commitment is kept
   await expect(card.locator("p.asset__notes")).toContainText("Shared Plough");
 
   // Clear it again so later steps are not blocked.
@@ -228,14 +234,14 @@ test("a fault flags the job without erasing the commitment", async ({ page }) =>
 test("work reported is not delivery: the farmer must confirm", async ({ page, browser }) => {
   await signInProvider(page);
   await page.goto("/provider/jobs");
-  await jobCard(page, refA).getByRole("button", { name: "Start work" }).click();
+  await (await openJob(page, refA)).getByRole("button", { name: "Start work" }).click();
   // Let the action land before reloading: a reload fired straight after the click races it, and
   // against a remote database the reload wins and renders the job as it was.
   await expect(jobCard(page, refA).getByText("Work started")).toBeVisible();
   await page.reload();
   await expect(jobCard(page, refA).getByText("Work started")).toBeVisible();
 
-  await jobCard(page, refA).getByRole("button", { name: "Report work done" }).click();
+  await (await openJob(page, refA)).getByRole("button", { name: "Report work done" }).click();
   const d = page.getByRole("dialog");
   await d.getByLabel("How much was done (acres)").fill("4");
   await d.getByLabel("Anything the farmer should know").fill("Finished both passes.");
@@ -265,7 +271,7 @@ test("work reported is not delivery: the farmer must confirm", async ({ page, br
 test("a farmer can raise a concern instead of confirming", async ({ page, browser }) => {
   await signInProvider(page);
   await page.goto("/provider/jobs");
-  await jobCard(page, refB).getByRole("button", { name: "Report work done" }).click();
+  await (await openJob(page, refB)).getByRole("button", { name: "Report work done" }).click();
   const d = page.getByRole("dialog");
   await d.getByLabel("How much was done (acres)").fill("3");
   await d.getByRole("button", { name: "Report the work" }).click();
@@ -281,7 +287,7 @@ test("a farmer can raise a concern instead of confirming", async ({ page, browse
   await f.ctx.close();
 
   await page.reload();
-  const card = jobCard(page, refB);
+  const card = await openJob(page, refB);
   await expect(card.getByText("Farmer raised a concern", { exact: true })).toBeVisible();
   await expect(card.getByText(/Only half the field/)).toBeVisible();
   expect(mailsTo(PROV.email).some((m) => m.subject.includes("A concern was raised"))).toBe(true);
@@ -296,7 +302,7 @@ test("a teammate with view-only access cannot schedule or report", async ({ page
   await signInProvider(page);
   await page.goto("/provider/jobs");
   // A completed job offers no actions at all.
-  const card = jobCard(page, refA);
+  const card = await openJob(page, refA);
   await expect(card.getByRole("button", { name: "Report work done" })).toHaveCount(0);
   await expect(card.getByRole("button", { name: "Start work" })).toHaveCount(0);
 });

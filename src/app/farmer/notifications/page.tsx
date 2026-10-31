@@ -21,12 +21,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ f
     >
       <PageHead
         title="Notifications"
-        subtitle="Quotes, bookings and payments on your requests. The same messages go to your email."
       />
       <NotificationList
         notifications={await listFor(farmer, filter)}
         filter={filter}
-        basePath="/farmer/notifications"
         markReadAction={markNotificationRead}
         markAllAction={markAllNotificationsRead}
       />

@@ -2,14 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireFarmer } from "@/lib/session";
 import { Shell, PageHead } from "@/components/app/Shell";
-import { Icon } from "@/components/app/Icon";
+import { Icon, ServiceIcon } from "@/components/app/Icon";
+import { EmptyState } from "@/components/app/EmptyState";
+import { FilterPill } from "@/components/app/FilterPill";
+import { ModalShell } from "@/components/app/ModalShell";
+import { FilterAutoSubmit } from "@/components/requests/FilterAutoSubmit";
 import { districtLabel } from "@/lib/business";
 import { formatAmount } from "@/lib/money";
 import { serviceLabel } from "@/lib/requests";
 import { unreadCount } from "@/lib/notifications";
 import { bookingFor } from "@/lib/payments";
 import {
-  BOOKING_TABS, JOB_STATUS_LABEL, bookingsForFarmer, type BookingTab, type JobStatus,
+  BOOKING_TABS, JOB_STATUS_LABEL, bookingsForFarmer, type JobStatus,
 } from "@/lib/jobs";
 
 export const metadata: Metadata = { title: "My bookings" };
@@ -28,28 +32,22 @@ const PILL: Record<string, string> = {
   cancelled: "cancelled",
 };
 
-const EMPTY: Record<BookingTab, { title: string; body: string }> = {
-  upcoming: { title: "No bookings yet", body: "Your confirmed bookings will appear here" },
-  in_progress: { title: "No work under way", body: "A job appears here once the provider starts it" },
-  completed: { title: "Nothing finished yet", body: "Work you have confirmed will appear here" },
-  cancelled: { title: "Nothing cancelled", body: "Bookings that were called off will appear here" },
-};
+// Upcoming amber, under way blue, finished green, as the design colours a farmer's bookings.
+const PILL_FARMER: Record<string, string> = { ...PILL, unscheduled: "in_progress", scheduled: "in_progress", in_progress: "completed", work_reported: "completed", completed: "quotes_sent" };
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div className="detail-row"><span className="detail-row__label">{label}</span><span className="detail-row__value">{children}</span></div>;
+}
+
+export default async function Page({ searchParams }: { searchParams: Promise<{ tab?: string; open?: string }> }) {
   const farmer = await requireFarmer();
-  const asked = (await searchParams).tab;
-  const tab: BookingTab = BOOKING_TABS.some((t) => t.id === asked) ? (asked as BookingTab) : "upcoming";
+  const sp = await searchParams;
+  const tab = BOOKING_TABS.find((t) => t.id === sp.tab);
 
   const all = await bookingsForFarmer(farmer.id);
-  const statuses = BOOKING_TABS.find((t) => t.id === tab)!.statuses as readonly string[];
-  const rows = all.filter((b) => statuses.includes(b.status));
-  // Whether each job is paid is a query, and a component cannot await inside its own JSX,
-  // so the answers are gathered before anything is rendered.
-  const paidByRequest = new Map(
-    await Promise.all(rows.map(async (b) => [b.requestId, Boolean(await bookingFor(b.requestId))] as const)),
-  );
-  const count = (t: (typeof BOOKING_TABS)[number]) =>
-    all.filter((b) => (t.statuses as readonly string[]).includes(b.status)).length;
+  const rows = tab ? all.filter((b) => (tab.statuses as readonly string[]).includes(b.status)) : all;
+  const open = all.find((b) => b.id === sp.open);
+  const paid = open ? Boolean(await bookingFor(open.requestId)) : false;
 
   return (
     <Shell
@@ -61,90 +59,88 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
       <PageHead
         title="Bookings"
         subtitle="View and track your confirmed bookings"
+        action={
+          <form className="filters" method="get">
+            <FilterPill name="tab" label="Booking state" value={tab?.id} icon="/icons/funnel.svg"
+              options={[{ value: "", label: "Filter" }, ...BOOKING_TABS.map((t) => ({ value: t.id, label: t.label }))]} />
+            <noscript><button type="submit" className="button button--inline">Apply</button></noscript>
+            <FilterAutoSubmit />
+          </form>
+        }
       />
 
-      <nav className="tabs tabs--page" aria-label="Booking states">
-        {BOOKING_TABS.map((t) => (
-          <Link
-            key={t.id}
-            href={`/farmer/bookings?tab=${t.id}`}
-            className={`tab${t.id === tab ? " tab--on" : ""}`}
-            aria-current={t.id === tab ? "page" : undefined}
-          >
-            {t.label}{count(t) > 0 ? ` (${count(t)})` : ""}
-          </Link>
-        ))}
-      </nav>
-
       {rows.length === 0 ? (
-        <div className="table-card">
-          <p className="empty">
-            <strong className="empty__title">{EMPTY[tab].title}</strong>
-            <span className="empty__body">{EMPTY[tab].body}</span>
-          </p>
-          {tab === "upcoming" ? (
-            <p style={{ textAlign: "center", marginTop: -20, paddingBottom: 30 }}>
-              <Link href="/farmer/book">Book a service</Link>
-            </p>
-          ) : null}
-        </div>
+        <EmptyState icon="jobs" title="No bookings yet" body="Your confirmed bookings will appear here" href="/farmer/book" action="Book a service" />
       ) : (
-        <div className="equipment-grid">
-          {rows.map((b) => {
-            const paid = paidByRequest.get(b.requestId) ?? false;
-            return (
-              <article key={b.id} className="asset">
-                <div className="asset__head">
-                  <span className="request-icon" aria-hidden="true">
-                    <Icon name={b.service === "harvesting" ? "quotes" : "equipment"} size={22} />
-                  </span>
-                  <div className="asset__title">
-                    <h3>{b.reference}</h3>
-                    <p>{serviceLabel(b.service)} · {b.acres} acres · {b.village}, {districtLabel(b.district)}</p>
-                  </div>
-                </div>
-
-                <p className="asset__state">
-                  <span className={`pill pill--${PILL[b.status]}`}>{JOB_STATUS_LABEL[b.status as JobStatus]}</span>
-                  <span className={`pill pill--${paid ? "completed" : "awaiting_quotes"}`}>
-                    {paid ? "Paid" : "Not paid"}
-                  </span>
-                </p>
-
-                <p className="asset__notes">
-                  <strong>{b.businessName}</strong>
-                  {b.amountMinor > 0 ? ` · ${formatAmount(b.amountMinor)}` : ""}
-                </p>
-
-                {b.startDate ? (
-                  <p className="asset__notes">{fmt(b.startDate)} to {fmt(b.endDate)}</p>
-                ) : (
-                  <p className="asset__notes">The provider has not given you dates yet.</p>
-                )}
-
-                {b.assetNames.length > 0 ? (
-                  <p className="asset__notes">Machines: {b.assetNames.join(", ")}</p>
-                ) : null}
-
-                {b.status === "work_reported" ? (
-                  <p className="notice notice--success" role="status">
-                    {b.businessName} says {b.reportedAcres} acres are done. Nothing is settled until you confirm.
-                  </p>
-                ) : null}
-                {b.status === "disputed" ? (
-                  <p className="notice notice--error" role="status">Your concern: {b.concern}</p>
-                ) : null}
-
-                <div className="setup__buttons">
-                  <Link href={`/farmer/requests/${b.requestId}`} className="button button--ghost button--inline">
-                    {b.status === "work_reported" ? "Confirm or raise a concern" : "Open the request"}
-                  </Link>
-                </div>
-              </article>
-            );
-          })}
+        <div className="table-card">
+          <table className="table table--requests table--headless">
+            <thead>
+              <tr>
+                <th scope="col">Request</th>
+                <th scope="col">Service</th>
+                <th scope="col">Location</th>
+                <th scope="col">Farm size</th>
+                <th scope="col">Scheduled date</th>
+                <th scope="col">Status</th>
+                <th scope="col"><span className="sr-only">Open</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((b) => (
+                <tr key={b.id}>
+                  <td><span className="table__ref"><ServiceIcon service={b.service} /><span>{b.reference}</span></span></td>
+                  <td>{serviceLabel(b.service)}</td>
+                  <td>{districtLabel(b.district)}</td>
+                  <td>{b.acres} acres</td>
+                  <td>{fmt(b.startDate) ?? "Not yet"}</td>
+                  <td><span className={`pill pill--${PILL_FARMER[b.status]}`}>{JOB_STATUS_LABEL[b.status as JobStatus]}</span></td>
+                  <td className="table__go">
+                    <Link href={`/farmer/bookings?${tab ? `tab=${tab.id}&` : ""}open=${b.id}`} aria-label={`Open booking ${b.reference}`}><Icon name="chevron" size={24} /></Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+
+      {open ? (
+        <ModalShell closeHref={tab ? `/farmer/bookings?tab=${tab.id}` : "/farmer/bookings"} label="Booking details" className="modal--request">
+          <div className="modal__banner" aria-hidden="true">
+            <span className="banner__ring banner__outer" />
+            <span className="banner__ring banner__mid" />
+            <span className="banner__ring banner__inner"><Icon name="jobs" size={34} /></span>
+          </div>
+          <article className="asset asset--plain">
+            <header className="modal__head"><h2>Booking details</h2></header>
+            <div className="detail-list">
+              <Row label="Service">{serviceLabel(open.service)}</Row>
+              <Row label="Land size">{open.acres} acres</Row>
+              <Row label="Location">{open.village}, {districtLabel(open.district)}</Row>
+              <Row label="Scheduled start date">{open.startDate ? `${fmt(open.startDate)} to ${fmt(open.endDate)}` : "The provider has not given you dates yet."}</Row>
+              <Row label="Provider">{open.businessName}</Row>
+              {open.amountMinor > 0 ? <Row label="Amount">{formatAmount(open.amountMinor)}</Row> : null}
+              {open.assetNames.length > 0 ? <Row label="Machines">{open.assetNames.join(", ")}</Row> : null}
+              <Row label="Payment"><span className={`pill pill--${paid ? "quotes_sent" : "awaiting_quotes"}`}>{paid ? "Paid" : "Not paid"}</span></Row>
+              <Row label="Status"><span className={`pill pill--${PILL_FARMER[open.status]}`}>{JOB_STATUS_LABEL[open.status as JobStatus]}</span></Row>
+            </div>
+            {open.status === "work_reported" ? (
+              <p className="notice notice--success" role="status">
+                {open.businessName} says {open.reportedAcres} acres are done. Nothing is settled until you confirm.
+              </p>
+            ) : null}
+            {open.status === "disputed" ? (
+              <p className="notice notice--error" role="status">Your concern: {open.concern}</p>
+            ) : null}
+            <div className="form-actions">
+              <Link href={`/farmer/requests/${open.requestId}`} className="button button--soft">
+                {open.status === "work_reported" ? "Confirm or raise a concern" : "Open the request"}
+              </Link>
+              <Link href={tab ? `/farmer/bookings?tab=${tab.id}` : "/farmer/bookings"} className="button">Done</Link>
+            </div>
+          </article>
+        </ModalShell>
+      ) : null}
     </Shell>
   );
 }

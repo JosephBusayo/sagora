@@ -2,14 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/guard";
 import { Shell } from "@/components/app/Shell";
-import { Icon, type IconName } from "@/components/app/Icon";
+import { EmptyState } from "@/components/app/EmptyState";
+import { Icon, ServiceIcon } from "@/components/app/Icon";
 import { districtLabel } from "@/lib/business";
-import { formatAmount } from "@/lib/money";
-import { browse, serviceLabel } from "@/lib/requests";
+import { STATUS_LABEL, browse, serviceLabel } from "@/lib/requests";
 import { listForBusiness as listQuotes, isExpired } from "@/lib/quotes";
 import { atRiskAssets, listJobs } from "@/lib/jobs";
 import { listAssets, unavailableReason } from "@/lib/equipment";
-import { earningsFor } from "@/lib/settlement";
 import { unreadCount } from "@/lib/notifications";
 import { greeting, todayLong } from "@/lib/greeting";
 
@@ -17,44 +16,39 @@ export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
 
 /** The three cards the design offers from the dashboard, with the designer's own wording. */
-const ACTIONS: { href: string; icon: IconName; title: string; body: string }[] = [
-  { href: "/provider/requests", icon: "requests", title: "Requests",
+const ACTIONS: { href: string; art: string; title: string; body: string }[] = [
+  { href: "/provider/requests", art: "/home/home-requests.svg", title: "Requests",
     body: "View farm service requests & find work that matches your services." },
-  { href: "/provider/jobs", icon: "jobs", title: "Manage your schedule",
+  { href: "/provider/jobs", art: "/home/home-schedule.svg", title: "Manage your schedule",
     body: "Check upcoming jobs and review equipment and operator availability." },
-  { href: "/provider/equipment", icon: "equipment", title: "Manage equipments",
+  { href: "/provider/equipment", art: "/home/home-equipment.svg", title: "Manage equipments",
     body: "View your registered equipment and update its availability or condition." },
 ];
 
-const fmt = (iso: string | null) =>
-  iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" }) : null;
+const fmtYear = (iso: string) =>
+  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
 
 /**
  * The provider's home screen.
  *
- * It answers one question — what needs doing today — rather than showing numbers for their own
- * sake. Every row here is something the provider can act on, and every number is counted from
- * the same data the other screens use, never stored separately and never estimated.
+ * Every number is counted from the same data the other screens use, never stored separately
+ * and never estimated.
  */
 export default async function Page() {
-  const { user, business, permission } = await requireWorkspace();
+  const { user, business } = await requireWorkspace();
   const firstName = user.name.trim().split(/\s+/)[0];
 
   const quotes = await listQuotes(business.id);
   const jobs = await listJobs(business.id);
   const assets = await listAssets(business.id);
-  const money = await earningsFor(business.id);
 
-  // Requests in this provider's districts that they have not quoted on yet.
-  const open = (await browse({}, 1, business)).rows.filter(
-    (r) => !quotes.some((q) => q.requestId === r.id),
-  );
+  // Requests in this provider's districts, and those they have not quoted on yet.
+  const area = await browse({}, 1, business);
+  const unquoted = area.rows.filter((r) => !quotes.some((q) => q.requestId === r.id));
+  const recent = area.rows.slice(0, 4);
 
-  const waiting = quotes.filter((q) => q.status === "sent" && !isExpired(q));
   const expired = quotes.filter(isExpired);
-  const toSchedule = jobs.filter((j) => j.status === "unscheduled");
-  const toReport = jobs.filter((j) => ["scheduled", "in_progress"].includes(j.status));
-  const awaitingFarmer = jobs.filter((j) => j.status === "work_reported");
+  const pending = jobs.filter((j) => ["unscheduled", "scheduled", "in_progress"].includes(j.status));
   const disputed = jobs.filter((j) => j.status === "disputed");
   const faulty = assets.filter((a) => a.status === "active" && unavailableReason(a) !== null);
   // One query per job, so they are gathered together rather than inside the render.
@@ -62,16 +56,9 @@ export default async function Page() {
     await Promise.all(jobs.map(async (j) => (await atRiskAssets(business.id, j)).map((a) => ({ job: j, ...a }))))
   ).flat();
 
-  const owedToYou = money.reduce(
-    (n, m) => n + (m.release && m.release.status !== "paid" ? m.release.netMinor : 0),
-    0,
-  );
-
-  const tiles: { icon: IconName; value: string; label: string; href: string }[] = [
-    { icon: "requests", value: String(open.length), label: "Requests you have not quoted", href: "/provider/requests" },
-    { icon: "quotes", value: String(waiting.length), label: "Quotes waiting on a farmer", href: "/provider/quotes" },
-    { icon: "jobs", value: String(toSchedule.length + toReport.length), label: "Jobs needing you", href: "/provider/jobs" },
-    ...(permission === "full_access" ? [{ icon: "payments" as const, value: formatAmount(owedToYou), label: "Money on its way to you", href: "/provider/payments" }] : []),
+  const OVERVIEW = [
+    { label: "Total requests", value: area.total, href: "/provider/requests", badge: unquoted.length > 0 ? `${unquoted.length} new requests` : null },
+    { label: "All jobs", value: jobs.length, href: "/provider/jobs", badge: pending.length > 0 ? `${pending.length} pending` : null },
   ];
 
   // Things that are actually wrong, worst first. An empty list is the good outcome.
@@ -90,35 +77,40 @@ export default async function Page() {
         <p className="greeting__sub">Here&rsquo;s what&rsquo;s happening with your business today</p>
       </div>
 
-      {/* The three things the design offers a provider from here, in its words. */}
+      {/* The three things the design offers a provider from here, in its words and pictures. */}
       <div className="home-cards home-cards--three home-section">
         {ACTIONS.map((a) => (
-          <Link key={a.href} href={a.href} className="home-card">
-            <span className="home-card__icon" aria-hidden="true"><Icon name={a.icon} size={20} /></span>
+          <Link key={a.href} href={a.href} className="home-card home-card--art">
             <span className="home-card__text">
               <strong>{a.title}</strong>
               <span>{a.body}</span>
             </span>
-            <Icon name="chevron" size={24} />
+            <img src={a.art} alt="" width={90} height={66} />
           </Link>
         ))}
       </div>
 
-      <div className="money-tiles">
-        {tiles.map((t) => (
-          <Link key={t.label} href={t.href} className="money-tile money-tile--link">
-            <span className="money-tile__icon" aria-hidden="true"><Icon name={t.icon} size={20} /></span>
-            <p className="money-tile__value">{t.value}</p>
-            <p className="money-tile__label">{t.label}</p>
-          </Link>
-        ))}
-      </div>
+      <section className="home-section">
+        <div className="home-section__head"><h2 className="home-section__title">Business overview</h2></div>
+        <div className="overview">
+          {OVERVIEW.map((o) => (
+            <Link key={o.label} href={o.href} className="overview__card">
+              <span className="overview__icon" aria-hidden="true"><img src="/icons/fileq.svg" alt="" width={24} height={24} /></span>
+              <span className="overview__text">
+                <span>{o.label}</span>
+                <strong>{o.value.toLocaleString("en-GB")}</strong>
+              </span>
+              {o.badge ? <span className="overview__badge">{o.badge}</span> : null}
+              <Icon name="arrowOut" size={24} />
+            </Link>
+          ))}
+        </div>
+      </section>
 
-      <section className="panel panel--wide">
-        <h2 className="quotes__heading">Needs attention</h2>
-        {attention.length === 0 ? (
-          <p className="field__helper">Nothing is wrong. No concerns, no machines out of action, no expired quotes.</p>
-        ) : (
+      {/* Not in the design. It only shows when something is wrong, so a quiet day matches it. */}
+      {attention.length > 0 ? (
+        <section className="panel panel--wide home-section">
+          <h2 className="quotes__heading">Needs attention</h2>
           <ul className="plain-list">
             {attention.map((a, i) => (
               <li key={i} className={a.bad ? "plain-list__bad" : undefined}>
@@ -127,61 +119,54 @@ export default async function Page() {
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      <section className="home-section">
+        <div className="home-section__head">
+          <h2 className="home-section__title">Requests overview</h2>
+          <Link href="/provider/requests" className="home-section__more">See all <Icon name="arrowOut" size={24} /></Link>
+        </div>
+        {recent.length === 0 ? (
+          <div className="table-card"><EmptyState icon="requests" body="No requests in your area yet." /></div>
+        ) : (
+          <div className="table-card">
+            <table className="table table--requests">
+              <thead>
+                <tr>
+                  <th scope="col">Request</th>
+                  <th scope="col">Service</th>
+                  <th scope="col">Location</th>
+                  <th scope="col">Farm size</th>
+                  <th scope="col">Preferred date</th>
+                  <th scope="col">Status</th>
+                  <th scope="col"><span className="sr-only">Open</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <span className="table__ref">
+                        <ServiceIcon service={r.service} />
+                        <span>{r.reference}</span>
+                      </span>
+                    </td>
+                    <td>{serviceLabel(r.service)}</td>
+                    <td>{districtLabel(r.district)}</td>
+                    <td>{r.acres} acres</td>
+                    <td>{fmtYear(r.preferredDate)}</td>
+                    <td><span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
+                    <td className="table__go">
+                      <Link href={`/provider/requests?open=${r.reference}`} aria-label={`Open request ${r.reference}`}><Icon name="chevron" size={24} /></Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
-
-      <div className="dash-cols">
-        <section className="panel">
-          <h2 className="quotes__heading">Work to do</h2>
-          {toSchedule.length === 0 && toReport.length === 0 && awaitingFarmer.length === 0 ? (
-            <p className="field__helper">Nothing booked. New requests appear on the Requests screen.</p>
-          ) : (
-            <ul className="plain-list">
-              {toSchedule.map((j) => (
-                <li key={j.id}>
-                  <span>{j.reference} · {serviceLabel(j.service)} · {j.acres} acres</span>
-                  <Link href="/provider/jobs">Schedule it</Link>
-                </li>
-              ))}
-              {toReport.map((j) => (
-                <li key={j.id}>
-                  <span>
-                    {j.reference} · {serviceLabel(j.service)}
-                    {j.startDate ? ` · ${fmt(j.startDate)} to ${fmt(j.endDate)}` : ""}
-                  </span>
-                  <Link href="/provider/jobs">Report the work</Link>
-                </li>
-              ))}
-              {awaitingFarmer.map((j) => (
-                <li key={j.id}>
-                  <span>{j.reference} · waiting for the farmer to confirm</span>
-                  <Link href="/provider/jobs">Open</Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="panel">
-          <h2 className="quotes__heading">Requests you could quote</h2>
-          {open.length === 0 ? (
-            <p className="field__helper">
-              Nothing new in {districtLabel(business.district)} right now.
-            </p>
-          ) : (
-            <ul className="plain-list">
-              {open.slice(0, 5).map((r) => (
-                <li key={r.id}>
-                  <span>
-                    {r.reference} · {serviceLabel(r.service)} · {r.acres} acres · {r.village}
-                  </span>
-                  <Link href="/provider/requests">Quote it</Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
     </Shell>
   );
 }

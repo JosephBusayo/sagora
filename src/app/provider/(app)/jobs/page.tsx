@@ -1,3 +1,6 @@
+import { FilterPill } from "@/components/app/FilterPill";
+import { FilterAutoSubmit } from "@/components/requests/FilterAutoSubmit";
+import { SERVICES } from "@/lib/business";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/guard";
@@ -13,12 +16,19 @@ import { JobsList, type JobView } from "@/components/jobs/JobsList";
 export const metadata: Metadata = { title: "Jobs" };
 export const dynamic = "force-dynamic";
 
+type Filters = { page?: string; service?: string; district?: string; status?: string };
+
 const fmt = (iso: string | null) =>
   iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : null;
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<Filters> }) {
   const { user, business, permission } = await requireWorkspace();
-  const paged = pageOf(await listJobs(business.id), (await searchParams).page);
+  const sp = await searchParams;
+  const all = await listJobs(business.id);
+  const districts = [...new Set(all.map((j) => j.district))].sort();
+  const paged = pageOf(all.filter((j) =>
+    (!sp.service || j.service === sp.service) && (!sp.district || j.district === sp.district) && (!sp.status || j.status === sp.status),
+  ), sp.page);
   const members = await listMembers(business.id);
   const available = await selectableAssets(business.id);
 
@@ -32,7 +42,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
       reference: j.reference,
       service: j.service,
       serviceLabel: serviceLabel(j.service),
-      where: `${j.village}, ${districtLabel(j.district)}`,
+      district: districtLabel(j.district),
+      village: j.village,
       acres: j.acres,
       status: j.status,
       statusLabel: JOB_STATUS_LABEL[j.status as JobStatus],
@@ -72,11 +83,25 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
       <PageHead
         title="My Jobs"
         subtitle="View and manage the jobs you have been assigned"
+        action={
+          <div className="head-actions">
+            <p className="jobs-links">
+              <Link href="/provider/jobs/schedule">Schedule</Link>
+              {permission !== "view_jobs" ? <Link href="/provider/jobs/new">Add a private job</Link> : null}
+            </p>
+            <form className="filters" method="get">
+              <FilterPill name="service" label="Service" value={sp.service} icon="/icons/service.svg"
+                options={[{ value: "", label: "All services" }, ...SERVICES.map((s) => ({ value: s.id, label: s.label }))]} />
+              <FilterPill name="district" label="District" value={sp.district} icon="/icons/pin.svg"
+                options={[{ value: "", label: "All districts" }, ...districts.map((d) => ({ value: d, label: districtLabel(d) }))]} />
+              <FilterPill name="status" label="Status" value={sp.status} icon="/icons/status.svg"
+                options={[{ value: "", label: "Status" }, ...Object.entries(JOB_STATUS_LABEL).map(([value, label]) => ({ value, label }))]} />
+              <noscript><button type="submit" className="button button--inline">Apply</button></noscript>
+              <FilterAutoSubmit />
+            </form>
+          </div>
+        }
       />
-      <p className="jobs-links">
-        <Link href="/provider/jobs/schedule">Schedule</Link>
-        {permission !== "view_jobs" ? <Link href="/provider/jobs/new">Add a private job</Link> : null}
-      </p>
       <JobsList
         jobs={jobs}
         assets={assetOptions}

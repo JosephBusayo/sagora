@@ -1,14 +1,18 @@
+import { Icon, ServiceIcon } from "@/components/app/Icon";
 import { EmptyState } from "@/components/app/EmptyState";
-import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireFarmer } from "@/lib/session";
 import { districtLabel } from "@/lib/business";
 import { STATUS_LABEL, listForFarmer, serviceLabel } from "@/lib/requests";
-import { cancelRequest } from "../book/actions";
 import { Shell, PageHead } from "@/components/app/Shell";
 import { Pager, pageOf } from "@/components/app/Pager";
 import { unreadCount } from "@/lib/notifications";
+
+const BOOK = [
+  { service: "ploughing", title: "Book ploughing service", body: "Prepare your land for planting" },
+  { service: "harvesting", title: "Book harvesting service", body: "Harvest your crops efficiently" },
+];
 
 export const metadata: Metadata = { title: "My requests" };
 export const dynamic = "force-dynamic";
@@ -33,6 +37,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
     >
       <PageHead title="Requests" subtitle="All requests you’ve sent out to service providers" />
       <>
+        <div className="home-cards home-cards--two home-cards--tight">
+          {BOOK.map((b) => (
+            <Link key={b.service} href={`/farmer/book?service=${b.service}`} className="home-card">
+              <ServiceIcon service={b.service} />
+              <span className="home-card__text"><strong>{b.title}</strong><span>{b.body}</span></span>
+              <Icon name="chevron" size={24} />
+            </Link>
+          ))}
+        </div>
         {justCreated ? (
           <p className="notice notice--success" role="status">
             Request <strong>{justCreated}</strong> sent. Keep that reference: it is how you find this
@@ -40,13 +53,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
           </p>
         ) : null}
 
+        <h2 className="home-section__title home-section__title--list">My requests</h2>
         {rows.length === 0 ? (
           <div className="table-card">
             <EmptyState icon="requests" body="You have not asked for any work yet." href="/farmer/book" action="Book a service" />
           </div>
         ) : (
           <div className="table-card">
-            <table className="table">
+            <table className="table table--requests">
               <thead>
                 <tr>
                   <th scope="col">Request</th>
@@ -55,25 +69,20 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
                   <th scope="col">Farm size</th>
                   <th scope="col">Preferred date</th>
                   <th scope="col">Status</th>
-                  <th scope="col"><span className="sr-only">Actions</span></th>
+                  <th scope="col"><span className="sr-only">Open</span></th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
-                    <td><Link href={`/farmer/requests/${r.id}`}>{r.reference}</Link></td>
+                    <td><span className="table__ref"><ServiceIcon service={r.service} /><Link href={`/farmer/requests/${r.id}`}>{r.reference}</Link></span></td>
                     <td>{serviceLabel(r.service)}</td>
-                    <td>{r.village}, {districtLabel(r.district)}</td>
+                    <td>{districtLabel(r.district)}</td>
                     <td>{r.acres} acres</td>
                     <td>{fmt(r.preferredDate)}</td>
                     <td><span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
-                    <td className="table__actions">
-                      {r.status === "awaiting_quotes" || r.status === "quotes_sent" ? (
-                        <form action={cancelRequest}>
-                          <input type="hidden" name="id" value={r.id} />
-                          <PendingButton confirm="Withdraw this request?" confirmBody="Providers will no longer see it." confirmAction="Withdraw request" className="resend__button">Withdraw</PendingButton>
-                        </form>
-                      ) : null}
+                    <td className="table__go">
+                      <Link href={`/farmer/requests/${r.id}`} tabIndex={-1} aria-hidden="true"><Icon name="chevron" size={24} /></Link>
                     </td>
                   </tr>
                 ))}

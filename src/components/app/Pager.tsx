@@ -10,7 +10,6 @@ export function pageOf<T>(rows: T[], asked: string | undefined) {
 }
 
 export function Pager({ page, pages, path }: { page: number; pages: number; path: string }) {
-  if (pages <= 1) return null;
   return (
     <nav className="pager" aria-label="Pages">
       {Array.from({ length: pages }, (_, i) => i + 1).map((p) =>

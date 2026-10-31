@@ -130,3 +130,11 @@ Not waiting on anyone; just not written yet.
 - ~~SQL migration files~~ — **done.** The schema is `migrations/*.sql`, applied once each and checksummed. Nothing creates tables at runtime.
 - ~~The async conversion~~ — **done.** Every query is awaited and every transaction is a `db.tx(...)` callback, which is what a connection pool needs. The Postgres move is now one file: `lib/db.ts`.
 - **The Postgres move itself** — waiting only on the Neon account, which waits on Karim's email.
+
+## Design gaps from the Figma audit (31 October 2026)
+
+- Equipment photos: the design shows them, but nothing stores images yet. Needs a storage choice.
+- Equipment: the design's detail dialog and three-step add flow are not built. The menu and single form still do the work.
+- Payouts: bank and Monime method picker, OTP step and fees need Monime (see Karim).
+- Provider Payments: columns and filters differ from the design until real transaction records exist.
+- Not in the design at all: staff screens, mobile layouts, Help, Reports.

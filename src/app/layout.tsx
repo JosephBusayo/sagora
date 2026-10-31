@@ -4,7 +4,11 @@ import { ConfirmHost } from "@/components/app/ConfirmHost";
 import { Toaster } from "@/components/app/Toaster";
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
+import localFont from "next/font/local";
 import "./globals.css";
+
+// The design sets every button label in Inter, and everything else in Geist.
+const inter = localFont({ src: "./fonts/inter-latin.woff2", weight: "100 900", variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: { default: "Sagora", template: "%s · Sagora" },
@@ -16,7 +20,7 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, view
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={GeistSans.variable}>
+    <html lang="en" className={`${GeistSans.variable} ${inter.variable}`}>
       <body>
         {children}
         <PageProgress />

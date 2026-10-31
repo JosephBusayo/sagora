@@ -2,7 +2,7 @@
 
 import { EmptyState } from "@/components/app/EmptyState";
 import { useState } from "react";
-import { Icon } from "@/components/app/Icon";
+import { Icon, ServiceIcon } from "@/components/app/Icon";
 import { RequestModal, type RequestDetail } from "./RequestModal";
 import type { MyQuote } from "./QuoteForm";
 
@@ -37,9 +37,7 @@ export function RequestsTable({ rows, initialOpen }: { rows: RequestRow[]; initi
               <tr key={r.id}>
                 <td>
                   <span className="table__person">
-                    <span className="request-icon" aria-hidden="true">
-                      <Icon name={r.service === "harvesting" ? "quotes" : "equipment"} size={22} />
-                    </span>
+                    <ServiceIcon service={r.service} />
                     <span>
                       {r.reference}
                       {r.myQuote ? <span className="table__tag">You quoted</span> : r.direct ? <span className="table__tag">Direct</span> : null}

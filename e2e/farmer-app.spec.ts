@@ -253,19 +253,20 @@ test("accepting a quote puts the job under bookings, in the right tab", async ({
 
   await page.goto("/farmer/bookings");
   await expect(page.getByRole("heading", { name: "Bookings", exact: true })).toBeVisible();
-  const card = page.locator("article.asset").filter({ hasText: reference });
-  await expect(card).toBeVisible();
-  await expect(card.getByText("Not scheduled yet")).toBeVisible();
+  const row = page.locator("tbody tr").filter({ hasText: reference });
+  await expect(row.getByText("Not scheduled yet")).toBeVisible();
+  await page.getByRole("link", { name: `Open booking ${reference}` }).click();
+  const card = page.getByRole("dialog", { name: "Booking details" });
   await expect(card.getByText("Not paid")).toBeVisible();
   await expect(card.getByText(PROV.business)).toBeVisible();
 
   // The other tabs are genuinely empty, not showing the same job four times.
   await page.goto("/farmer/bookings?tab=completed");
-  await expect(page.getByText("Nothing finished yet", { exact: true })).toBeVisible();
+  await expect(page.getByText("No bookings yet", { exact: true })).toBeVisible();
   await page.goto("/farmer/bookings?tab=cancelled");
-  await expect(page.getByText("Nothing cancelled", { exact: true })).toBeVisible();
+  await expect(page.getByText("No bookings yet", { exact: true })).toBeVisible();
   await page.goto("/farmer/bookings?tab=in_progress");
-  await expect(page.getByText("No work under way", { exact: true })).toBeVisible();
+  await expect(page.getByText("No bookings yet", { exact: true })).toBeVisible();
 
   await page.goto("/farmer/bookings");
   await page.waitForLoadState("networkidle");
@@ -309,10 +310,9 @@ test("the provider dashboard counts the real work waiting", async ({ page }) => 
   await expect(page.getByText("Here\u2019s what\u2019s happening with your business today")).toBeVisible();
 
   // The accepted quote became an unscheduled job: that is one job needing the provider.
-  const jobs = page.locator("a.money-tile").filter({ hasText: "Jobs needing you" });
-  await expect(jobs).toContainText("1");
-  await expect(page.getByText("Needs attention")).toBeVisible();
-  await expect(page.locator("section.panel").filter({ hasText: "Work to do" })).toContainText(reference);
+  const jobs = page.locator("a.overview__card").filter({ hasText: "All jobs" });
+  await expect(jobs).toContainText("1 pending");
+  await expect(page.locator("tbody tr").filter({ hasText: reference })).toBeVisible();
 
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${SHOTS}/36-provider-dashboard.png`, fullPage: true });
