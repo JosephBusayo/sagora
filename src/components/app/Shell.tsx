@@ -35,6 +35,7 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, search, 
   const base = `/${audience}`;
   return (
     <div className="app">
+      <a href="#main" className="skip-link">Skip to content</a>
       <Sidebar audience={audience} signOutAction={audience === "farmer" ? signOutFarmer : signOut} />
       <div className="app__panel">
         <header className="topbar">
@@ -66,7 +67,7 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, search, 
             </span>
           </div>
         </header>
-        <main className="app__content">{children}</main>
+        <main id="main" className="app__content">{children}</main>
       </div>
     </div>
   );

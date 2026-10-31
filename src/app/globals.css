@@ -1127,3 +1127,45 @@ form.resend { margin: 0; }
 .offer { display: flex; flex-direction: column; }
 .offer__body { flex: 1; }
 .offer__body .request-card__actions { margin-top: auto; padding-top: 8px; }
+
+/* -------- page progress -------- */
+.page-progress { position: fixed; top: 0; left: 0; z-index: 50; width: 100%; height: 3px; background: var(--color-brand); transform-origin: left; animation: progress 1.6s ease-out forwards; }
+@keyframes progress { from { transform: scaleX(0.08); } to { transform: scaleX(0.9); } }
+
+/* -------- skip link: appears only for someone tabbing -------- */
+.skip-link { position: absolute; left: 16px; top: -60px; z-index: 60; display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 12px; background: var(--color-surface); box-shadow: 0 4px 13px rgba(221, 221, 221, 0.58); font: 500 14px/1 var(--font-sans); }
+.skip-link:focus { top: 12px; }
+
+/* -------- opening and closing: quick, and nothing waits for it -------- */
+.modal-backdrop { animation: fade-in 0.15s ease-out; }
+.modal { animation: rise-in 0.18s ease-out; }
+.rowmenu__pop { animation: rise-in 0.12s ease-out; }
+.confirm[open] { animation: rise-in 0.15s ease-out; }
+.confirm[open]::backdrop { animation: fade-in 0.15s ease-out; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.pill { transition: background-color 0.2s ease, color 0.2s ease; }
+.nav__item, .home-card, .tab { transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+
+@media (max-width: 900px) {
+  .nav__toggle:checked ~ .nav__body { animation: rise-in 0.16s ease-out; }
+}
+
+/* -------- phones: a table becomes a stack of cards -------- */
+@media (max-width: 640px) {
+  .tables-labelled .table-card:not(.schedule) { overflow: visible; border: 0; border-radius: 0; }
+  .tables-labelled .table-card:not(.schedule) .table { display: block; min-width: 0; }
+  .tables-labelled .table-card:not(.schedule) .table thead { display: none; }
+  .tables-labelled .table-card:not(.schedule) .table tbody { display: flex; flex-direction: column; gap: 12px; }
+  .tables-labelled .table-card:not(.schedule) .table tr { display: block; padding: 6px 16px; border: 2px solid var(--color-hairline); border-radius: 20px; background: var(--color-surface); }
+  .tables-labelled .table-card:not(.schedule) .table td { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: auto; height: auto; min-height: 44px; padding: 8px 0; border: 0; white-space: normal; text-align: right; }
+  .tables-labelled .table-card:not(.schedule) .table td + td { border-top: 1px solid var(--color-hairline); }
+  .tables-labelled .table-card:not(.schedule) .table td[data-label]::before { content: attr(data-label); flex: none; color: #808080; font: 500 13px/21px var(--font-sans); text-align: left; }
+  .tables-labelled .table-card:not(.schedule) .table td[data-label=""]::before { content: none; }
+  .tables-labelled .table-card:not(.schedule) .table td[data-label=""] { justify-content: flex-end; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop, .modal, .rowmenu__pop, .confirm[open], .confirm[open]::backdrop, .nav__toggle:checked ~ .nav__body, .page-progress { animation: none; }
+  .pill, .nav__item, .home-card, .tab { transition: none; }
+}

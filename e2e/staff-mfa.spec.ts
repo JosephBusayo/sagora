@@ -130,7 +130,12 @@ test("five wrong codes burn the code, not the account", async ({ page, browser }
   await b.page.goto("/staff/payments");
   const code = await latestCode(STAFF.email);
 
-  for (let i = 0; i < 4; i++) await typeCode(b.page, wrong(code));
+  // Each refused code clears the boxes, which is the moment the next try can start.
+  const box = b.page.getByLabel("Digit 1 of 7");
+  for (let i = 0; i < 4; i++) {
+    await typeCode(b.page, wrong(code));
+    await expect(box).toHaveValue("");
+  }
   await expect(b.page.getByText("That code is not right.")).toBeVisible();
   await typeCode(b.page, wrong(code));
   await expect(b.page.getByText("Too many wrong codes. Ask for a new one.")).toBeVisible();

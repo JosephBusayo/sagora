@@ -1,3 +1,5 @@
+import { PageProgress } from "@/components/app/PageProgress";
+import { TableLabels } from "@/components/app/TableLabels";
 import { ConfirmHost } from "@/components/app/ConfirmHost";
 import { Toaster } from "@/components/app/Toaster";
 import type { Metadata, Viewport } from "next";
@@ -17,6 +19,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={GeistSans.variable}>
       <body>
         {children}
+        <PageProgress />
+        <TableLabels />
         <Toaster />
         <ConfirmHost />
       </body>
