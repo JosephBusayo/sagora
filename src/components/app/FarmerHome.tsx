@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/app/EmptyState";
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/app/Icon";
 import { districtLabel } from "@/lib/business";
@@ -89,7 +90,7 @@ export function FarmerHome({ name, requests }: { name: string; requests: Service
           ) : null}
         </div>
         {requests.length === 0 ? (
-          <div className="table-card"><p className="empty">You have not asked for any work yet.</p></div>
+          <div className="table-card"><EmptyState icon="requests" body="You have not asked for any work yet." href="/farmer/book" action="Book a service" /></div>
         ) : (
           <div className="table-card">
             <table className="table table--requests">

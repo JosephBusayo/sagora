@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/app/EmptyState";
 import { useState } from "react";
 import { Icon } from "@/components/app/Icon";
 import { RequestModal, type RequestDetail } from "./RequestModal";
@@ -12,7 +13,7 @@ export function RequestsTable({ rows, initialOpen }: { rows: RequestRow[]; initi
   if (rows.length === 0) {
     return (
       <div className="table-card">
-        <p className="empty">No requests match these filters yet.</p>
+        <EmptyState icon="requests" body="No requests match these filters yet." href="/provider/requests" action="Clear filters" />
       </div>
     );
   }
@@ -39,7 +40,10 @@ export function RequestsTable({ rows, initialOpen }: { rows: RequestRow[]; initi
                     <span className="request-icon" aria-hidden="true">
                       <Icon name={r.service === "harvesting" ? "quotes" : "equipment"} size={22} />
                     </span>
-                    <span>{r.reference}</span>
+                    <span>
+                      {r.reference}
+                      {r.myQuote ? <span className="table__tag">You quoted</span> : r.direct ? <span className="table__tag">Direct</span> : null}
+                    </span>
                   </span>
                 </td>
                 <td>{r.serviceLabel}</td>

@@ -1,5 +1,6 @@
 "use client";
 
+import { today } from "@/components/app/today";
 import { useSafely } from "@/components/app/safely";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
@@ -42,7 +43,7 @@ function DateField({ name, label, defaultValue, error }: { name: string; label: 
     <div className={`field${error ? " field--invalid" : ""}`}>
       <label className="field__label" htmlFor={`f-${name}`}>{label}</label>
       <div className="field__box">
-        <input id={`f-${name}`} name={name} type="date" className="field__input" defaultValue={defaultValue} />
+        <input id={`f-${name}`} name={name} type="date" min={today()} suppressHydrationWarning className="field__input" defaultValue={defaultValue} />
       </div>
       {error ? <p className="field__error">{error}</p> : null}
     </div>

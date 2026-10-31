@@ -1,3 +1,4 @@
+import { ConfirmHost } from "@/components/app/ConfirmHost";
 import { Toaster } from "@/components/app/Toaster";
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <Toaster />
+        <ConfirmHost />
       </body>
     </html>
   );

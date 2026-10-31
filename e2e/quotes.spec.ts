@@ -198,6 +198,7 @@ test("the farmer compares both quotes and accepts one", async ({ page, browser }
   // Accept the cheaper one.
   const cheaper = page.locator("article").filter({ hasText: "Le 1,200.50" });
   await cheaper.getByRole("button", { name: "Accept quote" }).click();
+  await cheaper.page().getByRole("dialog", { name: "Confirm" }).getByRole("button", { name: "Accept quote" }).click();
   await expect(page.getByRole("status").filter({ hasText: "The price and terms are now fixed" })).toBeVisible();
 
   // The other provider's quote is now closed, and no second accept is offered.

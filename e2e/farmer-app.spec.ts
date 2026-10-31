@@ -248,6 +248,7 @@ test("accepting a quote puts the job under bookings, in the right tab", async ({
   await page.goto("/farmer/requests");
   await page.getByRole("link", { name: reference }).click();
   await page.getByRole("button", { name: "Accept quote" }).click();
+  await page.getByRole("dialog", { name: "Confirm" }).getByRole("button", { name: "Accept quote" }).click();
   await expect(page.getByRole("status").filter({ hasText: "now fixed" })).toBeVisible();
 
   await page.goto("/farmer/bookings");

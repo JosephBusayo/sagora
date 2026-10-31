@@ -56,7 +56,7 @@ export function TeamTable({ rows, roles, permissions }: { rows: Row[]; roles: Op
                           <button type="button" role="menuitem" onClick={() => { setMenu(null); setEditing(m); }}>Edit member</button>
                           <form action={removeTeamMember}>
                             <input type="hidden" name="id" value={m.id} />
-                            <PendingButton confirm="Remove this person from the team?" role="menuitem" className="rowmenu__danger">Remove from team</PendingButton>
+                            <PendingButton confirm="Remove this person from the team?" confirmAction="Remove from team" role="menuitem" className="rowmenu__danger">Remove from team</PendingButton>
                           </form>
                         </div>
                       ) : null}

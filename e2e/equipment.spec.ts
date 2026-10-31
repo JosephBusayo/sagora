@@ -186,8 +186,8 @@ test("a retired machine stays readable but cannot be chosen", async ({ page }) =
   await page.goto("/provider/equipment");
   const harvester = card(page, "Rice harvester");
   await harvester.getByRole("button", { name: /Actions for Rice harvester/ }).click();
-  page.once("dialog", (d) => d.accept());
   await harvester.getByRole("menuitem", { name: "Retire" }).click();
+  await page.getByRole("dialog", { name: "Confirm" }).getByRole("button", { name: "Retire machine" }).click();
   await expect(card(page, "Rice harvester").getByText("Retired", { exact: true })).toBeVisible();
   await page.reload();
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, type RefObject } from "react";
+import { askToConfirm } from "./confirm";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])';
 
@@ -17,7 +18,13 @@ export function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void
   });
 
   const close = useCallback(() => {
-    if (!dirty.current || window.confirm("Close this? What you have entered will be lost.")) latest.current();
+    if (!dirty.current) {
+      latest.current();
+      return;
+    }
+    void askToConfirm("Close without saving?", "Close and lose changes", "What you have entered will be lost.").then((yes) => {
+      if (yes) latest.current();
+    });
   }, []);
 
   useEffect(() => {
@@ -30,6 +37,8 @@ export function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void
 
     const onInput = () => { dirty.current = true; };
     const onKey = (e: KeyboardEvent) => {
+      // A confirmation on top of this dialog deals with its own keys.
+      if (document.querySelector("dialog[open]")) return;
       if (e.key === "Escape") {
         close();
         return;

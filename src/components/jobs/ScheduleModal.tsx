@@ -1,5 +1,6 @@
 "use client";
 
+import { today } from "@/components/app/today";
 import { useSafely } from "@/components/app/safely";
 import { useModal } from "@/components/app/useModal";
 import { FormNotice } from "@/components/app/FormNotice";
@@ -53,14 +54,14 @@ export function ScheduleModal({ job, assets, operators, onClose }: {
             <div className={`field${e.startDate ? " field--invalid" : ""}`}>
               <label className="field__label" htmlFor="j-start">Work starts</label>
               <div className="field__box">
-                <input id="j-start" name="startDate" type="date" className="field__input" defaultValue={v.startDate ?? job.schedule.startDate} />
+                <input id="j-start" name="startDate" type="date" min={today()} suppressHydrationWarning className="field__input" defaultValue={v.startDate ?? job.schedule.startDate} />
               </div>
               {e.startDate ? <p className="field__error">{e.startDate}</p> : null}
             </div>
             <div className={`field${e.endDate ? " field--invalid" : ""}`}>
               <label className="field__label" htmlFor="j-end">Work ends</label>
               <div className="field__box">
-                <input id="j-end" name="endDate" type="date" className="field__input" defaultValue={v.endDate ?? job.schedule.endDate} />
+                <input id="j-end" name="endDate" type="date" min={today()} suppressHydrationWarning className="field__input" defaultValue={v.endDate ?? job.schedule.endDate} />
               </div>
               {e.endDate ? <p className="field__error">{e.endDate}</p> : null}
             </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { today } from "@/components/app/today";
 import { useSafely } from "@/components/app/safely";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
@@ -52,7 +53,7 @@ export function AssistedForm({ services, districts, access, condition, clearance
       <Field name="village" label="Village/town" defaultValue={v.village} error={e.village} />
       <div className={`field${e.preferredDate ? " field--invalid" : ""}`}>
         <label className="field__label" htmlFor="a-date">Preferred start date</label>
-        <div className="field__box"><input id="a-date" name="preferredDate" type="date" className="field__input" defaultValue={v.preferredDate} /></div>
+        <div className="field__box"><input id="a-date" name="preferredDate" type="date" min={today()} suppressHydrationWarning className="field__input" defaultValue={v.preferredDate} /></div>
         {e.preferredDate ? <p className="field__error">{e.preferredDate}</p> : null}
       </div>
       <Field name="notes" label="Additional notes" required={false} maxLength={500} defaultValue={v.notes} error={e.notes} />

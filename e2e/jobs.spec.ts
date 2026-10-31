@@ -91,6 +91,7 @@ async function agreedJob(browser: Browser, acres: string, village: string): Prom
   await f.page.goto("/farmer/requests");
   await f.page.getByRole("link", { name: reference }).click();
   await f.page.getByRole("button", { name: "Accept quote" }).click();
+  await f.page.getByRole("dialog", { name: "Confirm" }).getByRole("button", { name: "Accept quote" }).click();
   await expect(f.page.getByRole("status").filter({ hasText: "now fixed" })).toBeVisible();
   await f.ctx.close();
   return reference;

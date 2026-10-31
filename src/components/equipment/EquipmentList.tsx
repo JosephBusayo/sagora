@@ -58,7 +58,7 @@ export function EquipmentList({ assets, kinds, canEdit }: { assets: AssetView[];
                             <form action={retireAssetAction}>
                               <input type="hidden" name="id" value={a.id} />
                               <input type="hidden" name="reason" value="Taken off the register" />
-                              <PendingButton confirm="Retire this machine? It stays on record but can no longer be used." role="menuitem" className="rowmenu__danger">Retire</PendingButton>
+                              <PendingButton confirm="Retire this machine?" confirmBody="It stays on record but can no longer be used." confirmAction="Retire machine" role="menuitem" className="rowmenu__danger">Retire</PendingButton>
                             </form>
                           </>
                         ) : (

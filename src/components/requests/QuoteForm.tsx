@@ -1,8 +1,9 @@
 "use client";
 
+import { today } from "@/components/app/today";
 import { useSafely } from "@/components/app/safely";
 import { FormNotice } from "@/components/app/FormNotice";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
 import { sendQuoteAction } from "@/app/provider/(app)/requests/quote-actions";
@@ -37,7 +38,7 @@ function DateField({ name, label, defaultValue, error, helper }: {
     <div className={`field${error ? " field--invalid" : ""}`}>
       <label className="field__label" htmlFor={`q-${name}`}>{label}</label>
       <div className="field__box">
-        <input id={`q-${name}`} name={name} type="date" className="field__input" defaultValue={defaultValue} />
+        <input id={`q-${name}`} name={name} type="date" min={today()} suppressHydrationWarning className="field__input" defaultValue={defaultValue} />
       </div>
       {error ? <p className="field__error">{error}</p> : helper ? <p className="field__helper">{helper}</p> : null}
     </div>
@@ -46,6 +47,10 @@ function DateField({ name, label, defaultValue, error, helper }: {
 
 export function QuoteForm({ requestId, existing, onDone }: { requestId: string; existing: MyQuote | null; onDone: () => void }) {
   const [state, action] = useActionState(useSafely(sendQuoteAction), {} as FormState);
+  // The toast says it worked, and the list behind is what changed.
+  useEffect(() => {
+    if (state.notice) onDone();
+  }, [state.notice, onDone]);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   const locked = existing && (existing.status === "accepted" || existing.status === "not_selected");

@@ -81,7 +81,7 @@ export default async function Page({ params, searchParams }: {
               {request.status === "awaiting_quotes" || request.status === "quotes_sent" ? (
                 <form action={cancelRequest}>
                   <input type="hidden" name="id" value={request.id} />
-                  <PendingButton confirm="Withdraw this request? Providers will no longer see it." className="request-card__delete" aria-label="Withdraw request"><Icon name="trash" size={24} /></PendingButton>
+                  <PendingButton confirm="Withdraw this request?" confirmBody="Providers will no longer see it." confirmAction="Withdraw request" className="request-card__delete" aria-label="Withdraw request"><Icon name="trash" size={24} /></PendingButton>
                 </form>
               ) : null}
             </div>
@@ -300,12 +300,12 @@ export default async function Page({ params, searchParams }: {
                         <form action={declineQuoteAction}>
                           <input type="hidden" name="quoteId" value={q.id} />
                           <input type="hidden" name="requestId" value={request.id} />
-                          <PendingButton confirm="Decline this quote?" className="button button--soft">Decline</PendingButton>
+                          <PendingButton confirm="Decline this quote?" confirmBody="The provider will be told." confirmAction="Decline quote" className="button button--soft">Decline</PendingButton>
                         </form>
                         <form action={acceptQuoteAction}>
                           <input type="hidden" name="quoteId" value={q.id} />
                           <input type="hidden" name="requestId" value={request.id} />
-                          <PendingButton className="button">Accept quote</PendingButton>
+                          <PendingButton className="button" confirm="Accept this quote?" confirmBody="The price and terms become fixed, and the other quotes close. The work is booked once your payment is in and the machines are still free." confirmAction="Accept quote">Accept quote</PendingButton>
                         </form>
                       </div>
                     )}

@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
 import { useState } from "react";
 import { Icon } from "@/components/app/Icon";
@@ -34,7 +35,7 @@ export function JobsList({ jobs, assets, operators, canEdit }: {
   const [reporting, setReporting] = useState<JobView | null>(null);
 
   if (jobs.length === 0) {
-    return <div className="table-card"><p className="empty">No work yet. A job appears here when a farmer accepts your quote, or when you add a private job.</p></div>;
+    return <div className="table-card"><EmptyState icon="jobs" body="No work yet. A job appears here when a farmer accepts your quote, or when you add a private job." href="/provider/requests" action="See requests" /></div>;
   }
 
   return (

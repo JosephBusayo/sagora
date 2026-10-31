@@ -227,6 +227,7 @@ await step("Farmer sees the quote and accepts it", f.page, async () => {
   await f.page.getByRole("link", { name: reference }).click();
   await f.page.getByText("Le 2,400.00").waitFor();
   await f.page.getByRole("button", { name: "Accept quote" }).click();
+  await f.page.getByRole("dialog", { name: "Confirm" }).getByRole("button", { name: "Accept quote" }).click();
   await f.page.getByText("The price and terms are now fixed").waitFor();
   await f.page.screenshot({ path: path.join(OUT, "07-farmer-accepted.png"), fullPage: true });
 });

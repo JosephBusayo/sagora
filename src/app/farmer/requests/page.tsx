@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -40,10 +41,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
         ) : null}
 
         {rows.length === 0 ? (
-          <>
-            <p className="empty">You have not asked for any work yet.</p>
-            <p style={{ textAlign: "center" }}><Link href="/farmer/book">Book a service</Link></p>
-          </>
+          <div className="table-card">
+            <EmptyState icon="requests" body="You have not asked for any work yet." href="/farmer/book" action="Book a service" />
+          </div>
         ) : (
           <div className="table-card">
             <table className="table">
@@ -71,7 +71,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
                       {r.status === "awaiting_quotes" || r.status === "quotes_sent" ? (
                         <form action={cancelRequest}>
                           <input type="hidden" name="id" value={r.id} />
-                          <PendingButton confirm="Withdraw this request? Providers will no longer see it." className="resend__button">Withdraw</PendingButton>
+                          <PendingButton confirm="Withdraw this request?" confirmBody="Providers will no longer see it." confirmAction="Withdraw request" className="resend__button">Withdraw</PendingButton>
                         </form>
                       ) : null}
                     </td>

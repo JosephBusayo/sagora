@@ -53,6 +53,7 @@ export function Field({
     <div className={`field${shown ? " field--invalid" : ""}`}>
       <label className="field__label" htmlFor={id}>
         {label}
+        {!required && !/optional/i.test(label) ? " (optional)" : null}
       </label>
       <div className="field__box">
         {prefix ? <span className="field__prefix">{prefix}</span> : null}

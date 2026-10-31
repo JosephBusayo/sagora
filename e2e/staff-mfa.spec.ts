@@ -221,8 +221,8 @@ test("staff have their own door, and an admin adds and removes staff", async ({ 
   await page.goto("/staff/team");
   const row = page.getByRole("listitem").filter({ hasText: hire });
   await expect(row).toBeVisible();
-  page.once("dialog", (d) => d.accept());
   await row.getByRole("button", { name: "Remove" }).click();
+  await page.getByRole("dialog", { name: "Confirm" }).getByRole("button", { name: "Remove from staff" }).click();
   await expect(page.getByRole("listitem").filter({ hasText: hire })).toHaveCount(0);
 });
 

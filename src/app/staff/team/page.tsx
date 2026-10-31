@@ -34,7 +34,7 @@ export default async function Page() {
                 {s.id === admin.id ? null : (
                   <form action={removeStaffAction}>
                     <input type="hidden" name="id" value={s.id} />
-                    <PendingButton confirm="Remove this person from staff? Their access ends immediately." className="resend__button">Remove</PendingButton>
+                    <PendingButton confirm="Remove this person from staff?" confirmBody="Their access ends immediately." confirmAction="Remove from staff" className="resend__button">Remove</PendingButton>
                   </form>
                 )}
               </li>

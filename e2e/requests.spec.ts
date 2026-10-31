@@ -228,8 +228,8 @@ test("a farmer can withdraw a request, and it leaves the provider list", async (
   await expect(p.page.getByRole("cell", { name: reference, exact: true })).toBeVisible();
 
   await page.goto("/farmer/requests");
-  page.once("dialog", (d) => d.accept());
   await page.getByRole("row").filter({ hasText: reference }).getByRole("button", { name: "Withdraw" }).click();
+  await page.getByRole("dialog", { name: "Confirm" }).getByRole("button", { name: "Withdraw request" }).click();
   await expect(page.getByRole("row").filter({ hasText: reference }).getByText("Cancelled")).toBeVisible();
 
   await p.page.reload();

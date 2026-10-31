@@ -24,12 +24,22 @@ export function PasswordField({ name, label, autoComplete, placeholder = "Enter 
   const id = useId();
   const [visible, setVisible] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const [mismatch, setMismatch] = useState(false);
+  const [long, setLong] = useState(false);
+  const fresh = autoComplete === "new-password";
+  const shown = error ?? (mismatch ? "Passwords do not match" : undefined);
   useEffect(() => {
     if (error) focusFirstError(input.current?.form);
   }, [error]);
-  const describedBy = error ? `${id}-err` : helper ? `${id}-help` : undefined;
+  const describedBy = shown ? `${id}-err` : helper ? `${id}-help` : undefined;
+
+  function compare(el: HTMLInputElement) {
+    const other = el.form?.querySelector<HTMLInputElement>('input[name="password"]');
+    setMismatch(name === "confirm" && el.value !== "" && el.value !== other?.value);
+  }
+
   return (
-    <div className={`field${error ? " field--invalid" : ""}`}>
+    <div className={`field${shown ? " field--invalid" : ""}`}>
       <label className="field__label" htmlFor={id}>
         {label}
       </label>
@@ -45,8 +55,13 @@ export function PasswordField({ name, label, autoComplete, placeholder = "Enter 
           required
           minLength={8}
           maxLength={128}
-          aria-invalid={error ? true : undefined}
+          aria-invalid={shown ? true : undefined}
           aria-describedby={describedBy}
+          onInput={(e) => {
+            setLong(e.currentTarget.value.length >= 8);
+            setMismatch(false);
+          }}
+          onBlur={(e) => compare(e.currentTarget)}
         />
         <button
           type="button"
@@ -58,12 +73,12 @@ export function PasswordField({ name, label, autoComplete, placeholder = "Enter 
           <Eye off={visible} />
         </button>
       </div>
-      {error ? (
+      {shown ? (
         <p className="field__error" id={`${id}-err`}>
-          {error}
+          {shown}
         </p>
       ) : helper ? (
-        <p className="field__helper" id={`${id}-help`}>
+        <p className={`field__helper${fresh && long ? " field__helper--ok" : ""}`} id={`${id}-help`}>
           {helper}
         </p>
       ) : null}

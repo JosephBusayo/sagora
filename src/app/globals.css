@@ -1104,3 +1104,26 @@ form.resend { margin: 0; }
   .filters__clear { display: inline-flex; align-items: center; min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+/* -------- confirmation dialog: the design's modal -------- */
+.confirm { width: min(460px, calc(100vw - 32px)); padding: 32px; border: 1px solid #f2f2f2; border-radius: 24px; background: var(--color-surface); box-shadow: 0 4px 13px rgba(221, 221, 221, 0.58); }
+.confirm::backdrop { background: rgba(13, 13, 13, 0.54); }
+.confirm__title { margin: 0 0 8px; font: 600 20px/1.3 var(--font-sans); color: #191919; }
+.confirm__body { margin: 0 0 24px; font: 500 14px/21px var(--font-sans); color: #808080; }
+.confirm .request-card__actions { margin-top: 20px; }
+.confirm .button { font-size: 15px; }
+
+/* -------- empty states -------- */
+.empty--card { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.empty--card .button { margin-top: 8px; }
+
+/* -------- small markers -------- */
+.field__helper--ok { color: var(--color-brand); }
+.field__helper--ok::before { content: "✓ "; }
+.table__tag { display: block; margin-top: 2px; font: 500 12px/1.3 var(--font-sans); color: var(--color-brand); }
+
+/* -------- quotes side by side when there is room -------- */
+.quote-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 16px; }
+.offer { display: flex; flex-direction: column; }
+.offer__body { flex: 1; }
+.offer__body .request-card__actions { margin-top: auto; padding-top: 8px; }

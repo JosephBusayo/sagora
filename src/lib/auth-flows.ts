@@ -1,3 +1,4 @@
+import { flash } from "./flash";
 import "server-only";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -277,5 +278,6 @@ export async function signOutTo(audience: Audience) {
   const s = await auth.api.getSession({ headers: await headers() });
   if (s?.session.id) await clearFor(s.session.id);
   await auth.api.signOut({ headers: await headers() });
+  await flash("You have signed out.");
   redirect(ROUTES[audience].signIn);
 }

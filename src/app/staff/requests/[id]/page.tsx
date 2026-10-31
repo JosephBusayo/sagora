@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -36,6 +37,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     <main className="setup">
       <div className="setup__card setup__card--wide">
         <StaffNav current="requests" role={staff.role} />
+        <p className="jobs-links"><Link href="/staff/requests">Back to assisted requests</Link></p>
         <h1 className="auth__title">{r.reference}</h1>
         {error ? <p className="notice notice--error" role="alert">{error}</p> : null}
         <dl className="setup__summary">

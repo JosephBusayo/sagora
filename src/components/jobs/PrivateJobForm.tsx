@@ -39,7 +39,7 @@ export function PrivateJobForm({ services, districts }: { services: readonly Opt
         return (
           <>
             <Field name="customerName" label="Customer name" defaultValue={v.customerName} error={e.customerName} />
-            <Field name="customerPhone" label="Customer phone" required={false} defaultValue={v.customerPhone} error={e.customerPhone} helper="Optional" />
+            <Field name="customerPhone" label="Customer phone" required={false} defaultValue={v.customerPhone} error={e.customerPhone} />
             <Select name="service" label="Service" options={services} placeholder="Select the work" value={v.service} error={e.service} />
             <Field name="acres" label="Land size (acres)" inputMode="numeric" defaultValue={v.acres} error={e.acres} />
             <Select name="district" label="District" options={districts.map((d) => ({ id: d, label: d }))} placeholder="Select a district" value={v.district} error={e.district} />

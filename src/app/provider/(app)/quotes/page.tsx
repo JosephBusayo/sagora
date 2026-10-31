@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import { requireWorkspace } from "@/lib/guard";
@@ -33,7 +34,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
     <Shell crumb={{ label: "My quotes", icon: "quotes" }} user={{ name: user.name }}>
       <PageHead title="My quotes" subtitle="View and manage the quotes you’ve sent to farmers" />
       {quotes.length === 0 ? (
-        <div className="table-card"><p className="empty">You have not sent any quotes yet. Open a request to send one.</p></div>
+        <div className="table-card"><EmptyState icon="quotes" body="You have not sent any quotes yet. Open a request to send one." href="/provider/requests" action="See requests" /></div>
       ) : (
         <div className="table-card">
           <table className="table">
@@ -74,7 +75,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
                       {q.status === "sent" ? (
                         <form action={withdrawQuoteAction}>
                           <input type="hidden" name="requestId" value={q.requestId} />
-                          <PendingButton confirm="Withdraw this quote?" className="resend__button">Withdraw</PendingButton>
+                          <PendingButton confirm="Withdraw this quote?" confirmBody="The farmer will no longer be able to accept it." confirmAction="Withdraw quote" className="resend__button">Withdraw</PendingButton>
                         </form>
                       ) : null}
                     </td>

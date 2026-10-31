@@ -1,6 +1,6 @@
 import "server-only";
 import { isStaffRole } from "./audience";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "./auth";
 import { isVerified } from "./mfa";
@@ -60,4 +60,11 @@ export async function staffAwaitingCode(): Promise<{ user: SessionUser; sessionI
 export async function currentSessionId(): Promise<string | null> {
   const s = await auth.api.getSession({ headers: await headers() });
   return s?.session.id ?? null;
+}
+
+/** True when a sign-in cookie came with the visit but no longer opens a session. */
+export async function sessionExpired(): Promise<boolean> {
+  const jar = await cookies();
+  if (!jar.has("better-auth.session_token") && !jar.has("__Secure-better-auth.session_token")) return false;
+  return !(await auth.api.getSession({ headers: await headers() }));
 }
