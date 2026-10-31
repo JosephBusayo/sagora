@@ -79,7 +79,7 @@ function Notes({ value, error }: { value?: string; error?: string }) {
  * Two steps, as the design draws them (465:11158, 465:11454). Each step is a real submit and the
  * first step's answers travel as hidden fields, so the flow works with JavaScript off.
  */
-export function BookForm({ services, districts, service = "", requestId, initial }: {
+export function BookForm({ services, districts, service = "", requestId, initial, direct }: {
   services: readonly Option[]; districts: readonly string[];
   /** Pre-chosen from the home screen's "Book ploughing" / "Book harvesting" tiles. */
   service?: string;
@@ -87,6 +87,8 @@ export function BookForm({ services, districts, service = "", requestId, initial
   requestId?: string;
   /** Starting answers, from the request being edited or booked again. */
   initial?: Record<string, string>;
+  /** Set when the farmer came from one provider's link. It stays with them. */
+  direct?: { id: string; name: string };
 }) {
   const [state, action] = useActionState(bookService, {} as BookState);
   const e = state.fieldErrors ?? {};
@@ -111,9 +113,11 @@ export function BookForm({ services, districts, service = "", requestId, initial
             <p>Tell us about your {label.toLowerCase()} needs</p>
           </>
         ) : <h2>Book a service</h2>}
+        {direct ? <p>Request to {direct.name}</p> : null}
       </header>
       <input type="hidden" name="step" value={step} />
       {requestId ? <input type="hidden" name="requestId" value={requestId} /> : null}
+      {direct ? <input type="hidden" name="directTo" value={direct.id} /> : null}
 
       {step === 1 ? (
         <>
@@ -128,6 +132,7 @@ export function BookForm({ services, districts, service = "", requestId, initial
             </div>
             {e.acres ? <p className="field__error">{e.acres}</p> : null}
           </div>
+          {chosen === "harvesting" ? <Field name="crop" label="Crop" placeholder="For example, rice" maxLength={60} defaultValue={v.crop} error={e.crop} /> : null}
           <Notes value={v.notes} error={e.notes} />
           <Chips name="landAccess" label="Land access" options={LAND_ACCESS} initial={v.landAccess} error={e.landAccess} />
           <Chips name="landCondition" label="Land condition (optional)" options={LAND_CONDITION} initial={v.landCondition} error={e.landCondition} />
@@ -135,7 +140,7 @@ export function BookForm({ services, districts, service = "", requestId, initial
         </>
       ) : (
         <>
-          {(["service", "acres", "landAccess", "landCondition", "landClearance"] as const).map((k) => (
+          {(["service", "acres", "landAccess", "landCondition", "landClearance", "crop"] as const).map((k) => (
             <input key={k} type="hidden" name={k} value={v[k] ?? ""} />
           ))}
           <Select name="district" label="District" options={districts.map((d) => ({ id: d, label: d }))} placeholder="Select a district" error={e.district} initial={v.district} />

@@ -34,6 +34,14 @@ export type ServiceRequest = {
   landAccess: string;
   landCondition: string;
   landClearance: string;
+  crop: string;
+  /** The one business this stays with. Never converted into a general request. */
+  directTo: string | null;
+  /** The coordinator who took it, when the farmer has no account. */
+  assistedBy: string | null;
+  callerName: string;
+  callerRelation: string;
+  mayAccept: string;
   preferredDate: string;
   alternateDate: string | null;
   district: string;
@@ -46,7 +54,8 @@ export type ServiceRequest = {
 type Row = {
   id: string; reference: string; farmer_id: string | null; contact_name: string; contact_phone: string;
   contact_email: string; service: string; acres: number; land_access: string; land_condition: string;
-  land_clearance: string; preferred_date: string; alternate_date: string | null;
+  land_clearance: string; crop: string; direct_to: string | null; assisted_by: string | null;
+  caller_name: string; caller_relation: string; may_accept: string; preferred_date: string; alternate_date: string | null;
   district: string; village: string; notes: string; status: RequestStatus; created_at: string;
 };
 
@@ -54,6 +63,8 @@ const fromRow = (r: Row): ServiceRequest => ({
   id: r.id, reference: r.reference, farmerId: r.farmer_id, contactName: r.contact_name,
   contactPhone: r.contact_phone, contactEmail: r.contact_email, service: r.service, acres: r.acres,
   landAccess: r.land_access, landCondition: r.land_condition, landClearance: r.land_clearance,
+  crop: r.crop, directTo: r.direct_to, assistedBy: r.assisted_by, callerName: r.caller_name,
+  callerRelation: r.caller_relation, mayAccept: r.may_accept,
   preferredDate: r.preferred_date, alternateDate: r.alternate_date, district: r.district,
   village: r.village, notes: r.notes, status: r.status, createdAt: r.created_at,
 });
@@ -71,12 +82,17 @@ export async function nextReference(t: Queries): Promise<string> {
   return `SG-${row.value}`;
 }
 
+export type Assisted = { by: string; callerName: string; callerRelation: string; mayAccept: string };
+
 export type NewRequest = {
   service: string;
   acres: number;
   landAccess: string;
   landCondition: string;
   landClearance: string;
+  crop?: string;
+  directTo?: string | null;
+  assisted?: Assisted;
   preferredDate: string;
   alternateDate: string | null;
   district: string;
@@ -95,26 +111,28 @@ export async function createRequest(farmerId: string | null, input: NewRequest):
     const next = await nextReference(t);
     await t.run(`INSERT INTO service_request
         (id, reference, farmer_id, contact_name, contact_phone, contact_email, service, acres,
-         land_access, land_condition, land_clearance,
+         land_access, land_condition, land_clearance, crop, direct_to, assisted_by, caller_name, caller_relation, may_accept,
          preferred_date, alternate_date, district, village, notes, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, next, farmerId, input.contactName, input.contactPhone, input.contactEmail,
-      input.service, input.acres, input.landAccess, input.landCondition, input.landClearance, input.preferredDate, input.alternateDate, input.district,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, next, farmerId, input.contactName, input.contactPhone, input.contactEmail,
+      input.service, input.acres, input.landAccess, input.landCondition, input.landClearance, input.crop ?? "", input.directTo ?? null,
+      input.assisted?.by ?? null, input.assisted?.callerName ?? "", input.assisted?.callerRelation ?? "", input.assisted?.mayAccept ?? "",
+      input.preferredDate, input.alternateDate, input.district,
       input.village, input.notes, now, now);
     return next;
   });
-  await audit(farmerId ?? "guest", "request.created", id, reference);
+  await audit(input.assisted?.by ?? farmerId ?? "guest", input.assisted ? "request.assisted" : "request.created", id, reference);
   return (await getById(id))!;
 }
 
 /** Details only, and only while nobody has priced them: what a provider quoted must not move. */
 export async function updateRequest(
   farmerId: string, id: string,
-  d: Omit<NewRequest, "contactName" | "contactPhone" | "contactEmail">,
+  d: Omit<NewRequest, "contactName" | "contactPhone" | "contactEmail" | "directTo" | "assisted">,
 ): Promise<boolean> {
-  const res = await db.run(`UPDATE service_request SET service=?, acres=?, land_access=?, land_condition=?, land_clearance=?,
+  const res = await db.run(`UPDATE service_request SET service=?, acres=?, land_access=?, land_condition=?, land_clearance=?, crop=?,
        preferred_date=?, alternate_date=?, district=?, village=?, notes=?, updated_at=?
        WHERE id=? AND farmer_id=? AND status='awaiting_quotes'`,
-    d.service, d.acres, d.landAccess, d.landCondition, d.landClearance, d.preferredDate, d.alternateDate,
+    d.service, d.acres, d.landAccess, d.landCondition, d.landClearance, d.crop ?? "", d.preferredDate, d.alternateDate,
     d.district, d.village, d.notes, new Date().toISOString(), id, farmerId);
   if (res.changes) await audit(farmerId, "request.edited", id);
   return res.changes > 0;
@@ -140,20 +158,25 @@ export async function listForFarmer(farmerId: string): Promise<ServiceRequest[]>
 export type Filters = { service?: string; district?: string; window?: string; reference?: string };
 
 /** What a provider covers. Requests go only to businesses covering their district and service. */
-export type Coverage = { district: string; services: string[] };
+export type Coverage = { id: string; district: string; services: string[] };
 
 /** Setup requires both before a business can be approved, so empty means no limit was recorded. */
-export const covers = (c: Coverage, r: { district: string; service: string }) =>
+export const coversWork = (c: Omit<Coverage, "id">, r: { district: string; service: string }) =>
   !c.district || (c.district === r.district && c.services.includes(r.service));
 
+/** A direct request belongs to its chosen business alone, whatever anyone else covers. */
+export const covers = (c: Coverage, r: { district: string; service: string; directTo?: string | null }) =>
+  r.directTo ? r.directTo === c.id : coversWork(c, r);
+
 function coverageClause(c: Coverage, where: string[], params: (string | number)[]) {
-  if (!c.district) return;
-  where.push("district = ?");
-  params.push(c.district);
-  if (c.services.length > 0) {
-    where.push(`service IN (${c.services.map(() => "?").join(",")})`);
-    params.push(...c.services);
+  if (!c.district) {
+    where.push("(direct_to IS NULL OR direct_to = ?)");
+    params.push(c.id);
+    return;
   }
+  const services = c.services.length > 0 ? ` AND service IN (${c.services.map(() => "?").join(",")})` : "";
+  where.push(`(direct_to = ? OR (direct_to IS NULL AND district = ?${services}))`);
+  params.push(c.id, c.district, ...c.services);
 }
 export const DATE_WINDOWS = [
   { id: "", label: "All dates" },
@@ -217,7 +240,7 @@ export async function searchForProvider(q: string, coverage: Coverage): Promise<
   const where: string[] = [];
   const params: (string | number)[] = [];
   coverageClause(coverage, where, params);
-  const also = where.length ? ` AND ${where.join(" AND ")}` : "";
+  const also = ` AND ${where.join(" AND ")}`;
   const rows = await db.all(`SELECT * FROM service_request WHERE status <> 'cancelled' AND private_to IS NULL${also} AND ${REQUEST_MATCH} ORDER BY created_at DESC LIMIT 25`, ...params, t, t, t) as Row[];
   return rows.map(fromRow);
 }
@@ -235,4 +258,22 @@ export async function cancel(farmerId: string, id: string): Promise<boolean> {
        WHERE id=? AND farmer_id=? AND status IN ('awaiting_quotes','quotes_sent')`, new Date().toISOString(), id, farmerId);
   if (res.changes) await audit(farmerId, "request.cancelled", id);
   return res.changes > 0;
+}
+
+/* ---------------------------------------------------------- assisted requests */
+
+export type ContactEntry = { id: string; outcome: string; createdAt: string };
+
+export async function listAssisted(): Promise<ServiceRequest[]> {
+  const rows = await db.all("SELECT * FROM service_request WHERE assisted_by IS NOT NULL ORDER BY created_at DESC LIMIT 100") as Row[];
+  return rows.map(fromRow);
+}
+
+export async function contactsFor(requestId: string): Promise<ContactEntry[]> {
+  const rows = await db.all("SELECT id, outcome, created_at FROM request_contact WHERE request_id=? ORDER BY created_at DESC", requestId) as { id: string; outcome: string; created_at: string }[];
+  return rows.map((r) => ({ id: r.id, outcome: r.outcome, createdAt: r.created_at }));
+}
+
+export async function logContact(staffId: string, requestId: string, outcome: string): Promise<void> {
+  await db.run("INSERT INTO request_contact (id, request_id, staff_id, outcome, created_at) VALUES (?,?,?,?,?)", randomUUID(), requestId, staffId, outcome, new Date().toISOString());
 }

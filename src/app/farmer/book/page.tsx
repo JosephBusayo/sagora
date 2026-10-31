@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DISTRICTS, SERVICES } from "@/lib/business";
+import { DISTRICTS, SERVICES, getApprovedBusiness } from "@/lib/business";
 import { requireFarmer } from "@/lib/session";
 import { Shell } from "@/components/app/Shell";
 import { FarmerHome } from "@/components/app/FarmerHome";
@@ -10,16 +10,19 @@ import { unreadCount } from "@/lib/notifications";
 export const metadata: Metadata = { title: "Book a service" };
 export const dynamic = "force-dynamic";
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ service?: string; again?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ service?: string; again?: string; provider?: string }> }) {
   const farmer = await requireFarmer();
-  const { service: asked = "", again } = await searchParams;
+  const { service: asked = "", again, provider } = await searchParams;
   const service = SERVICES.some((s) => s.id === asked) ? asked : "";
+
+  const chosen = provider ? await getApprovedBusiness(provider) : null;
+  const direct = chosen ? { id: chosen.id, name: chosen.name } : undefined;
 
   // "Book again" starts from the finished request. Dates are left out: they have passed.
   const past = again ? await getById(again) : null;
   const previous = past && past.farmerId === farmer.id ? {
     service: past.service, acres: String(past.acres), landAccess: past.landAccess, landCondition: past.landCondition,
-    landClearance: past.landClearance, notes: past.notes, district: past.district, village: past.village,
+    landClearance: past.landClearance, crop: past.crop, notes: past.notes, district: past.district, village: past.village,
   } : undefined;
 
   return (
@@ -33,7 +36,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
       {/* Rendered by the server over Home, so it opens with JavaScript off. */}
       <div className="modal-backdrop">
         <div className="modal modal--book" role="dialog" aria-modal="true" aria-label="Book a service">
-          <BookForm services={SERVICES} districts={DISTRICTS} service={previous?.service ?? service} initial={previous} />
+          <BookForm services={SERVICES} districts={DISTRICTS} service={previous?.service ?? service} initial={previous} direct={direct} />
         </div>
       </div>
     </Shell>

@@ -1,9 +1,10 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { DISTRICTS, SERVICES } from "@/lib/business";
-import { createRequest, providersCovering, updateRequest } from "@/lib/requests";
+import { DISTRICTS, SERVICES, districtLabel, getApprovedBusiness } from "@/lib/business";
+import { coversWork, createRequest, providersCovering, serviceLabel, updateRequest } from "@/lib/requests";
 import { requireFarmer } from "@/lib/session";
 import { notify } from "@/lib/outbox";
 import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION } from "@/lib/land";
@@ -24,6 +25,7 @@ const land = z.object({
   // The design marks this one optional.
   landCondition: z.string().refine((v) => !v || ids(LAND_CONDITION).includes(v), "Choose the land condition"),
   landClearance: z.string().refine((v) => ids(LAND_CLEARANCE).includes(v), "Choose the land clearance"),
+  crop: z.string().max(60, "Use 60 characters or fewer"),
   notes: z.string().max(500, "Use 500 characters or fewer"),
 });
 
@@ -44,6 +46,7 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     landAccess: str(fd, "landAccess"),
     landCondition: str(fd, "landCondition"),
     landClearance: str(fd, "landClearance"),
+    crop: str(fd, "crop"),
     preferredDate: str(fd, "preferredDate"),
     alternateDate: str(fd, "alternateDate"),
     district: str(fd, "district"),
@@ -59,6 +62,9 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     for (const i of first.error.issues) errors[String(i.path[0])] ??= i.message;
     return { step: 1, fieldErrors: errors, values };
   }
+  if (raw.service === "harvesting" && raw.crop.length < 2) {
+    return { step: 1, fieldErrors: { crop: "Say what crop is being harvested" }, values };
+  }
   if (str(fd, "step") !== "2") return { step: 2, values };
 
   const parsed = schema.safeParse(raw);
@@ -69,6 +75,15 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
   }
   if (!parsed.success || Object.keys(fieldErrors).length) return { step: 2, fieldErrors, values };
 
+  // A direct request stays with the chosen provider, so one that cannot do the work is refused,
+  // never quietly opened up to everyone else.
+  const directTo = str(fd, "directTo");
+  const chosen = directTo ? await getApprovedBusiness(directTo) : null;
+  if (directTo && (!chosen || !coversWork(chosen, parsed.data))) {
+    const what = `${serviceLabel(parsed.data.service).toLowerCase()} in ${districtLabel(parsed.data.district)}`;
+    return { step: 2, fieldErrors: { district: `${chosen?.name ?? "That provider"} does not offer ${what}.` }, values };
+  }
+
   const d = parsed.data;
   const details = {
     service: d.service,
@@ -76,6 +91,7 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     landAccess: d.landAccess,
     landCondition: d.landCondition,
     landClearance: d.landClearance,
+    crop: d.service === "harvesting" ? d.crop : "",
     preferredDate: d.preferredDate,
     alternateDate: d.alternateDate || null,
     district: d.district,
@@ -92,6 +108,7 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
 
   const created = await createRequest(farmer.id, {
     ...details,
+    directTo: chosen?.id ?? null,
     contactName: farmer.name,
     contactPhone: normaliseSierraLeonePhone(farmer.phone ?? "") ?? (farmer.phone ?? ""),
     contactEmail: farmer.email,
@@ -112,7 +129,8 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
   });
 
   // Only the work itself: a provider gets no farmer's name or number from this.
-  for (const p of await providersCovering(d)) {
+  const covering = await providersCovering(d);
+  for (const p of chosen ? covering.filter((c) => c.businessId === chosen.id) : covering) {
     await notify({
       kind: "request.new",
       dedupeKey: `request.new:${created.id}:${p.businessId}`,
@@ -122,6 +140,7 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     });
   }
 
+  (await cookies()).delete("sagora_direct");
   redirect(`/farmer/requests?new=${created.reference}`);
 }
 

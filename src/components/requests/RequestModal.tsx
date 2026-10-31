@@ -12,6 +12,8 @@ export type RequestDetail = {
   landAccess: string;
   landCondition: string;
   landClearance: string;
+  crop: string;
+  direct: boolean;
   preferredDate: string;
   alternateDate: string | null;
   district: string;
@@ -35,6 +37,8 @@ function Row({ icon, label, value }: { icon: IconName; label: string; value: str
 function LandRows({ request }: { request: RequestDetail }) {
   return (
     <>
+      {request.direct ? <Row icon="info" label="Request type" value="Direct request" /> : null}
+      {request.crop ? <Row icon="info" label="Crop" value={request.crop} /> : null}
       <Row icon="info" label="Land access" value={request.landAccess} />
       <Row icon="info" label="Land condition" value={request.landCondition} />
       <Row icon="info" label="Land clearance" value={request.landClearance} />

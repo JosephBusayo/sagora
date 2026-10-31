@@ -60,6 +60,12 @@ export async function getBusinessForUser(userId: string): Promise<Business | nul
   return r ? fromRow(r) : null;
 }
 
+/** A business a farmer may be sent to directly. */
+export async function getApprovedBusiness(id: string): Promise<Business | null> {
+  const r = await db.get("SELECT * FROM provider_business WHERE id = ? AND status = 'approved'", id) as Row | undefined;
+  return r ? fromRow(r) : null;
+}
+
 /** Creates the draft the first time, pre-filled from the sign-up details. */
 export async function ensureBusiness(user: { id: string; name: string; email: string; phone?: string | null; businessName?: string | null }): Promise<Business> {
   const existing = await getBusinessForUser(user.id);

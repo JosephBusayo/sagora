@@ -73,6 +73,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
     landAccess: landLabel(LAND_ACCESS, r.landAccess),
     landCondition: landLabel(LAND_CONDITION, r.landCondition),
     landClearance: landLabel(LAND_CLEARANCE, r.landClearance),
+    crop: r.crop,
+    direct: Boolean(r.directTo),
     preferredDate: fmt(r.preferredDate),
     alternateDate: r.alternateDate ? fmtLong(r.alternateDate) : null,
     district: districtLabel(r.district),

@@ -116,12 +116,14 @@ export type AcceptResult = { ok: true } | { ok: false; reason: string };
  * an agreement, marks the other providers' quotes as not selected, and moves the request on.
  * Re-running it is harmless: the unique request_id on agreement means a second accept fails.
  */
-export async function acceptQuote(quoteId: string, farmerId: string): Promise<AcceptResult> {
+export async function acceptQuote(quoteId: string, farmerId: string, onBehalf = false): Promise<AcceptResult> {
   const quote = await getQuote(quoteId);
   if (!quote) return { ok: false, reason: "That quote no longer exists." };
 
   const request = await getRequest(quote.requestId);
-  if (!request || request.farmerId !== farmerId) return { ok: false, reason: "That quote is not on your request." };
+  // A coordinator can accept only on a request they took for a farmer with no account.
+  const allowed = onBehalf ? Boolean(request?.assistedBy) : request?.farmerId === farmerId;
+  if (!request || !allowed) return { ok: false, reason: "That quote is not on your request." };
   if (request.status === "cancelled") return { ok: false, reason: "You withdrew this request." };
   if (quote.status !== "sent") return { ok: false, reason: "That quote is no longer open." };
   if (isExpired(quote)) return { ok: false, reason: "That quote has expired. Ask the provider for a new one." };

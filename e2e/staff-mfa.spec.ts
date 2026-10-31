@@ -222,3 +222,32 @@ test("staff have their own door, and an admin adds and removes staff", async ({ 
   await row.getByRole("button", { name: "Remove" }).click();
   await expect(page.getByRole("listitem").filter({ hasText: hire })).toHaveCount(0);
 });
+
+test("staff take a request over the phone, with who called on record", async ({ page }) => {
+  await signIn(page);
+  await typeCode(page, await latestCode(STAFF.email));
+  await page.waitForURL(/\/staff\/providers/);
+  await page.getByRole("link", { name: "Assisted requests" }).click();
+  await page.getByRole("button", { name: "Create request" }).click();
+  await expect(page.getByText("Enter who called")).toBeVisible();
+
+  await page.getByLabel("Who called").fill("Alie Kamara");
+  await page.getByLabel("Number to call back").fill("076 111 222");
+  await page.getByLabel("Who they are to the farmer").fill("Her son");
+  await page.getByLabel("Farmer's name").fill("Fatmata Kamara");
+  await page.getByLabel("Who may accept a quote").fill("Fatmata Kamara");
+  await page.getByLabel("Service").selectOption("ploughing");
+  await page.getByLabel("Land size (acres)").fill("4");
+  await page.getByLabel("Land access").selectOption("easy");
+  await page.getByLabel("Land clearance").selectOption("cleared");
+  await page.getByLabel("District").selectOption("Bombali");
+  await page.getByLabel("Village/town").fill("Assisted Village");
+  await page.getByLabel("Preferred start date").fill(new Date(Date.now() + 20 * 86400000).toISOString().slice(0, 10));
+  await page.getByRole("button", { name: "Create request" }).click();
+  await page.waitForURL(/\/staff\/requests\/[\w-]+$/);
+  await expect(page.getByText("Alie Kamara (Her son)")).toBeVisible();
+
+  await page.getByLabel("What happened on the call").fill("Told her a quote is coming");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Told her a quote is coming")).toBeVisible();
+});

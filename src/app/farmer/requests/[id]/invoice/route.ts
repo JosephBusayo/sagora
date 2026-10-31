@@ -27,6 +27,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       { label: "Farmer", value: farmer.name },
       { label: "Provider", value: provider?.name ?? "" },
       { label: "Service", value: `${serviceLabel(request.service)}, ${request.acres} acres` },
+      ...(request.crop ? [{ label: "Crop", value: request.crop }] : []),
       { label: "Location", value: `${request.village}, ${districtLabel(request.district)}` },
       { label: "Covers", value: agreement.includes },
       { label: "Agreed price", value: formatAmount(agreement.amountMinor) },

@@ -90,6 +90,7 @@ export default async function Page({ params, searchParams }: {
               <Detail label="Land size" value={`${request.acres} acres`} />
               <Detail label="Location" value={`${request.village}, ${districtLabel(request.district)}`} />
               <Detail label="Preferred start date" value={fmt(request.preferredDate)} />
+              {request.crop ? <Detail label="Crop" value={request.crop} /> : null}
               <Detail label="Land access" value={landLabel(LAND_ACCESS, request.landAccess)} />
               <Detail label="Land condition" value={landLabel(LAND_CONDITION, request.landCondition)} />
               <Detail label="Land clearance" value={landLabel(LAND_CLEARANCE, request.landClearance)} />

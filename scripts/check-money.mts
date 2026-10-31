@@ -260,6 +260,50 @@ console.log("\nDisputes");
   await ok("the ledger still balances after disputes", await ledger.ledgerIsBalanced());
 }
 
+console.log("\nRequest kinds");
+{
+  const owner = await user("Owner direct", "provider");
+  const biz = await business(owner, "Direct Business");
+  const other = await user("Owner other", "provider");
+  const otherBiz = await business(other, "Other Business");
+  const coverage = (id: string) => ({ id, district: "Bo", services: ["ploughing"] });
+  const farmer = await user("Farmer direct");
+  const base = { service: "ploughing", acres: 2, landAccess: "easy", landCondition: "", landClearance: "cleared", district: "Bo", village: "Directville",
+    preferredDate: inDays(20), alternateDate: null, notes: "", contactName: "F", contactPhone: "76000003", contactEmail: "f@example.test" };
+  const direct = await requests.createRequest(farmer, { ...base, directTo: biz });
+  const seen = async (id: string) => (await requests.browse({}, 1, coverage(id))).rows.some((r) => r.id === direct.id);
+  await ok("a direct request reaches its chosen provider", await seen(biz));
+  await ok("a direct request is never shown to anyone else", !(await seen(otherBiz)));
+  await ok("nor can they find it by searching", (await requests.searchForProvider("Directville", coverage(otherBiz))).length === 0);
+
+  const harvest = await requests.createRequest(farmer, { ...base, service: "harvesting", crop: "Rice" });
+  await ok("the crop is kept on the request", harvest.crop === "Rice");
+  const quoted = await quotes.sendQuote(harvest.id, biz, owner, { amountMinor: 90000, includes: "Harvest", startDate: inDays(20), validUntil: inDays(10), note: "" });
+  if (!quoted.ok) throw new Error("harvest quote failed");
+  await quotes.acceptQuote(quoted.quote.id, farmer);
+  const job = (await jobs.jobForRequest(harvest.id))!;
+  const tractor = await equipment.addAsset(biz, owner, { name: "Only a tractor", kind: "tractor", identifier: "", ownership: "owned", notes: "" });
+  const refused = await jobs.scheduleJob(biz, owner, job.id, { startDate: inDays(20), endDate: inDays(21), operatorId: null, assetIds: [tractor.id] });
+  await ok("a harvest cannot run without a harvester", !refused.ok);
+  const harvester = await equipment.addAsset(biz, owner, { name: "Harvester", kind: "harvester", identifier: "", ownership: "owned", notes: "" });
+  const allowed = await jobs.scheduleJob(biz, owner, job.id, { startDate: inDays(20), endDate: inDays(21), operatorId: null, assetIds: [harvester.id] });
+  await ok("a harvester can take the job", allowed.ok);
+
+  const assisted = await requests.createRequest(null, { ...base, contactName: "Fatmata", contactEmail: "",
+    assisted: { by: staffA, callerName: "Alie", callerRelation: "Her son", mayAccept: "Fatmata" } });
+  await ok("an assisted request records who called", assisted.callerName === "Alie" && assisted.farmerId === null);
+  const q = await quotes.sendQuote(assisted.id, biz, owner, { amountMinor: 80000, includes: "Plough", startDate: inDays(30), validUntil: inDays(20), note: "" });
+  if (!q.ok) throw new Error("assisted quote failed");
+  await ok("nobody can accept it as if it were theirs", !(await quotes.acceptQuote(q.quote.id, farmer)).ok);
+  await ok("a coordinator can accept it on the farmer's behalf", (await quotes.acceptQuote(q.quote.id, staffA, true)).ok);
+  const own = await requests.createRequest(farmer, base);
+  const q2 = await quotes.sendQuote(own.id, biz, owner, { amountMinor: 70000, includes: "Plough", startDate: inDays(30), validUntil: inDays(20), note: "" });
+  if (!q2.ok) throw new Error("own quote failed");
+  await ok("a coordinator cannot accept for a farmer with an account", !(await quotes.acceptQuote(q2.quote.id, staffA, true)).ok);
+  await requests.logContact(staffA, assisted.id, "Called back, no answer");
+  await ok("calls are logged against the request", (await requests.contactsFor(assisted.id)).length === 1);
+}
+
 console.log(`\n${checks - fail.length}/${checks} checks passed.`);
 if (fail.length) {
   console.log(`\nFailures:\n${fail.map((f) => `  - ${f}`).join("\n")}`);

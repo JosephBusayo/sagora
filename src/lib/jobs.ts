@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db, type Queries } from "./db";
 import { audit } from "./business";
 import { getAsset, unavailableReason } from "./equipment";
-import { nextReference } from "./requests";
+import { getById as getRequest, nextReference } from "./requests";
 
 /**
  * A job is the work itself: an accepted agreement, scheduled, with specific machines and a
@@ -128,12 +128,20 @@ export async function scheduleJob(businessId: string, actorId: string, jobId: st
   // Names are collected here, before the transaction: a lookup inside it would go through the
   // shared connection that the transaction itself is holding.
   const names = new Map<string, string>();
+  const kinds = new Set<string>();
   for (const id of input.assetIds) {
     const asset = await getAsset(businessId, id);
     if (!asset) return { ok: false, reason: "One of those machines is not on your register." };
     const why = unavailableReason(asset);
     if (why) return { ok: false, reason: `${asset.name} cannot be used: ${why.toLowerCase()}.` };
     names.set(id, asset.name);
+    kinds.add(asset.kind);
+  }
+
+  // The equipment has to suit the work: a harvest cannot run without a harvester.
+  const request = await getRequest(job.requestId);
+  if (request?.service === "harvesting" && !kinds.has("harvester")) {
+    return { ok: false, reason: "A harvesting job needs a harvester. Choose one from your register." };
   }
 
   // The clash check and the commitment are one decision: two schedules racing for the same
@@ -230,6 +238,18 @@ export async function reportNoReplacement(businessId: string, actorId: string, j
 /* --------------------------------------------------------------- the farmer */
 
 export type FarmerDecision = { ok: true } | { ok: false; reason: string };
+
+/** A farmer with no account confirms by phone, and the coordinator who took the request records it. */
+export async function confirmOnBehalf(staffId: string, requestId: string): Promise<FarmerDecision> {
+  const row = await db.get(`SELECT j.id FROM job j JOIN service_request r ON r.id = j.request_id
+       WHERE j.request_id=? AND r.assisted_by IS NOT NULL AND j.status='work_reported'`, requestId) as { id: string } | undefined;
+  if (!row) return { ok: false, reason: "There is nothing to confirm on this request yet." };
+  const now = new Date().toISOString();
+  await db.run("UPDATE job SET status='completed', confirmed_at=?, updated_at=? WHERE id=?", now, now, row.id);
+  await db.run("UPDATE service_request SET status='completed', updated_at=? WHERE id=?", now, requestId);
+  await audit(staffId, "job.confirmed_for_farmer", row.id);
+  return { ok: true };
+}
 
 /** Silence is not consent: only the farmer's explicit confirmation completes a job. */
 export async function confirmDelivery(farmerId: string, requestId: string): Promise<FarmerDecision> {
