@@ -423,7 +423,7 @@ select.field__input { appearance: auto; }
   --radius-shell: 33px;
   --radius-control: 25px;
 
-  --sidebar-w: 160px;
+  --sidebar-w: 166px;
 }
 
 .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; background: var(--color-bg); }
@@ -764,10 +764,10 @@ a.tab { text-decoration: none; display: inline-block; text-align: center; }
 .home-section__more .icon { width: 24px; height: 24px; }
 
 /* Two service tiles side by side; three "How it works" steps. */
-.home-cards { display: grid; gap: 34px; }
+.home-cards { display: grid; gap: 30px; }
 .home-cards--two { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
 /* 29px between the three steps, as the design spaces them. */
-.home-cards--three { grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 34px; }
+.home-cards--three { grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 30px; }
 
 .home-card { display: flex; align-items: center; gap: 14px; min-height: 98px; padding: 24px; background: var(--color-surface);
   border: 1px solid var(--color-hairline); border-radius: var(--radius-card); text-decoration: none; color: inherit;
