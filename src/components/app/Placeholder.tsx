@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/app/EmptyState";
 import { requireWorkspace } from "@/lib/guard";
 import { requireFarmer } from "@/lib/session";
 import { Shell, PageHead } from "@/components/app/Shell";
@@ -26,7 +27,7 @@ export async function Placeholder({
       unread={await unreadCount(user)}
     >
       <PageHead title={title} subtitle="Designed in Figma. Not built yet." />
-      <p className="empty">Nothing here is live. This section is next in the build.</p>
+      <div className="table-card"><EmptyState icon="reports" body="Nothing here is live. This section is next in the build." /></div>
     </Shell>
   );
 }

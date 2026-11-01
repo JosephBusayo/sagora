@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/app/EmptyState";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireFarmer } from "@/lib/session";
@@ -17,7 +18,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
   return (
     <Shell crumb={{ label: "Search", icon: "search" }} user={{ name: farmer.name }} audience="farmer" unread={await unreadCount(farmer)} search={q}>
       <PageHead title="Search" subtitle={q ? `Results for “${q}”` : "Search your requests"} />
-      {rows.length === 0 ? <p className="empty">{q ? "Nothing matches that search." : "Type a reference, village or district."}</p> : (
+      {rows.length === 0 ? <div className="table-card"><EmptyState icon="search" body={q ? "Nothing matches that search." : "Type a reference, village or district."} /></div> : (
         <ul className="search-results">
           {rows.map((r) => (
             <li key={r.id}>

@@ -104,18 +104,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
         subtitle="Browse new requests from farmers and send a quote for the ones you can service"
         action={<Filters current={sp} />}
       />
-      <RequestsTable rows={items} initialOpen={sp.open} />
-      {pages > 1 ? (
-        <nav className="pager" aria-label="Pages">
-          {Array.from({ length: pages }, (_, i) => i + 1).map((p) =>
-            p === Math.min(Math.max(1, page), pages) ? (
+      <RequestsTable rows={items} initialOpen={sp.open} filtered={Boolean(sp.service || sp.district || sp.window)} />
+      <nav className="pager" aria-label="Pages">
+          {Array.from({ length: Math.max(1, pages) }, (_, i) => i + 1).map((p) =>
+            p === Math.min(Math.max(1, page), Math.max(1, pages)) ? (
               <span key={p} className="is-current" aria-current="page">{p}</span>
             ) : (
               <Link key={p} href={href(p)}>{p}</Link>
             ),
           )}
-        </nav>
-      ) : null}
+      </nav>
     </Shell>
   );
 }

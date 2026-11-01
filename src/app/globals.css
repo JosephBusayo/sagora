@@ -423,7 +423,7 @@ select.field__input { appearance: auto; }
   --radius-shell: 33px;
   --radius-control: 25px;
 
-  --sidebar-w: 166px;
+  --sidebar-w: 274px;
 }
 
 .app { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; background: var(--color-bg); }
@@ -431,7 +431,7 @@ select.field__input { appearance: auto; }
 /* -------- sidebar -------- */
 /* Sidebar, at the design's measurements: 248 wide, 36-tall rows with a 10px radius, a 20px
    icon and 10px to the label. */
-.nav { display: flex; flex-direction: column; padding: 39px 3px 47px 13px; }
+.nav { display: flex; flex-direction: column; padding: 39px 13px 47px; }
 .nav__bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 25px; }
 .nav__body { flex: 1; display: flex; flex-direction: column; gap: 44px; }
 .nav__toggle { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
@@ -440,7 +440,7 @@ select.field__input { appearance: auto; }
 .nav__group { display: flex; flex-direction: column; gap: 8px; }
 .nav__title { margin: 0 0 0 8px; padding: 0; font: 500 14px/10px var(--font-sans); letter-spacing: -0.28px; color: var(--color-nav-group); }
 .nav__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.nav__item { display: flex; align-items: center; gap: 10px; width: 100%; height: 36px; padding: 0 0 0 8px; border: 0; white-space: nowrap; border-radius: 10px;
+.nav__item { display: flex; align-items: center; gap: 10px; width: 100%; height: 36px; padding: 0 8px; border: 0; white-space: nowrap; border-radius: 10px;
   background: transparent; color: var(--color-nav-text); font: 500 14px/1 var(--font-sans); letter-spacing: -0.28px; text-align: left; cursor: pointer; }
 .nav__item:hover { background: var(--color-hover); }
 .nav__item--active { background: var(--color-nav-active); color: var(--color-brand); }
@@ -468,7 +468,7 @@ select.field__input { appearance: auto; }
 .topbar__actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .topbar__round { position: relative; display: grid; place-items: center; width: 51px; height: 50px; border-radius: var(--radius-control);
   border: 1px solid var(--color-shell-line); box-shadow: var(--shadow-control); color: var(--color-text); }
-.topbar__round .icon { width: 20px; height: 20px; }
+.topbar__round .icon { width: 18px; height: 18px; }
 a.topbar__round:hover { background: var(--color-hover); }
 /* The unread count sits on the bell, as a count rather than a bare dot: "how many" is the
    question someone coming back after a day actually has. */
@@ -480,16 +480,16 @@ a.topbar__round:hover { background: var(--color-hover); }
 /* 146px is what the design measures with "Mike L" in it: 10 padding, a 34 avatar, 10, the
    name, 10, a 24 chevron, 10. It is a floor rather than a fixed width, so a longer name
    widens the pill instead of spilling out of it. */
-.topbar__user { display: flex; align-items: center; gap: 10px; min-width: 176px; height: 50px; padding: 0 10px;
+.topbar__user { display: flex; align-items: center; gap: 10px; min-width: 170px; height: 50px; padding: 0 10px;
   border-radius: var(--radius-control); border: 1px solid var(--color-shell-line); box-shadow: var(--shadow-control);
   color: var(--color-text-muted); font: 500 16px/1 var(--font-sans); }
 /* flex: none is load-bearing. Without it a long name squeezes the avatar narrower than it is
    tall, and the circle renders as an egg. */
-.topbar__avatar { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 20px;
+.topbar__avatar { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 20px;
   border: 1px solid var(--color-avatar-line); background: var(--color-avatar-bg); color: #000;
   font: 500 16px/1 var(--font-sans); }
-.topbar__chev { flex: none; display: grid; place-items: center; width: 24px; height: 24px; color: var(--color-icon); }
-.topbar__name { flex: 1; min-width: 0; color: #1d1d1d; letter-spacing: -0.32px; white-space: nowrap;
+.topbar__chev { flex: none; display: grid; place-items: center; width: 18px; height: 18px; color: #999999; }
+.topbar__name { flex: 1; min-width: 0; color: #1d1d1d; font-size: 15px; letter-spacing: -0.3px; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; }
 /* Equal insets, which at the 1728px the design is drawn at leaves the content just wider than
    its 1328px — enough that each "How it works" step keeps its line of explanation on one line.
@@ -499,10 +499,10 @@ a.topbar__round:hover { background: var(--color-hover); }
 
 /* -------- page header -------- */
 .pagehead { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 49px; margin-bottom: 23px; }
-.pagehead__title { margin: 0; color: var(--color-heading); font: 600 22px/31px var(--font-sans); }
+.pagehead__title { margin: 0; color: var(--color-heading); font: 600 20px/31px var(--font-sans); }
 .head-actions { display: flex; align-items: center; gap: 20px; }
 .head-actions .jobs-links { margin: 0; }
-.pagehead__sub { margin: -1px 0 0; color: var(--color-text-muted); font: 500 14px/21px var(--font-sans); }
+.pagehead__sub { margin: -4px 0 0; color: var(--color-text-muted); font: 500 13px/21px var(--font-sans); }
 .button--inline { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: auto; height: 48px; padding: 0 26px; font: 500 15px/1 var(--font-sans); }
 .button--inline .icon { width: 18px; height: 18px; }
 
@@ -538,8 +538,8 @@ a.topbar__round:hover { background: var(--color-hover); }
 .empty { padding: 40px 20px; text-align: center; color: var(--color-text-muted); }
 /* The design's empty states say what is missing on one line and what will fill it on the
    next, rather than one long apologetic sentence. */
-.empty__title { display: block; margin: 0 0 6px; color: var(--color-heading); font: 600 18px/1.2 var(--font-sans); }
-.empty__body { display: block; color: var(--color-text-muted); font: 500 14px/1.4 var(--font-sans); }
+.empty__title { display: block; color: var(--color-heading); font: 500 18px/31px var(--font-sans); }
+.empty__body { display: block; margin-top: 4px; color: var(--color-text-muted); font: 500 14px/21px var(--font-sans); }
 
 /* -------- settings list -------- */
 .settings-list { display: flex; flex-direction: column; gap: 16px; max-width: 1230px; }
@@ -630,8 +630,8 @@ a.topbar__round:hover { background: var(--color-hover); }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; }
 .filter { display: flex; align-items: center; gap: 10px; height: 49px; padding: 0 10px; background: var(--color-surface);
   border: 1px solid #eaeaea; border-radius: 32px; color: #373737; }
-.filter select { appearance: none; field-sizing: content; border: 0; outline: 0; background: transparent; font: 500 18px/31px var(--font-sans); color: inherit; cursor: pointer; }
-.filter__chev { display: grid; place-items: center; width: 24px; height: 24px; transform: rotate(90deg); pointer-events: none; }
+.filter select { appearance: none; field-sizing: content; border: 0; outline: 0; background: transparent; font: 500 15px/31px var(--font-sans); color: inherit; cursor: pointer; }
+.filter__chev { display: grid; place-items: center; width: 18px; height: 18px; transform: rotate(90deg); pointer-events: none; }
 .filter .icon { color: var(--color-text); }
 .request-icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 40px; background: var(--color-chip); color: var(--color-brand); }
 .request-icon--harvest { background: rgba(232, 237, 162, 0.95); }
@@ -1120,8 +1120,12 @@ form.resend { margin: 0; }
 .confirm .button { font-size: 15px; }
 
 /* -------- empty states -------- */
-.empty--card { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.empty--card .button { margin-top: 8px; }
+.empty--card { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.empty--card .button { margin-top: 18px; }
+.empty__icon { display: grid; margin-bottom: 18px; color: #6d6e6b; }
+/* The card an empty list sits in runs down to the pager, with the message in its middle. */
+.table-card:has(> .empty--card) { display: grid; place-items: center; min-height: 320px; }
+.app__content > .table-card:has(> .empty--card) { flex: 1; min-height: 480px; margin-bottom: 31px; }
 
 /* -------- small markers -------- */
 .field__helper--ok { color: var(--color-brand); }
@@ -1201,6 +1205,7 @@ a.overview__card:hover { background: var(--color-hover); border-color: var(--col
 /* At the width the design is drawn, list tables keep its columns, and sit a little wider than
    the page heading above them. */
 @media (min-width: 1280px) {
+  .pagehead { margin-left: 2px; margin-right: -2px; }
   .pagehead ~ .table-card { margin-left: -8px; margin-right: -11px; }
   .table--requests { table-layout: fixed; }
   .table--requests th:nth-child(1), .table--requests td:nth-child(1) { width: 17%; }
@@ -1230,7 +1235,6 @@ a.overview__card:hover { background: var(--color-hover); border-color: var(--col
   .equipment__top, .notif__top { margin-top: 0; flex-wrap: wrap; }
   .pagehead { flex-wrap: wrap; }
   .head-actions { flex-wrap: wrap; }
-  .filter select { font-size: 16px; }
 }
 @media (max-width: 640px) {
   .home-card--art { gap: 16px; }

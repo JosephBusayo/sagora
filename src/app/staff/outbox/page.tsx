@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
 import { StaffNav } from "@/components/staff/StaffNav";
 import type { Metadata } from "next";
@@ -34,7 +35,7 @@ export default async function Page() {
         </form>
 
         {rows.length === 0 ? (
-          <p className="empty">Nothing has failed. Every message went out first time.</p>
+          <EmptyState icon="bell" body="Nothing has failed. Every message went out first time." />
         ) : (
           <div className="table-card">
             <table className="table">

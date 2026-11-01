@@ -70,7 +70,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
       />
 
       {rows.length === 0 ? (
-        <EmptyState icon="jobs" title="No bookings yet" body="Your confirmed bookings will appear here" href="/farmer/book" action="Book a service" />
+        <div className="table-card"><EmptyState icon="jobs" title="No bookings yet" body="Your confirmed bookings will appear here" href="/farmer/book" action="Book a service" /></div>
       ) : (
         <div className="table-card">
           <table className="table table--requests table--headless">

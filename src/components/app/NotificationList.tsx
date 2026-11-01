@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/app/EmptyState";
 import { FilterPill } from "./FilterPill";
 import { FilterAutoSubmit } from "@/components/requests/FilterAutoSubmit";
 import { openNotificationAction } from "@/app/notification-actions";
@@ -49,9 +50,7 @@ export function NotificationList({
 
       {notifications.length === 0 ? (
         <div className="table-card">
-          <p className="empty">
-            {filter === "unread" ? "Nothing unread. You are up to date." : "No notifications yet."}
-          </p>
+          <EmptyState icon="bell" body={filter === "unread" ? "Nothing unread. You are up to date." : "No notifications yet."} />
         </div>
       ) : (
         <ul className="notif-list table-card">

@@ -8,12 +8,14 @@ import type { MyQuote } from "./QuoteForm";
 
 export type RequestRow = RequestDetail & { statusLabel: string; status: string; myQuote: MyQuote | null };
 
-export function RequestsTable({ rows, initialOpen }: { rows: RequestRow[]; initialOpen?: string }) {
+export function RequestsTable({ rows, initialOpen, filtered }: { rows: RequestRow[]; initialOpen?: string; filtered?: boolean }) {
   const [open, setOpen] = useState<RequestRow | null>(rows.find((r) => r.reference === initialOpen) ?? null);
   if (rows.length === 0) {
     return (
       <div className="table-card">
-        <EmptyState icon="requests" body="No requests match these filters yet." href="/provider/requests" action="Clear filters" />
+        {filtered
+          ? <EmptyState icon="requests" body="No requests match these filters yet." href="/provider/requests" action="Clear filters" />
+          : <EmptyState icon="requests" title="You have not received any requests yet" body="New requests will appear here" />}
       </div>
     );
   }

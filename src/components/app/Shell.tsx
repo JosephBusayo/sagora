@@ -63,7 +63,7 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, search, 
             <span className="topbar__user">
               <span className="topbar__avatar" aria-hidden="true">{initial(user.name)}</span>
               <span className="topbar__name" title={user.name}>{shortName(user.name)}</span>
-              <span className="topbar__chev"><Icon name="chevron" size={14} /></span>
+              <span className="topbar__chev"><Icon name="chevron" size={12} /></span>
             </span>
           </div>
         </header>

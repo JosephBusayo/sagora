@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
 import { useState } from "react";
 import { Icon } from "@/components/app/Icon";
@@ -66,7 +67,7 @@ export function TeamTable({ rows, roles, permissions }: { rows: Row[]; roles: Op
               </tr>
             ))}
             {rows.length === 0 ? (
-              <tr><td colSpan={5} className="empty">No one has been added yet.</td></tr>
+              <tr><td colSpan={5}><EmptyState icon="team" body="No one has been added yet." /></td></tr>
             ) : null}
           </tbody>
         </table>

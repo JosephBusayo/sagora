@@ -33,7 +33,7 @@ export default async function Page() {
       <PageHead title="Payments" subtitle="View your earnings, payout details and transactions." />
       <>
         {rows.length === 0 ? (
-          <EmptyState icon="payments" title="No payments yet" body="Your payment records will appear here after you complete a booking" href="/farmer/book" action="Book a service" />
+          <div className="table-card"><EmptyState icon="payments" title="No payments yet" body="Your payment records will appear here after you complete a booking" href="/farmer/book" action="Book a service" /></div>
         ) : (
           <div className="table-card">
             <table className="table">

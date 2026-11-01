@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
 import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, landLabel } from "@/lib/land";
 import type { Metadata } from "next";
@@ -248,7 +249,7 @@ export default async function Page({ params, searchParams }: {
 
         <h2 className="quotes__heading" id="quotes">Quotes</h2>
         {quotes.length === 0 ? (
-          <p className="empty">No provider has quoted yet. We will email you when one does.</p>
+          <EmptyState icon="quotes" title="No quotes yet" body="No provider has quoted yet. We will email you when one does." />
         ) : (
           <div className="quote-cards">
             {quotes.map((q) => {

@@ -31,13 +31,14 @@ const PILL: Record<string, string> = {
 
 type Filters = { page?: string; service?: string; district?: string; sent?: string };
 const WINDOWS = [{ value: "", label: "All dates" }, { value: "7", label: "Last 7 days" }, { value: "30", label: "Last 30 days" }];
+const daysAgo = (days: number) => new Date(Date.now() - days * 86400000).toISOString();
 
 export default async function Page({ searchParams }: { searchParams: Promise<Filters> }) {
   const { user, business } = await requireWorkspace();
   const sp = await searchParams;
   const all = await listForBusiness(business.id);
   const districts = [...new Set(all.map((q) => q.district))].sort();
-  const since = sp.sent ? new Date(Date.now() - Number(sp.sent) * 86400000).toISOString() : "";
+  const since = sp.sent ? daysAgo(Number(sp.sent)) : "";
   const { rows: quotes, page, pages } = pageOf(all.filter((q) =>
     (!sp.service || q.service === sp.service) && (!sp.district || q.district === sp.district) && q.createdAt >= since,
   ), sp.page);

@@ -32,7 +32,12 @@ fails during the build, before any of this project's code runs.
 **Figma** — the MCP connector, against file `LiwlNONIHcNE1Il3V8pReB`. `get_metadata` on the
 canvas returns every section's node tree and text in one call; `get_design_context` on a frame
 returns resolved colours, type, spacing and shadows. The original file is on a team where
-Joseph holds a View seat, which is rate-limited after a couple of calls — always use the copy.
+Joseph holds a View seat, which is rate-limited after a couple of calls.
+
+**The designer works in the original, `IKwl7vv57oLfLvW7l9afBB`, so new work only appears there.**
+The copy stopped changing on 30 October. `FIGMA_TOKEN` in `.env.local` reads the original through
+the REST API. Frame `113:837` (Requests, empty) is the current standard for the filter pills, top
+bar, page headers and empty states. Node ids differ between the two files.
 
 Section node ids in that file: Home `465:64`, Providers auth `465:719`, Farmers auth
 `465:918`, Requests `465:1117`, Quotes `465:2328`, Jobs `465:2974`, Equipments `465:3605`,

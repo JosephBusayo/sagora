@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
 import { useState } from "react";
 import { Icon } from "@/components/app/Icon";
@@ -26,14 +27,14 @@ export function EquipmentList({ assets, kinds, canEdit }: { assets: AssetView[];
     <>
       <div className="equipment__top">
         <label className="filter">
-          <img src="/icons/funnel.svg" alt="" width={20} height={20} />
+          <img src="/icons/funnel.svg" alt="" width={18} height={18} />
           <span className="sr-only">Availability</span>
           <select value={show} onChange={(e) => setShow(e.target.value)}>
             <option value="">Filter</option>
             <option value="available">Available</option>
             <option value="unavailable">Not available</option>
           </select>
-          <span className="filter__chev" aria-hidden="true"><Icon name="chevron" size={16} /></span>
+          <span className="filter__chev" aria-hidden="true"><Icon name="chevron" size={12} /></span>
         </label>
         {canEdit ? (
           <button type="button" className="button button--inline" onClick={() => setEditing("new")}>
@@ -44,7 +45,7 @@ export function EquipmentList({ assets, kinds, canEdit }: { assets: AssetView[];
       </div>
 
       {assets.length === 0 ? (
-        <div className="table-card"><p className="empty">No machines on your register yet.</p></div>
+        <div className="table-card"><EmptyState icon="equipment" title="No equipment yet" body="No machines on your register yet." /></div>
       ) : (
         <div className="equipment-grid">
           {shown.map((a) => (
