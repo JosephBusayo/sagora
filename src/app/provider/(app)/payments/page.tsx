@@ -27,7 +27,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
     return (
       <Shell crumb={{ label: "Payments", icon: "payments" }} user={{ name: user.name }}>
         <PageHead title="Payments" subtitle="View your earnings, payout details and transactions." />
-        <div className="table-card"><EmptyState icon="payments" body="Only someone with full access can see payments." /></div>
+        <div className="table-card"><EmptyState icon="payments" title="Payments are private" body="Only someone with full access can see payments." /></div>
       </Shell>
     );
   }

@@ -67,7 +67,7 @@ export function TeamTable({ rows, roles, permissions }: { rows: Row[]; roles: Op
               </tr>
             ))}
             {rows.length === 0 ? (
-              <tr><td colSpan={5}><EmptyState icon="team" body="No one has been added yet." /></td></tr>
+              <tr><td colSpan={5}><EmptyState icon="team" title="No team members yet" body="No one has been added yet." /></td></tr>
             ) : null}
           </tbody>
         </table>

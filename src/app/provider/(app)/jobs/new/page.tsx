@@ -15,7 +15,7 @@ export default async function Page() {
   return (
     <Shell crumb={{ label: "Jobs", icon: "jobs" }} user={{ name: user.name }}>
       <PageHead title="Add a private job" subtitle="Work from outside Sagora. It blocks your machines and no one else can see it." />
-      <div className="panel"><PrivateJobForm services={SERVICES} districts={DISTRICTS} /></div>
+      <PrivateJobForm services={SERVICES} districts={DISTRICTS} />
     </Shell>
   );
 }

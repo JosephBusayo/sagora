@@ -57,7 +57,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Fil
         </form>
       } />
       {quotes.length === 0 ? (
-        <div className="table-card"><EmptyState icon="quotes" body="You have not sent any quotes yet. Open a request to send one." href="/provider/requests" action="See requests" /></div>
+        <div className="table-card"><EmptyState icon="quotes" title="No quotes yet" body="You have not sent any quotes yet. Open a request to send one." href="/provider/requests" action="See requests" /></div>
       ) : (
         <div className="table-card">
           <table className="table table--requests">

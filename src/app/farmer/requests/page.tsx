@@ -56,7 +56,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
         <h2 className="home-section__title home-section__title--list">My requests</h2>
         {rows.length === 0 ? (
           <div className="table-card">
-            <EmptyState icon="requests" body="You have not asked for any work yet." href="/farmer/book" action="Book a service" />
+            <EmptyState icon="requests" title="No requests yet" body="You have not asked for any work yet." href="/farmer/book" action="Book a service" />
           </div>
         ) : (
           <div className="table-card">

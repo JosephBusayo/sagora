@@ -28,7 +28,7 @@ type Props = {
 export function SoftForm({ action, children }: Props) {
   const [state, formAction] = useActionState(useSafely(action), {} as FormState);
   return (
-    <form action={formAction} className="form-soft">
+    <form action={formAction} className="form-soft form-soft--page">
       {children(state)}
       {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
       <FormNotice state={state} />

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Sidebar } from "./Sidebar";
+import { SearchBox } from "./SearchBox";
 import { Icon, type IconName } from "./Icon";
 import type { Audience } from "./nav";
 import { signOut } from "@/app/provider/actions";
@@ -43,11 +44,7 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, search, 
             <Icon name={crumb.icon} size={18} />
             <span>{crumb.label}</span>
           </p>
-          {/* A plain GET form, so search works with JavaScript off. */}
-          <form className="topbar__search" action={`${base}/search`} role="search">
-            <img src="/icons/search.svg" alt="" width={18} height={18} />
-            <input key={search} type="search" name="q" defaultValue={search} placeholder="Search requests, jobs, equipments..." aria-label="Search" maxLength={80} />
-          </form>
+          <SearchBox key={search} base={base} initial={search} />
           <div className="topbar__actions">
             <Link
               href={`${base}/notifications`}
@@ -60,13 +57,15 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, search, 
             <Link href={`${base}/settings`} className="topbar__round" aria-label="Settings">
               <Icon name="settings" size={20} />
             </Link>
-            <span className="topbar__user">
+            <Link href={`${base}/settings/account`} className="topbar__user" aria-label={`Account, ${user.name}`}>
               <span className="topbar__avatar" aria-hidden="true">{initial(user.name)}</span>
               <span className="topbar__name" title={user.name}>{shortName(user.name)}</span>
               <span className="topbar__chev"><Icon name="chevron" size={12} /></span>
-            </span>
+            </Link>
           </div>
         </header>
+        {/* Washes out the page while the search box is in use, as the design shows it. */}
+        <div className="app__dim" aria-hidden="true" />
         <main id="main" className="app__content">{children}</main>
       </div>
     </div>

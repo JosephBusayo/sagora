@@ -116,7 +116,7 @@ export default async function Page({
 
         {tab === "collect" ? (
           collect.length === 0 ? (
-            <EmptyState icon="payments" body="No agreed job is waiting for money." />
+            <EmptyState icon="payments" title="Nothing to collect" body="No agreed job is waiting for money." />
           ) : (
             <div className="table-card">
               <table className="table">
@@ -201,7 +201,7 @@ export default async function Page({
 
         {tab === "cases" ? (
           cases.length === 0 ? (
-            <EmptyState icon="payments" body="No payment is stuck. Money that arrives too late shows up here." />
+            <EmptyState icon="payments" title="No stuck payments" body="No payment is stuck. Money that arrives too late shows up here." />
           ) : (
             cases.map((c) => (
               <section key={c.id} className="staff__item">
@@ -282,7 +282,7 @@ export default async function Page({
             ) : null}
 
             {releases.length === 0 ? (
-              <EmptyState icon="payments" body="Nothing is waiting to go out." />
+              <EmptyState icon="payments" title="No payouts waiting" body="Nothing is waiting to go out." />
             ) : (
               releases.map((r) => (
                 <section key={r.id} className="staff__item">
@@ -359,7 +359,7 @@ export default async function Page({
         ) : null}
 
         {tab === "disputes" ? (
-          disputes.length === 0 ? <EmptyState icon="payments" body="No open disputes." /> : (
+          disputes.length === 0 ? <EmptyState icon="payments" title="No open disputes" body="Disputes raised by a farmer or provider will appear here." /> : (
             <>
               {disputes.map((d) => (
                 <section key={d.jobId} className="staff__item">
@@ -416,7 +416,7 @@ export default async function Page({
 
             <h2>Money still held on a finished job</h2>
             {books.heldAfterCompletion.length === 0 ? (
-              <EmptyState icon="payments" body="Nothing. Every finished job has been settled." />
+              <EmptyState icon="payments" title="Everything is settled" body="Every finished job has been settled." />
             ) : (
               <ul className="plain-list">
                 {books.heldAfterCompletion.map((h) => {

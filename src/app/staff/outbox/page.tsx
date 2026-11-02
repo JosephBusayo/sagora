@@ -35,7 +35,7 @@ export default async function Page() {
         </form>
 
         {rows.length === 0 ? (
-          <EmptyState icon="bell" body="Nothing has failed. Every message went out first time." />
+          <EmptyState icon="bell" title="No failed messages" body="Nothing has failed. Every message went out first time." />
         ) : (
           <div className="table-card">
             <table className="table">

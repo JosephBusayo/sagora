@@ -14,7 +14,7 @@ export function RequestsTable({ rows, initialOpen, filtered }: { rows: RequestRo
     return (
       <div className="table-card">
         {filtered
-          ? <EmptyState icon="requests" body="No requests match these filters yet." href="/provider/requests" action="Clear filters" />
+          ? <EmptyState icon="requests" title="No matching requests" body="No requests match these filters yet." href="/provider/requests" action="Clear filters" />
           : <EmptyState icon="requests" title="You have not received any requests yet" body="New requests will appear here" />}
       </div>
     );

@@ -26,7 +26,7 @@ export default async function Page() {
     <Shell crumb={{ label: "Jobs", icon: "jobs" }} user={{ name: user.name }}>
       <PageHead title="Schedule" subtitle="Your machines over the next two weeks" />
       <p className="jobs-links"><Link href="/provider/jobs">Back to jobs</Link></p>
-      {assets.length === 0 ? <div className="table-card"><EmptyState icon="equipment" body="Add equipment to see its schedule." /></div> : (
+      {assets.length === 0 ? <div className="table-card"><EmptyState icon="equipment" title="No equipment yet" body="Add equipment to see its schedule." href="/provider/equipment" action="Go to equipment" /></div> : (
         <div className="table-card schedule">
           <table className="table">
             <thead>

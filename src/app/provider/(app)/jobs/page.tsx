@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/guard";
 import { Shell, PageHead } from "@/components/app/Shell";
-import { Pager, pageOf } from "@/components/app/Pager";
+import { PAGE_LENGTH, Pager, pageOf } from "@/components/app/Pager";
 import { districtLabel } from "@/lib/business";
 import { serviceLabel } from "@/lib/requests";
 import { getAsset, selectableAssets } from "@/lib/equipment";
@@ -16,7 +16,7 @@ import { JobsList, type JobView } from "@/components/jobs/JobsList";
 export const metadata: Metadata = { title: "Jobs" };
 export const dynamic = "force-dynamic";
 
-type Filters = { page?: string; service?: string; district?: string; status?: string };
+type Filters = { page?: string; service?: string; district?: string; status?: string; open?: string };
 
 const fmt = (iso: string | null) =>
   iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : null;
@@ -26,9 +26,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Fil
   const sp = await searchParams;
   const all = await listJobs(business.id);
   const districts = [...new Set(all.map((j) => j.district))].sort();
-  const paged = pageOf(all.filter((j) =>
+  const shown = all.filter((j) =>
     (!sp.service || j.service === sp.service) && (!sp.district || j.district === sp.district) && (!sp.status || j.status === sp.status),
-  ), sp.page);
+  );
+  // A search suggestion links to ?open=REF: show the page that job is on.
+  const openAt = sp.open && !sp.page ? shown.findIndex((j) => j.reference === sp.open) : -1;
+  const paged = pageOf(shown, openAt >= 0 ? String(Math.floor(openAt / PAGE_LENGTH) + 1) : sp.page);
   const members = await listMembers(business.id);
   const available = await selectableAssets(business.id);
 
@@ -107,6 +110,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Fil
         assets={assetOptions}
         operators={members.map((m) => ({ id: m.id, label: m.name }))}
         canEdit={permission !== "view_jobs"}
+        initialOpen={sp.open}
       />
       <Pager page={paged.page} pages={paged.pages} path="/provider/jobs" />
     </Shell>

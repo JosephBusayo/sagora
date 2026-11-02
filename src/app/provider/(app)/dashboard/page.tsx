@@ -128,7 +128,7 @@ export default async function Page() {
           <Link href="/provider/requests" className="home-section__more">See all <Icon name="arrowOut" size={24} /></Link>
         </div>
         {recent.length === 0 ? (
-          <div className="table-card"><EmptyState icon="requests" body="No requests in your area yet." /></div>
+          <div className="table-card"><EmptyState icon="requests" title="No requests yet" body="No requests in your area yet." /></div>
         ) : (
           <div className="table-card">
             <table className="table table--requests">

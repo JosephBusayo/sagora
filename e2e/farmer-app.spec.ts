@@ -236,7 +236,7 @@ test("marking as read empties the unread filter and clears the bell", async ({ p
 
   await page.getByRole("button", { name: "Mark all as read" }).click();
   await expect(page).toHaveURL(/filter=unread/);
-  await expect(page.getByText("Nothing unread. You are up to date.")).toBeVisible();
+  await expect(page.getByText("You are up to date")).toBeVisible();
 
   // The bell is counted from the same place, so it goes quiet too.
   await page.goto("/farmer/home");

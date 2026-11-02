@@ -29,17 +29,17 @@ const PILL: Record<string, string> = {
   cancelled: "cancelled",
 };
 
-export function JobsList({ jobs, assets, operators, canEdit }: {
-  jobs: JobView[]; assets: Option[]; operators: Option[]; canEdit: boolean;
+export function JobsList({ jobs, assets, operators, canEdit, initialOpen }: {
+  jobs: JobView[]; assets: Option[]; operators: Option[]; canEdit: boolean; initialOpen?: string;
 }) {
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(jobs.find((j) => j.reference === initialOpen)?.id ?? null);
   const [scheduling, setScheduling] = useState<JobView | null>(null);
   const [reporting, setReporting] = useState<JobView | null>(null);
   // Looked up each render, so the dialog shows the new state after an action.
   const open = jobs.find((j) => j.id === openId) ?? null;
 
   if (jobs.length === 0) {
-    return <div className="table-card"><EmptyState icon="jobs" body="No work yet. A job appears here when a farmer accepts your quote, or when you add a private job." href="/provider/requests" action="See requests" /></div>;
+    return <div className="table-card"><EmptyState icon="jobs" title="No jobs yet" body="A job appears here when a farmer accepts your quote, or when you add a private job." href="/provider/requests" action="See requests" /></div>;
   }
 
   return (

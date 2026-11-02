@@ -90,7 +90,7 @@ export function FarmerHome({ name, requests }: { name: string; requests: Service
           ) : null}
         </div>
         {requests.length === 0 ? (
-          <div className="table-card"><EmptyState icon="requests" body="You have not asked for any work yet." href="/farmer/book" action="Book a service" /></div>
+          <div className="table-card"><EmptyState icon="requests" title="No requests yet" body="You have not asked for any work yet." href="/farmer/book" action="Book a service" /></div>
         ) : (
           <div className="table-card">
             <table className="table table--requests">

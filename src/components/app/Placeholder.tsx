@@ -27,7 +27,7 @@ export async function Placeholder({
       unread={await unreadCount(user)}
     >
       <PageHead title={title} subtitle="Designed in Figma. Not built yet." />
-      <div className="table-card"><EmptyState icon="reports" body="Nothing here is live. This section is next in the build." /></div>
+      <div className="table-card"><EmptyState icon="reports" title="Coming soon" body="Nothing here is live. This section is next in the build." /></div>
     </Shell>
   );
 }

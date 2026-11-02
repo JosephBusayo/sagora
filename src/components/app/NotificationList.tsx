@@ -50,7 +50,7 @@ export function NotificationList({
 
       {notifications.length === 0 ? (
         <div className="table-card">
-          <EmptyState icon="bell" body={filter === "unread" ? "Nothing unread. You are up to date." : "No notifications yet."} />
+          <EmptyState icon="bell" title={filter === "unread" ? "You are up to date" : "No notifications yet"} body={filter === "unread" ? "Nothing unread." : "Updates on your requests and jobs will appear here."} />
         </div>
       ) : (
         <ul className="notif-list table-card">
