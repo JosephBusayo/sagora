@@ -7,7 +7,7 @@ import "./landing.css";
 export const metadata: Metadata = {
   title: "Sagora — Agricultural services in Sierra Leone",
   description:
-    "Sagora connects farmers with agricultural service providers for ploughing and harvesting, while giving providers the tools to manage their equipment, jobs and payments.",
+    "Sagora connects farmers with agricultural service providers for ploughing, planting and harvesting, while giving providers the tools to manage their equipment, jobs and payments.",
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#f7f8f2" };

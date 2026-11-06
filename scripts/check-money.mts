@@ -217,8 +217,11 @@ console.log("\nPayout");
 
 console.log("\nFees and reconciliation");
 {
-  await ok("no fee is charged while the pilot rate is unapproved", settlement.feeFor(150000, 50) === 0);
+  await ok("the pilot fee is approved at 10% after 20 free jobs",
+    settlement.FEE_POLICY.approved && settlement.FEE_POLICY.pilotPercent === 10 && settlement.FEE_POLICY.freeJobs === 20);
   const live = { ...settlement.FEE_POLICY };
+  settlement.FEE_POLICY.approved = false;
+  await ok("switching the policy off charges no fee", settlement.feeFor(150000, 50) === 0);
   settlement.FEE_POLICY.approved = true;
   await ok("the first 20 jobs are free", settlement.feeFor(150000, 3) === 0);
   await ok("10% applies after that", settlement.feeFor(150000, 20) === 15000);

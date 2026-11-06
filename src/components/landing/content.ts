@@ -98,12 +98,12 @@ export const FAQS: { q: string; answer: string }[] = [
     q: 'What is Sagora?',
     // Reuses the approved hero description rather than inventing new copy.
     answer:
-      'Sagora connects farmers with agricultural service providers for ploughing and harvesting, while giving providers the tools to manage their equipment, jobs and payments.',
+      'Sagora connects farmers with agricultural service providers for ploughing, planting and harvesting, while giving providers the tools to manage their equipment, jobs and payments.',
   },
   {
     q: 'What services can I request on Sagora?',
     answer:
-      'Sagora currently focuses on ploughing and harvesting services, helping farmers find providers for essential work throughout the farming season',
+      'Sagora currently focuses on ploughing, planting and harvesting services, helping farmers find providers for essential work throughout the farming season',
   },
   {
     q: 'Do I need an account to request a service?',

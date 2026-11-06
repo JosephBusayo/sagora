@@ -21,11 +21,11 @@ import { bookingFor } from "./payments";
  */
 
 /**
- * The pilot fee policy from the brief: 10%, waived for the first 20 jobs. It is NOT approved yet
- * (§6.3 asks for a signed policy sheet), so `percent` is 0 and nothing is deducted. The maths is
- * built and tested; when Karim approves the sheet, `approved` becomes true and the rate applies.
+ * The pilot fee policy from the brief: 10%, waived for a provider's first 20 paid jobs. Joseph
+ * approved it on 6 Nov 2026 (§6.3 asked for the policy to be signed off before any fee is taken).
+ * Setting `approved` back to false stops the fee without touching anything already paid.
  */
-export const FEE_POLICY = { approved: false, pilotPercent: 10, freeJobs: 20 };
+export const FEE_POLICY = { approved: true, pilotPercent: 10, freeJobs: 20 };
 
 /** The fee on one release. Rounds down to whole minor units so the provider is never short-paid. */
 export function feeFor(grossMinor: number, completedJobsSoFar: number): number {

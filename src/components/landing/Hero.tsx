@@ -122,7 +122,7 @@ export function Hero({ intro }: { intro: boolean }) {
           variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}
           transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.82 }}
         >
-          Sagora connects farmers with agricultural service providers for ploughing and harvesting, while giving
+          Sagora connects farmers with agricultural service providers for ploughing, planting and harvesting, while giving
           providers the tools to manage their equipment, jobs and payments.
         </motion.p>
 
