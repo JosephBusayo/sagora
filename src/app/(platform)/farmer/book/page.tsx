@@ -1,5 +1,6 @@
 import { ModalShell } from "@/components/app/ModalShell";
 import type { Metadata } from "next";
+import { randomUUID } from "node:crypto";
 import { DISTRICTS, SERVICES, getApprovedBusiness } from "@/lib/business";
 import { requireFarmer } from "@/lib/session";
 import { Shell } from "@/components/app/Shell";
@@ -7,6 +8,7 @@ import { FarmerHome } from "@/components/app/FarmerHome";
 import { BookForm } from "@/components/requests/BookForm";
 import { getById, listForFarmer } from "@/lib/requests";
 import { unreadCount } from "@/lib/notifications";
+import { asTyped } from "@/lib/land-size";
 
 export const metadata: Metadata = { title: "Book a service" };
 export const dynamic = "force-dynamic";
@@ -22,7 +24,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   // "Book again" starts from the finished request. Dates are left out: they have passed.
   const past = again ? await getById(again) : null;
   const previous = past && past.farmerId === farmer.id ? {
-    service: past.service, acres: String(past.acres), landAccess: past.landAccess, landCondition: past.landCondition,
+    service: past.service, ...asTyped(past.acres), landAccess: past.landAccess, landCondition: past.landCondition,
     landClearance: past.landClearance, crop: past.crop, notes: past.notes, district: past.district, village: past.village,
   } : undefined;
 
@@ -36,7 +38,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
       <FarmerHome name={farmer.name} requests={(await listForFarmer(farmer.id)).slice(0, 3)} />
       {/* Rendered by the server over Home, so it opens with JavaScript off. */}
       <ModalShell closeHref="/farmer/home" label="Book a service" className="modal--book">
-        <BookForm services={SERVICES} districts={DISTRICTS} service={previous?.service ?? service} initial={previous} direct={direct} />
+        <BookForm services={SERVICES} districts={DISTRICTS} service={previous?.service ?? service} initial={previous} direct={direct} submissionKey={randomUUID()} />
       </ModalShell>
     </Shell>
   );

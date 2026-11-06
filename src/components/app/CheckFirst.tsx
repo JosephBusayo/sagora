@@ -32,6 +32,12 @@ function linesOf(form: HTMLFormElement): Line[] {
       value = new Date(el.value + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
     } else value = el.value.trim();
     if (!value) continue;
+    // A unit beside a number reads as one answer: "5 hectares", not two lines.
+    if (el.hasAttribute("data-check-append")) {
+      const last = lines[lines.length - 1];
+      if (last) last.value += ` ${value.toLowerCase()}`;
+      continue;
+    }
 
     const label = questionOf(el) || el.name;
     // Several ticks under one question read as one line.

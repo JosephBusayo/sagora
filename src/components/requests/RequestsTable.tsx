@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Icon, ServiceIcon } from "@/components/app/Icon";
 import { RequestModal, type RequestDetail } from "./RequestModal";
 import type { MyQuote } from "./QuoteForm";
+import { landSize } from "@/lib/land-size";
 
 export type RequestRow = RequestDetail & { statusLabel: string; status: string; myQuote: MyQuote | null };
 
@@ -48,7 +49,7 @@ export function RequestsTable({ rows, initialOpen, filtered }: { rows: RequestRo
                 </td>
                 <td>{r.serviceLabel}</td>
                 <td>{r.district}</td>
-                <td>{r.acres} acres</td>
+                <td>{landSize(r.acres)}</td>
                 <td>{r.preferredDate}</td>
                 <td><span className={`pill pill--${r.status}`}>{r.statusLabel}</span></td>
                 <td className="table__actions">

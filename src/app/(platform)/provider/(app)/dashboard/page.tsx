@@ -11,6 +11,7 @@ import { atRiskAssets, listJobs } from "@/lib/jobs";
 import { listAssets, unavailableReason } from "@/lib/equipment";
 import { unreadCount } from "@/lib/notifications";
 import { greeting, todayLong } from "@/lib/greeting";
+import { landSize } from "@/lib/land-size";
 
 export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
@@ -154,7 +155,7 @@ export default async function Page() {
                     </td>
                     <td>{serviceLabel(r.service)}</td>
                     <td>{districtLabel(r.district)}</td>
-                    <td>{r.acres} acres</td>
+                    <td>{landSize(r.acres)}</td>
                     <td>{fmtYear(r.preferredDate)}</td>
                     <td><span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
                     <td className="table__go">

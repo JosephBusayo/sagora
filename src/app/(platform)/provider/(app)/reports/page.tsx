@@ -6,11 +6,12 @@ import { formatAmount } from "@/lib/money";
 import { serviceLabel } from "@/lib/requests";
 import { kindLabel } from "@/lib/equipment";
 import { reportFor } from "@/lib/reports";
+import { landSize } from "@/lib/land-size";
 
 export const metadata: Metadata = { title: "Reports" };
 export const dynamic = "force-dynamic";
 
-const acres = (v: number) => `${Number(v.toFixed(1)).toLocaleString("en-GB")} acres`;
+const acres = (v: number) => landSize(v);
 
 // Not in the design: there is no Reports frame, so this uses the dashboard's overview cards and the tables.
 export default async function Page() {

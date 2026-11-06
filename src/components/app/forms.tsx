@@ -3,6 +3,7 @@
 import { Field } from "@/components/auth/Field";
 import { PasswordField } from "@/components/auth/PasswordField";
 import { saveAccount, saveBusinessDetails, changePassword } from "@/app/(platform)/provider/(app)/settings/actions";
+import Link from "next/link";
 import { Actions, SoftForm } from "./SoftForm";
 
 const SETTINGS = "/provider/settings";
@@ -54,7 +55,7 @@ export function AccountForm({ initial, action = saveAccount, closeHref = SETTING
               <div className="field__box">
                 <input id="acc-email" className="field__input" value={initial.email} readOnly aria-readonly="true" />
               </div>
-              <p className="field__helper">Changing your sign-in email needs a new verification code. That screen isn&apos;t designed yet.</p>
+              <p className="field__helper">This is how you sign in. <Link href={`${closeHref}/email`}>Change email</Link></p>
             </div>
             <Actions closeHref={closeHref} />
           </>

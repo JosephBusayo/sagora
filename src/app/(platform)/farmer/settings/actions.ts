@@ -8,6 +8,7 @@ import { APIError } from "better-auth/api";
 import { auth } from "@/lib/auth";
 import { requireFarmer } from "@/lib/session";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
+import { confirmEmailChange, resendEmailChange, startEmailChange } from "@/lib/email-change";
 import { setNotice } from "@/lib/pending";
 import type { FormState } from "@/lib/auth-flows";
 
@@ -65,4 +66,21 @@ export async function changeFarmerPassword(_prev: FormState, fd: FormData): Prom
   await auth.api.signOut({ headers: await headers() });
   await setNotice("password-changed");
   redirect("/farmer/sign-in");
+}
+
+/* ----------------------------------------------------------- change email */
+
+export async function startEmailChangeAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireFarmer();
+  return startEmailChange(user, fd, "/farmer/settings/email?step=code");
+}
+
+export async function resendEmailChangeAction(): Promise<FormState> {
+  const user = await requireFarmer();
+  return resendEmailChange(user);
+}
+
+export async function confirmEmailChangeAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireFarmer();
+  return confirmEmailChange(user, fd, "/farmer/settings/account", "/farmer/settings/email");
 }

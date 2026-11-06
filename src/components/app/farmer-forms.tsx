@@ -3,6 +3,7 @@
 import { Field } from "@/components/auth/Field";
 import { PasswordField } from "@/components/auth/PasswordField";
 import { saveFarmerAccount, changeFarmerPassword } from "@/app/(platform)/farmer/settings/actions";
+import Link from "next/link";
 import { Actions, SoftForm } from "./SoftForm";
 
 const SETTINGS = "/farmer/settings";
@@ -29,7 +30,7 @@ export function FarmerAccountForm({ initial }: { initial: { name: string; phone:
                 <input id="farmer-email" className="field__input" value={initial.email} readOnly aria-readonly="true" />
               </div>
               <p className="field__helper">
-                This is how you sign in. Changing it needs a new verification code, which isn&apos;t built yet.
+                This is how you sign in. <Link href={`${SETTINGS}/email`}>Change email</Link>
               </p>
             </div>
             <Actions closeHref={SETTINGS} />

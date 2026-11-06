@@ -14,6 +14,7 @@ import { acceptQuote, getQuote } from "@/lib/quotes";
 import { createRequest, getById, logContact, providersCovering } from "@/lib/requests";
 import { requireStaff } from "@/lib/session";
 import { db } from "@/lib/db";
+import { landSize, landUnit, toAcres } from "@/lib/land-size";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const today = () => new Date().toISOString().slice(0, 10);
@@ -27,7 +28,7 @@ const schema = z.object({
   mayAccept: z.string().min(2, "Name who may accept a quote").max(100),
   service: z.string().refine(oneOf(SERVICES), "Choose the work"),
   crop: z.string().max(60),
-  acres: z.coerce.number().positive("Enter the size in acres").max(10000, "That looks too large"),
+  acres: z.coerce.number().positive("Enter the land size").max(10000, "That looks too large"),
   landAccess: z.string().refine(oneOf(LAND_ACCESS), "Choose the land access"),
   landCondition: z.string().refine((v) => !v || oneOf(LAND_CONDITION)(v), "Choose the land condition"),
   landClearance: z.string().refine(oneOf(LAND_CLEARANCE), "Choose the land clearance"),
@@ -46,14 +47,16 @@ export async function createAssistedAction(_prev: FormState, fd: FormData): Prom
   if (!parsed.success) for (const i of parsed.error.issues) fieldErrors[String(i.path[0])] ??= i.message;
   if (needsCrop(values.service) && values.crop.length < 2) fieldErrors.crop = cropMissing(values.service);
   if (!fieldErrors.district && !chiefdomFits(values.district, values.chiefdom)) fieldErrors.chiefdom = "Choose the chiefdom";
-  if (!parsed.success || Object.keys(fieldErrors).length) return { fieldErrors, values };
+  if (!parsed.success || Object.keys(fieldErrors).length) return { fieldErrors, values: { ...values, unit: str(fd, "unit") } };
 
   const d = parsed.data;
+  const acres = toAcres(d.acres, landUnit(str(fd, "unit")));
   const created = await createRequest(null, {
-    service: d.service, acres: d.acres, landAccess: d.landAccess, landCondition: d.landCondition, landClearance: d.landClearance,
+    service: d.service, acres, landAccess: d.landAccess, landCondition: d.landCondition, landClearance: d.landClearance,
     crop: needsCrop(d.service) ? d.crop : "", preferredDate: d.preferredDate, alternateDate: null,
     district: d.district, chiefdom: d.chiefdom, village: d.village, notes: d.notes,
     contactName: d.farmerName, contactPhone: d.callerPhone, contactEmail: "",
+    submissionKey: str(fd, "submissionKey"),
     assisted: { by: staff.id, callerName: d.callerName, callerRelation: d.callerRelation, mayAccept: d.mayAccept },
   });
   for (const p of await providersCovering(d)) {
@@ -62,7 +65,7 @@ export async function createAssistedAction(_prev: FormState, fd: FormData): Prom
       dedupeKey: `request.new:${created.id}:${p.businessId}`,
       to: p.email,
       subject: `New request ${created.reference} in ${d.district}`,
-      text: `A farmer in ${d.district} is asking for ${d.service} on ${d.acres} acres. Sign in to Sagora to send a quote.`,
+      text: `A farmer in ${d.district} is asking for ${d.service} on ${landSize(acres)}. Sign in to Sagora to send a quote.`,
     });
   }
   redirect(`/staff/requests/${created.id}`);

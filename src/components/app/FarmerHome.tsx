@@ -4,6 +4,7 @@ import { Icon, ServiceIcon, type IconName } from "@/components/app/Icon";
 import { districtLabel } from "@/lib/business";
 import { STATUS_LABEL, serviceLabel, type ServiceRequest } from "@/lib/requests";
 import { greeting, todayLong } from "@/lib/greeting";
+import { landSize } from "@/lib/land-size";
 
 const fmt = (iso: string) =>
   new Date(iso + (iso.length === 10 ? "T00:00:00Z" : "")).toLocaleDateString("en-GB", {
@@ -123,7 +124,7 @@ export function FarmerHome({ name, requests }: { name: string; requests: Service
                     </td>
                     <td>{serviceLabel(r.service)}</td>
                     <td>{districtLabel(r.district)}</td>
-                    <td>{r.acres} acres</td>
+                    <td>{landSize(r.acres)}</td>
                     <td>{fmt(r.preferredDate)}</td>
                     <td><span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
                     <td className="table__go"><Icon name="chevron" size={22} /></td>

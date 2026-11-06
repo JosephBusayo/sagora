@@ -14,6 +14,7 @@ import { requireStaff } from "@/lib/session";
 import { StaffShell } from "@/components/staff/StaffShell";
 import { PageHead } from "@/components/app/Shell";
 import { acceptOnBehalfAction, confirmOnBehalfAction, logContactAction } from "../../assisted-actions";
+import { landSize } from "@/lib/land-size";
 
 export const metadata: Metadata = { title: "Assisted request" };
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <dt>Farmer</dt><dd>{r.contactName}</dd>
           <dt>Called by</dt><dd>{r.callerName} ({r.callerRelation}) · {r.contactPhone}</dd>
           <dt>May accept</dt><dd>{r.mayAccept}</dd>
-          <dt>Work</dt><dd>{serviceLabel(r.service)}{r.crop ? `, ${r.crop}` : ""}, {r.acres} acres</dd>
+          <dt>Work</dt><dd>{serviceLabel(r.service)}{r.crop ? `, ${r.crop}` : ""}, {landSize(r.acres)}</dd>
           <dt>Where</dt><dd>{placeLine(r.village, r.chiefdom, districtLabel(r.district))}</dd>
           <dt>Land</dt><dd>{landLabel(LAND_ACCESS, r.landAccess)} · {landLabel(LAND_CONDITION, r.landCondition)} · {landLabel(LAND_CLEARANCE, r.landClearance)}</dd>
         </dl>

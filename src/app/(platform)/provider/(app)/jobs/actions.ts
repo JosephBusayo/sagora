@@ -11,6 +11,7 @@ import { audit, DISTRICTS, SERVICES } from "@/lib/business";
 import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
 import type { FormState } from "@/lib/auth-flows";
+import { landSize, landUnit, toAcres } from "@/lib/land-size";
 
 const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String(fd.get(k)).trim() : "");
 
@@ -93,7 +94,7 @@ export async function reportWorkAction(_prev: FormState, fd: FormData): Promise<
       to: row.email,
       subject: `${business.name} has reported the work on ${row.reference}`,
       text:
-        `${business.name} says they have finished ${acres} acres on ${row.reference}.\n\n` +
+        `${business.name} says they have finished ${landSize(acres)} on ${row.reference}.\n\n` +
         `${note ? `Their note: ${note}\n\n` : ""}` +
         `Sign in to confirm the work was done, or raise a concern. Nothing is settled until you do.`,
     });
@@ -114,7 +115,7 @@ const privateJob = z.object({
   customerName: z.string().min(2, "Enter the customer's name").max(100, "Use 100 characters or fewer"),
   customerPhone: z.string().max(30, "Use 30 characters or fewer"),
   service: z.string().refine((v) => SERVICES.some((s) => s.id === v), "Choose the work"),
-  acres: z.coerce.number().positive("Enter the size in acres").max(10000, "That looks too large"),
+  acres: z.coerce.number().positive("Enter the land size").max(10000, "That looks too large"),
   district: z.enum(DISTRICTS, { error: "Choose the district" }),
   village: z.string().min(2, "Enter the village or town").max(100, "Use 100 characters or fewer"),
   notes: z.string().max(500, "Use 500 characters or fewer"),
@@ -124,13 +125,13 @@ export async function createPrivateJobAction(_prev: FormState, fd: FormData): Pr
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return { error: "You do not have permission to add work." };
 
-  const values = Object.fromEntries(["customerName", "customerPhone", "service", "acres", "district", "village", "notes"].map((k) => [k, str(fd, k)]));
+  const values = Object.fromEntries(["customerName", "customerPhone", "service", "acres", "unit", "district", "village", "notes"].map((k) => [k, str(fd, k)]));
   const parsed = privateJob.safeParse(values);
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
     for (const i of parsed.error.issues) fieldErrors[String(i.path[0])] ??= i.message;
     return { fieldErrors, values };
   }
-  await createPrivateJob(business.id, user.id, parsed.data);
+  await createPrivateJob(business.id, user.id, { ...parsed.data, acres: toAcres(parsed.data.acres, landUnit(values.unit)) });
   redirect("/provider/jobs");
 }

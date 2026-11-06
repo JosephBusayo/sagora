@@ -23,6 +23,7 @@ import { releasesFor } from "@/lib/settlement";
 import { Shell } from "@/components/app/Shell";
 import { Icon } from "@/components/app/Icon";
 import { unreadCount } from "@/lib/notifications";
+import { landSize } from "@/lib/land-size";
 
 export const metadata: Metadata = { title: "Request" };
 export const dynamic = "force-dynamic";
@@ -97,7 +98,7 @@ export default async function Page({ params, searchParams }: {
             <dl className="request-rows">
               <Detail label="Request ID" value={request.reference} />
               <Detail label="Requested on" value={fmtTime(request.createdAt)} />
-              <Detail label="Land size" value={`${request.acres} acres`} />
+              <Detail label="Land size" value={landSize(request.acres)} />
               <Detail label="Location" value={placeLine(request.village, request.chiefdom, districtLabel(request.district))} />
               <Detail label="Preferred start date" value={fmt(request.preferredDate)} />
               {request.crop ? <Detail label="Crop" value={request.crop} /> : null}
@@ -228,7 +229,7 @@ export default async function Page({ params, searchParams }: {
             {job.status === "work_reported" ? (
               <>
                 <p>
-                  The provider reports <strong>{job.reportedAcres} acres</strong> done.
+                  The provider reports <strong>{landSize(job.reportedAcres)}</strong> done.
                   {job.workNote ? ` Their note: ${job.workNote}` : ""}
                 </p>
                 <p className="field__helper">Nothing is settled until you confirm. If something is wrong, say so instead.</p>
@@ -250,7 +251,7 @@ export default async function Page({ params, searchParams }: {
               </>
             ) : null}
 
-            {job.status === "completed" ? <p className="field__helper">You confirmed {job.reportedAcres} acres.</p> : null}
+            {job.status === "completed" ? <p className="field__helper">You confirmed {landSize(job.reportedAcres)}.</p> : null}
             {job.status === "disputed" ? <p className="field__helper">Your concern: {job.concern}</p> : null}
           </section>
         ) : null}
@@ -268,7 +269,7 @@ export default async function Page({ params, searchParams }: {
                   <div className="offer__price">
                     <div>
                       <p className="offer__amount">{formatAmount(q.amountMinor)}</p>
-                      <p>Total price for {serviceLabel(request.service).toLowerCase()} {request.acres} acres</p>
+                      <p>Total price for {serviceLabel(request.service).toLowerCase()} {landSize(request.acres)}</p>
                     </div>
                     {q.status === "sent" && !expired ? <span className="pill pill--in_progress">Pending approval</span> : null}
                   </div>

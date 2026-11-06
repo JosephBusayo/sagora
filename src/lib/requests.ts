@@ -104,7 +104,12 @@ export type NewRequest = {
   contactName: string;
   contactPhone: string;
   contactEmail: string;
+  /** The form's own key, the same on every send of that form. See migration 011. */
+  submissionKey?: string | null;
 };
+
+/** A key the server made for a form: anything else is ignored rather than trusted. */
+export const isSubmissionKey = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v);
 
 /** How long an identical request counts as a resubmission of the first, not a new one. */
 const RESUBMIT_WINDOW_MS = 10 * 60_000;
@@ -113,7 +118,18 @@ export async function createRequest(farmerId: string | null, input: NewRequest):
   const now = new Date().toISOString();
   const id = randomUUID();
   // One transaction, so a reference is never allocated without the request it belongs to.
+  const owner = input.assisted?.by ?? farmerId;
+  let key = input.submissionKey && isSubmissionKey(input.submissionKey) ? input.submissionKey : null;
   const reference = await db.tx(async (t) => {
+    // The same form sent again: the request it already made, whatever happened to the first reply.
+    const sentBefore = async () => key ? await t.get(`SELECT id, reference, farmer_id, assisted_by FROM service_request WHERE submission_key=?`, key) as
+      { id: string; reference: string; farmer_id: string | null; assisted_by: string | null } | undefined : undefined;
+    const before = await sentBefore();
+    if (before) {
+      // A key only ever answers for whoever made it.
+      if ((before.assisted_by ?? before.farmer_id) === owner) return { existing: before.id, reference: before.reference };
+      key = null;
+    }
     // A farmer whose connection dropped and who sends the same form again gets the request they
     // already made, not a second one with its own reference.
     if (farmerId && !input.assisted) {
@@ -125,15 +141,20 @@ export async function createRequest(farmerId: string | null, input: NewRequest):
       if (same) return { existing: same.id, reference: same.reference };
     }
     const next = await nextReference(t);
-    await t.run(`INSERT INTO service_request
+    const inserted = await t.run(`INSERT INTO service_request
         (id, reference, farmer_id, contact_name, contact_phone, contact_email, service, acres,
          land_access, land_condition, land_clearance, crop, direct_to, assisted_by, caller_name, caller_relation, may_accept,
-         preferred_date, alternate_date, district, chiefdom, village, notes, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, next, farmerId, input.contactName, input.contactPhone, input.contactEmail,
+         preferred_date, alternate_date, district, chiefdom, village, notes, submission_key, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`, id, next, farmerId, input.contactName, input.contactPhone, input.contactEmail,
       input.service, input.acres, input.landAccess, input.landCondition, input.landClearance, input.crop ?? "", input.directTo ?? null,
       input.assisted?.by ?? null, input.assisted?.callerName ?? "", input.assisted?.callerRelation ?? "", input.assisted?.mayAccept ?? "",
       input.preferredDate, input.alternateDate, input.district, input.chiefdom ?? "",
-      input.village, input.notes, now, now);
+      input.village, input.notes, key, now, now);
+    if (!inserted.changes) {
+      // Both sends arrived together and the other one saved first.
+      const other = await sentBefore();
+      if (other) return { existing: other.id, reference: other.reference };
+    }
     return { existing: null, reference: next };
   });
   if (reference.existing) return (await getById(reference.existing))!;

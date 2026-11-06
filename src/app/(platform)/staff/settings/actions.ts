@@ -9,6 +9,7 @@ import { auth } from "@/lib/auth";
 import { clearForUser } from "@/lib/mfa";
 import { requireStaff } from "@/lib/session";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
+import { confirmEmailChange, resendEmailChange, startEmailChange } from "@/lib/email-change";
 import { setNotice } from "@/lib/pending";
 import type { FormState } from "@/lib/auth-flows";
 
@@ -64,4 +65,21 @@ export async function changeStaffPassword(_prev: FormState, fd: FormData): Promi
   await auth.api.signOut({ headers: await headers() });
   await setNotice("password-changed");
   redirect("/staff/sign-in");
+}
+
+/* ----------------------------------------------------------- change email */
+
+export async function startEmailChangeAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireStaff();
+  return startEmailChange(user, fd, "/staff/settings/email?step=code");
+}
+
+export async function resendEmailChangeAction(): Promise<FormState> {
+  const user = await requireStaff();
+  return resendEmailChange(user);
+}
+
+export async function confirmEmailChangeAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const user = await requireStaff();
+  return confirmEmailChange(user, fd, "/staff/settings/account", "/staff/settings/email");
 }

@@ -10,6 +10,7 @@ import { useFormStatus } from "react-dom";
 import { scheduleJobAction } from "@/app/(platform)/provider/(app)/jobs/actions";
 import type { FormState } from "@/lib/auth-flows";
 import type { JobView, Option } from "./JobsList";
+import { landSize } from "@/lib/land-size";
 
 function Buttons({ onClose }: { onClose: () => void }) {
   const { pending } = useFormStatus();
@@ -47,7 +48,7 @@ export function ScheduleModal({ job, assets, operators, onClose }: {
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="sched-title" ref={ref}>
         <div className="modal__head">
           <h2 id="sched-title">Schedule {job.reference}</h2>
-          <p>{job.serviceLabel} · {job.acres} acres · {job.village}, {job.district}</p>
+          <p>{job.serviceLabel} · {landSize(job.acres)} · {job.village}, {job.district}</p>
         </div>
         <form action={action} className="form-soft">
           <CheckFirst title="Check the plan" action="Confirm plan" />

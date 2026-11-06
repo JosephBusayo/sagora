@@ -10,6 +10,8 @@ import { bookService, type BookState } from "@/app/(platform)/farmer/book/action
 import { Field } from "@/components/auth/Field";
 import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, landLabel, needsCrop } from "@/lib/land";
 import { chiefdomsOf } from "@/lib/chiefdoms";
+import { landSize, landUnit, toAcres } from "@/lib/land-size";
+import { LandSizeField } from "./LandSizeField";
 
 type Option = { id: string; label: string };
 
@@ -43,7 +45,7 @@ function Select({ name, label, options, placeholder, error, initial = "", icon, 
 }
 
 /** Every answer, carried to the next submit. */
-const FIELDS = ["service", "acres", "landAccess", "landCondition", "landClearance", "crop", "district", "chiefdom", "village", "preferredDate", "alternateDate", "notes"] as const;
+const FIELDS = ["service", "acres", "unit", "landAccess", "landCondition", "landClearance", "crop", "district", "chiefdom", "village", "preferredDate", "alternateDate", "notes"] as const;
 
 const longDate = (iso: string) =>
   new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
@@ -57,7 +59,7 @@ function Summary({ v, serviceName }: { v: Record<string, string>; serviceName: s
   return (
     <div className="detail-list book__summary">
       <Row label="Service" value={serviceName} />
-      <Row label="Land size" value={`${v.acres} acres`} />
+      <Row label="Land size" value={landSize(toAcres(Number(v.acres), landUnit(v.unit)))} />
       {v.crop ? <Row label="Crop" value={v.crop} /> : null}
       <Row label="Land access" value={landLabel(LAND_ACCESS, v.landAccess)} />
       {v.landCondition ? <Row label="Land condition" value={landLabel(LAND_CONDITION, v.landCondition)} /> : null}
@@ -123,7 +125,7 @@ function Notes({ value, error, service }: { value?: string; error?: string; serv
  * Two steps, as the design draws them (465:11158, 465:11454). Each step is a real submit and the
  * first step's answers travel as hidden fields, so the flow works with JavaScript off.
  */
-export function BookForm({ services, districts, service = "", requestId, initial, direct }: {
+export function BookForm({ services, districts, service = "", requestId, initial, direct, submissionKey }: {
   services: readonly Option[]; districts: readonly string[];
   /** Pre-chosen from the home screen's "Book ploughing" / "Book harvesting" tiles. */
   service?: string;
@@ -133,6 +135,8 @@ export function BookForm({ services, districts, service = "", requestId, initial
   initial?: Record<string, string>;
   /** Set when the farmer came from one provider's link. It stays with them. */
   direct?: { id: string; name: string };
+  /** Made once when the page is drawn and sent on every step, so a repeated send finds the first request. */
+  submissionKey?: string;
 }) {
   const [state, action] = useActionState(useSafely(bookService), {} as BookState);
   const e = state.fieldErrors ?? {};
@@ -174,6 +178,7 @@ export function BookForm({ services, districts, service = "", requestId, initial
       <input type="hidden" name="step" value={step} />
       {requestId ? <input type="hidden" name="requestId" value={requestId} /> : null}
       {direct ? <input type="hidden" name="directTo" value={direct.id} /> : null}
+      {submissionKey ? <input type="hidden" name="submissionKey" value={submissionKey} /> : null}
 
       {step === 1 ? (
         <>
@@ -183,14 +188,7 @@ export function BookForm({ services, districts, service = "", requestId, initial
           {label ? <input type="hidden" name="service" value={chosen} /> : (
             <Select name="service" label="What work do you need?" options={services} placeholder="Select the work" error={e.service} onChange={setPicked} />
           )}
-          <div className={`field${e.acres ? " field--invalid" : ""}`}>
-            <label className="field__label" htmlFor="f-acres">Land size</label>
-            <div className="field__box">
-              <input id="f-acres" name="acres" className="field__input" inputMode="numeric" placeholder="Land size" defaultValue={v.acres} />
-              <span className="field__suffix">Acres</span>
-            </div>
-            {e.acres ? <p className="field__error">{e.acres}</p> : null}
-          </div>
+          <LandSizeField value={v.acres} unit={v.unit} error={e.acres} />
           {needsCrop(work) ? <Field name="crop" label="Crop" placeholder="For example, rice" maxLength={60} defaultValue={v.crop} error={e.crop} /> : null}
           <Notes value={v.notes} error={e.notes} service={work} />
           <Chips name="landAccess" label="Land access" options={LAND_ACCESS} initial={v.landAccess} error={e.landAccess} />
@@ -199,7 +197,7 @@ export function BookForm({ services, districts, service = "", requestId, initial
         </>
       ) : step === 2 ? (
         <>
-          {(["service", "acres", "landAccess", "landCondition", "landClearance", "crop"] as const).map((k) => (
+          {(["service", "acres", "unit", "landAccess", "landCondition", "landClearance", "crop"] as const).map((k) => (
             <input key={k} type="hidden" name={k} value={v[k] ?? ""} />
           ))}
           <Select icon="pin" name="district" label="District" options={districts.map((d) => ({ id: d, label: d }))} placeholder="Select a district" error={e.district} initial={v.district} onChange={setPickedDistrict} />

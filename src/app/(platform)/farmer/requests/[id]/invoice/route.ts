@@ -7,6 +7,7 @@ import { formatAmount } from "@/lib/money";
 import { agreementFor } from "@/lib/quotes";
 import { bookingFor, methodLabel, paymentsFor } from "@/lib/payments";
 import { getById, serviceLabel } from "@/lib/requests";
+import { landSize } from "@/lib/land-size";
 
 /** The invoice for a booked job, for the farmer who owns it and nobody else. */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -26,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       { label: "Date", value: booking.confirmedAt.slice(0, 10) },
       { label: "Farmer", value: farmer.name },
       { label: "Provider", value: provider?.name ?? "" },
-      { label: "Service", value: `${serviceLabel(request.service)}, ${request.acres} acres` },
+      { label: "Service", value: `${serviceLabel(request.service)}, ${landSize(request.acres)}` },
       ...(request.crop ? [{ label: "Crop", value: request.crop }] : []),
       { label: "Location", value: `${request.village}, ${districtLabel(request.district)}` },
       { label: "Covers", value: agreement.includes },

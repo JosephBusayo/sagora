@@ -46,10 +46,14 @@ async function fresh(browser: Browser) {
 }
 const inDays = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
 
-async function book(page: Page, opts: { service: string; acres: string; district: string; village: string; days: number; notes?: string }) {
+type Booking = { service: string; acres: string; unit?: string; district: string; village: string; days: number; notes?: string };
+
+/** Everything up to the summary, without sending it. */
+async function fillBooking(page: Page, opts: Booking) {
   await page.goto("/farmer/book");
   await page.getByLabel("What work do you need?").selectOption(opts.service);
   await page.getByLabel("Land size").fill(opts.acres);
+  if (opts.unit) await page.getByLabel("Unit").selectOption(opts.unit);
   await page.getByLabel("Easy access").check();
   await page.getByLabel("Cleared").check();
   await page.getByRole("button", { name: "Continue" }).click();
@@ -59,6 +63,10 @@ async function book(page: Page, opts: { service: string; acres: string; district
   await page.getByLabel("Preferred start date").fill(inDays(opts.days));
   if (opts.notes) await page.getByLabel("Additional notes").fill(opts.notes);
   await page.getByRole("button", { name: "Continue" }).click();
+}
+
+async function book(page: Page, opts: Booking) {
+  await fillBooking(page, opts);
   await page.getByRole("button", { name: "Send request" }).click();
 }
 
@@ -233,6 +241,36 @@ test("sending the same request again after a dropped connection does not make a 
   expect(second).toBe(first);
   const rows = await testGet(`SELECT COUNT(*) AS n FROM service_request WHERE village='Retry Village'`) as { n: number | string };
   expect(Number(rows.n)).toBe(1);
+});
+
+test("the same form sent twice makes one request, even when the second copy differs", async ({ page }) => {
+  await signInFarmer(page);
+  await fillBooking(page, { service: "ploughing", acres: "3", district: "Bombali", village: "Keyed Village", days: 32 });
+  const sent = page.waitForRequest((r) => r.method() === "POST" && !!r.headers()["next-action"]);
+  await page.getByRole("button", { name: "Send request" }).click();
+  const first = await sent;
+  await expect(page).toHaveURL(/new=SG-/);
+
+  // The same send again, as a retry would, but with another village: the form's key, not its
+  // content, is what makes it the same request.
+  const body = first.postDataBuffer()!.toString("latin1").replace("Keyed Village", "Keyed Hamlet");
+  const headers = { ...first.headers() };
+  delete headers["content-length"];
+  const again = await page.request.post(first.url(), { headers, data: Buffer.from(body, "latin1"), maxRedirects: 0 });
+  expect(again.status()).toBeLessThan(500);
+  const n = await testGet(`SELECT COUNT(*) AS n FROM service_request WHERE village LIKE 'Keyed %'`) as { n: number | string };
+  expect(Number(n.n)).toBe(1);
+});
+
+test("a farmer can give the land size in hectares, and both units are shown", async ({ page }) => {
+  await signInFarmer(page);
+  await fillBooking(page, { service: "ploughing", acres: "2", unit: "hectares", district: "Bombali", village: "Hectare Village", days: 34 });
+  await expect(page.getByText("4.94 acres (2 ha)")).toBeVisible();
+  await page.getByRole("button", { name: "Send request" }).click();
+  await expect(page).toHaveURL(/new=SG-/);
+  const row = await testGet(`SELECT acres FROM service_request WHERE village='Hectare Village'`) as { acres: number };
+  expect(Number(row.acres)).toBeCloseTo(4.9421, 4);
+  await expect(page.getByText("4.94 acres (2 ha)").first()).toBeVisible();
 });
 
 test("a farmer can withdraw a request, and it leaves the provider list", async ({ page, browser }) => {

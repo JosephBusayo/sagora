@@ -7,6 +7,7 @@ import { Shell, PageHead } from "@/components/app/Shell";
 import { BookForm } from "@/components/requests/BookForm";
 import { getById } from "@/lib/requests";
 import { unreadCount } from "@/lib/notifications";
+import { asTyped } from "@/lib/land-size";
 
 export const metadata: Metadata = { title: "Edit details" };
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             service={request.service}
             requestId={request.id}
             initial={{
-              service: request.service, acres: String(request.acres), landAccess: request.landAccess,
+              service: request.service, ...asTyped(request.acres), landAccess: request.landAccess,
               landCondition: request.landCondition, landClearance: request.landClearance, crop: request.crop, notes: request.notes,
               district: request.district, chiefdom: request.chiefdom, village: request.village, preferredDate: request.preferredDate,
               alternateDate: request.alternateDate ?? "",

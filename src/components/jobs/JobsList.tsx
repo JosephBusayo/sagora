@@ -8,6 +8,7 @@ import { Icon, ServiceIcon, type IconName } from "@/components/app/Icon";
 import { ScheduleModal } from "./ScheduleModal";
 import { ReportModal } from "./ReportModal";
 import { noReplacementAction, startWorkAction } from "@/app/(platform)/provider/(app)/jobs/actions";
+import { landSize } from "@/lib/land-size";
 
 export type Option = { id: string; label: string };
 export type JobView = {
@@ -115,7 +116,7 @@ function JobModal({ job: j, canEdit, onClose, onSchedule, onReport }: {
           </div>
           <div className="detail-list">
             <Row icon="serviceType" label="Service type" value={j.serviceLabel} />
-            <Row icon="farmSize" label="Farm size" value={`${j.acres} acres`} />
+            <Row icon="farmSize" label="Farm size" value={landSize(j.acres)} />
             <Row icon="calendar" label="Scheduled date" value={j.startDate ? `${j.startDate} to ${j.endDate}` : "Not scheduled"} />
             <Row icon="pin" label="District" value={j.district} />
             <Row icon="village" label="Community / Village" value={j.village} />
@@ -145,14 +146,14 @@ function JobModal({ job: j, canEdit, onClose, onSchedule, onReport }: {
 
           {j.status === "work_reported" ? (
             <p className="field__helper">
-              You reported {j.reportedAcres} acres. Waiting for the farmer to confirm.
+              You reported {landSize(j.reportedAcres)}. Waiting for the farmer to confirm.
             </p>
           ) : null}
           {j.status === "disputed" ? (
             <p className="notice notice--error" role="status">The farmer raised a concern: {j.concern}</p>
           ) : null}
           {j.status === "completed" ? (
-            <p className="field__helper">{j.privateCustomer ? `Finished: ${j.reportedAcres} acres.` : `The farmer confirmed ${j.reportedAcres} acres.`}</p>
+            <p className="field__helper">{j.privateCustomer ? `Finished: ${landSize(j.reportedAcres)}.` : `The farmer confirmed ${landSize(j.reportedAcres)}.`}</p>
           ) : null}
 
           {canEdit ? (

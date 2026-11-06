@@ -61,6 +61,9 @@ export const auth = betterAuth({
       sendVerificationOnSignUp: true,
       overrideDefaultEmailVerification: true,
       rateLimit: { window: 60, max: 3 },
+      // Settings > Account > Change email: the code goes to the new address, and only once it
+      // is entered does the email change. The current password is checked before any code is sent.
+      changeEmail: { enabled: true },
       async sendVerificationOTP({ email, otp, type }) {
         // Saved to the outbox, which then sends. Sign-up never fails because email did.
         await notify({

@@ -8,6 +8,7 @@ import { useActionState, useState } from "react";
 import { chiefdomsOf } from "@/lib/chiefdoms";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
+import { LandSizeField } from "@/components/requests/LandSizeField";
 import { createAssistedAction } from "@/app/(platform)/staff/assisted-actions";
 import type { FormState } from "@/lib/auth-flows";
 
@@ -37,8 +38,10 @@ function Select({ name, label, options, placeholder, value, error, icon, onChang
   );
 }
 
-export function AssistedForm({ services, districts, access, condition, clearance }: {
+export function AssistedForm({ services, districts, access, condition, clearance, submissionKey }: {
   services: readonly Option[]; districts: readonly string[]; access: readonly Option[]; condition: readonly Option[]; clearance: readonly Option[];
+  /** Made when the page is drawn, so the same form sent twice makes one request. */
+  submissionKey: string;
 }) {
   const [state, action] = useActionState(useSafely(createAssistedAction), {} as FormState);
   const e = state.fieldErrors ?? {};
@@ -50,6 +53,7 @@ export function AssistedForm({ services, districts, access, condition, clearance
   return (
     <form action={action} className="form-soft">
       <CheckFirst title="Check the request" action="Create request" />
+      <input type="hidden" name="submissionKey" value={submissionKey} />
       <Field name="callerName" label="Who called" defaultValue={v.callerName} error={e.callerName} />
       <Field name="callerPhone" label="Number to call back" type="tel" defaultValue={v.callerPhone} error={e.callerPhone} />
       <Field name="callerRelation" label="Who they are to the farmer" placeholder="For example, the farmer, or their son" defaultValue={v.callerRelation} error={e.callerRelation} />
@@ -57,7 +61,7 @@ export function AssistedForm({ services, districts, access, condition, clearance
       <Field name="mayAccept" label="Who may accept a quote" defaultValue={v.mayAccept} error={e.mayAccept} />
       <Select name="service" label="Service" options={services} placeholder="Select the work" value={v.service} error={e.service} />
       <Field name="crop" label="Crop (for harvesting or planting)" required={false} defaultValue={v.crop} error={e.crop} />
-      <Field name="acres" label="Land size (acres)" inputMode="numeric" defaultValue={v.acres} error={e.acres} />
+      <LandSizeField id="a-acres" value={v.acres} unit={v.unit} error={e.acres} />
       <Select name="landAccess" label="Land access" options={access} placeholder="Select" value={v.landAccess} error={e.landAccess} />
       <Select name="landCondition" label="Land condition (optional)" options={condition} placeholder="Select" value={v.landCondition} error={e.landCondition} />
       <Select name="landClearance" label="Land clearance" options={clearance} placeholder="Select" value={v.landClearance} error={e.landClearance} />

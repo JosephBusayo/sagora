@@ -12,6 +12,7 @@ import { formatAmount } from "@/lib/money";
 import { serviceLabel } from "@/lib/requests";
 import { unreadCount } from "@/lib/notifications";
 import { bookingFor } from "@/lib/payments";
+import { landSize } from "@/lib/land-size";
 import {
   BOOKING_TABS, JOB_STATUS_LABEL, bookingsForFarmer, type JobStatus,
 } from "@/lib/jobs";
@@ -91,7 +92,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
                   <td><span className="table__ref"><ServiceIcon service={b.service} /><span>{b.reference}</span></span></td>
                   <td>{serviceLabel(b.service)}</td>
                   <td>{districtLabel(b.district)}</td>
-                  <td>{b.acres} acres</td>
+                  <td>{landSize(b.acres)}</td>
                   <td>{fmt(b.startDate) ?? "Not yet"}</td>
                   <td><span className={`pill pill--${PILL_FARMER[b.status]}`}>{JOB_STATUS_LABEL[b.status as JobStatus]}</span></td>
                   <td className="table__go">
@@ -115,7 +116,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
             <header className="modal__head"><h2>Booking details</h2></header>
             <div className="detail-list">
               <Row label="Service">{serviceLabel(open.service)}</Row>
-              <Row label="Land size">{open.acres} acres</Row>
+              <Row label="Land size">{landSize(open.acres)}</Row>
               <Row label="Location">{open.village}, {districtLabel(open.district)}</Row>
               <Row label="Scheduled start date">{open.startDate ? `${fmt(open.startDate)} to ${fmt(open.endDate)}` : "The provider has not given you dates yet."}</Row>
               <Row label="Provider">{open.businessName}</Row>
@@ -126,7 +127,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
             </div>
             {open.status === "work_reported" ? (
               <p className="notice notice--success" role="status">
-                {open.businessName} says {open.reportedAcres} acres are done. Nothing is settled until you confirm.
+                {open.businessName} says {landSize(open.reportedAcres)} are done. Nothing is settled until you confirm.
               </p>
             ) : null}
             {open.status === "disputed" ? (

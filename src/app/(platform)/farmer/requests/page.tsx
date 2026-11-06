@@ -11,6 +11,7 @@ import { FarmerRequestsList } from "@/components/requests/FarmerRequestsList";
 import { unreadCount } from "@/lib/notifications";
 import { ModalShell } from "@/components/app/ModalShell";
 import { LAND_ACCESS, LAND_CONDITION, landLabel } from "@/lib/land";
+import { landSize } from "@/lib/land-size";
 
 export const metadata: Metadata = { title: "My requests" };
 export const dynamic = "force-dynamic";
@@ -59,7 +60,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
               <Row label="Request ID">#{open.reference}</Row>
               <Row label="Requested on">{at(open.createdAt)}</Row>
               <Row label="Service">{serviceLabel(open.service)}</Row>
-              <Row label="Land size">{open.acres} acres</Row>
+              <Row label="Land size">{landSize(open.acres)}</Row>
               <Row label="Location">{placeLine(open.village, open.chiefdom, districtLabel(open.district))}</Row>
               <Row label="Preferred start date">{fmt(open.preferredDate)}</Row>
               {open.landAccess ? <Row label="Land access">{landLabel(LAND_ACCESS, open.landAccess)}</Row> : null}

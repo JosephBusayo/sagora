@@ -12,6 +12,7 @@ import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, cropMissing, needsCrop } f
 import { normaliseSierraLeonePhone } from "@/lib/phone";
 import { chiefdomFits, placeLine } from "@/lib/chiefdoms";
 import type { FormState } from "@/lib/auth-flows";
+import { landSize, landUnit, toAcres } from "@/lib/land-size";
 
 const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String(fd.get(k)).trim() : "");
 const serviceIds = SERVICES.map((s) => s.id) as string[];
@@ -22,7 +23,7 @@ const ids = (options: readonly { id: string }[]) => options.map((o) => o.id) as 
 /** The first step, on its own so "Continue" can check it before showing the second. */
 const land = z.object({
   service: z.string().refine((v) => serviceIds.includes(v), "Choose the work you need"),
-  acres: z.coerce.number().positive("Enter the size in acres").max(10000, "That looks too large"),
+  acres: z.coerce.number().positive("Enter the land size").max(10000, "That looks too large"),
   landAccess: z.string().refine((v) => ids(LAND_ACCESS).includes(v), "Choose the land access"),
   // The design marks this one optional.
   landCondition: z.string().refine((v) => !v || ids(LAND_CONDITION).includes(v), "Choose the land condition"),
@@ -46,6 +47,7 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
   const raw = {
     service: str(fd, "service"),
     acres: str(fd, "acres"),
+    unit: landUnit(str(fd, "unit")),
     landAccess: str(fd, "landAccess"),
     landCondition: str(fd, "landCondition"),
     landClearance: str(fd, "landClearance"),
@@ -96,7 +98,7 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
   const d = parsed.data;
   const details = {
     service: d.service,
-    acres: d.acres,
+    acres: toAcres(d.acres, raw.unit),
     landAccess: d.landAccess,
     landCondition: d.landCondition,
     landClearance: d.landClearance,
@@ -122,6 +124,7 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     contactName: farmer.name,
     contactPhone: normaliseSierraLeonePhone(farmer.phone ?? "") ?? (farmer.phone ?? ""),
     contactEmail: farmer.email,
+    submissionKey: str(fd, "submissionKey"),
   });
 
   // The reference is the farmer's way back to this request, so it goes out by email too.
@@ -131,7 +134,7 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     to: farmer.email,
     subject: `Your Sagora request ${created.reference}`,
     text:
-      `We have your request for ${d.service} on ${d.acres} acres in ${placeLine(d.village, raw.chiefdom, d.district)}.\n\n` +
+      `We have your request for ${d.service} on ${landSize(details.acres)} in ${placeLine(d.village, raw.chiefdom, d.district)}.\n\n` +
       `Your reference is ${created.reference}. Keep it: it is how you find this request again.\n\n` +
       `A request is not a booking. Providers will send you quotes, and nothing is confirmed ` +
       `until you accept one and pay.`,
@@ -145,7 +148,7 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
       dedupeKey: `request.new:${created.id}:${p.businessId}`,
       to: p.email,
       subject: `New request ${created.reference} in ${d.district}`,
-      text: `A farmer in ${d.district} is asking for ${d.service} on ${d.acres} acres. Sign in to Sagora to send a quote.`,
+      text: `A farmer in ${d.district} is asking for ${d.service} on ${landSize(details.acres)}. Sign in to Sagora to send a quote.`,
     });
   }
 

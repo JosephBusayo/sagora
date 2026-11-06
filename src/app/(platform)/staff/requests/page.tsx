@@ -1,5 +1,6 @@
 import { PageHead } from "@/components/app/Shell";
 import type { Metadata } from "next";
+import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
 import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION } from "@/lib/land";
@@ -31,7 +32,7 @@ export default async function Page() {
         ) : null}
         <section className="staff__item">
           <h2>New request</h2>
-          <AssistedForm services={SERVICES} districts={DISTRICTS} access={LAND_ACCESS} condition={LAND_CONDITION} clearance={LAND_CLEARANCE} />
+          <AssistedForm services={SERVICES} districts={DISTRICTS} access={LAND_ACCESS} condition={LAND_CONDITION} clearance={LAND_CLEARANCE} submissionKey={randomUUID()} />
         </section>
     </StaffShell>
   );

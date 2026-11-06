@@ -98,7 +98,7 @@ export function ForgotPasswordForm({ action }: { action: Action }) {
 
 const RESEND_SECONDS = 30;
 
-function ResendButton({ sent }: { sent: unknown }) {
+export function ResendButton({ sent }: { sent: unknown }) {
   const { pending } = useFormStatus();
   const [left, setLeft] = useState(RESEND_SECONDS);
   const [counted, setCounted] = useState(sent);

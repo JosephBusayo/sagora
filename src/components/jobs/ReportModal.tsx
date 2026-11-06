@@ -10,6 +10,7 @@ import { Field } from "@/components/auth/Field";
 import { reportWorkAction } from "@/app/(platform)/provider/(app)/jobs/actions";
 import type { FormState } from "@/lib/auth-flows";
 import type { JobView } from "./JobsList";
+import { landSize } from "@/lib/land-size";
 
 function Buttons({ onClose }: { onClose: () => void }) {
   const { pending } = useFormStatus();
@@ -44,7 +45,7 @@ export function ReportModal({ job, onClose }: { job: JobView; onClose: () => voi
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="rep-title" ref={ref}>
         <div className="modal__head">
           <h2 id="rep-title">Report the work</h2>
-          <p>{job.reference} · agreed {job.acres} acres</p>
+          <p>{job.reference} · agreed {landSize(job.acres)}</p>
         </div>
         <form action={action} className="form-soft">
           <CheckFirst title="Check your report" action="Send report" />

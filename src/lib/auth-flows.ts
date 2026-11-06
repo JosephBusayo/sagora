@@ -45,11 +45,11 @@ function fieldErrorsFrom(error: z.ZodError): Record<string, string> {
   return out;
 }
 
-function codeOf(err: unknown): string | undefined {
+export function codeOf(err: unknown): string | undefined {
   return err instanceof APIError ? (err.body as { code?: string } | undefined)?.code : undefined;
 }
 
-function otpMessage(err: unknown): string {
+export function otpMessage(err: unknown): string {
   switch (codeOf(err)) {
     case "OTP_EXPIRED":
       return "That code has expired. Request a new one.";
@@ -62,7 +62,7 @@ function otpMessage(err: unknown): string {
   }
 }
 
-function isRateLimited(err: unknown) {
+export function isRateLimited(err: unknown) {
   return err instanceof APIError && (err.statusCode === 429 || String(err.status) === "TOO_MANY_REQUESTS");
 }
 

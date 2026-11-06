@@ -675,6 +675,9 @@ a.topbar__round:hover, a.topbar__user:hover { background: var(--color-hover); te
 .book__actions { gap: 10px; margin-top: 12px; }
 .book__actions .button { flex: 1; min-width: 0; height: 55px; font: 500 18px/1 var(--font-sans); border-radius: 28px; display: inline-flex; align-items: center; justify-content: center; }
 .field__suffix { flex: none; font: 500 13px/21px var(--font-sans); color: #808080; }
+/* The unit beside a land size, in the same grey as the design's "Acres" suffix. */
+.field__unit { flex: none; border: 0; background: transparent; font: 500 13px/21px var(--font-sans); color: #808080; cursor: pointer; padding: 0 2px; }
+.field__unit:focus-visible { outline: 2px solid var(--green-600, #2f7d32); outline-offset: 2px; border-radius: 4px; }
 .chips { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 .chips legend { padding: 0; margin-bottom: 10px; }
 .chips__row { display: flex; flex-wrap: wrap; gap: 12px 20px; }

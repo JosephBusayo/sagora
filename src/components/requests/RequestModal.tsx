@@ -4,6 +4,7 @@ import { useModal } from "@/components/app/useModal";
 import { useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/app/Icon";
 import { QuoteForm, type MyQuote } from "./QuoteForm";
+import { landSize } from "@/lib/land-size";
 
 export type RequestDetail = {
   id: string;
@@ -105,7 +106,7 @@ export function RequestModal({ request, myQuote, onClose }: { request: RequestDe
 
         <div className="detail-list">
           <Row icon="serviceType" label="Service type" value={request.serviceLabel} />
-          <Row icon="farmSize" label="Farm size" value={`${request.acres} acres`} />
+          <Row icon="farmSize" label="Farm size" value={landSize(request.acres)} />
           <LandRows request={request} />
           <Row icon="calendar" label="Preferred date" value={request.preferredDate} />
           <Row icon="calendarAlt" label="Alternate date" value={request.alternateDate ?? "Not given"} />

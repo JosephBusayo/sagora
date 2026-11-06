@@ -349,7 +349,7 @@ test("a private job blocks machines, stays private, and the schedule shows it", 
 
   await page.getByLabel("Customer name").fill("Private Customer");
   await page.getByLabel("Service").selectOption("ploughing");
-  await page.getByLabel("Land size (acres)").fill("3");
+  await page.getByLabel("Land size").fill("3");
   await page.getByLabel("District").selectOption("Bombali");
   await page.getByLabel("Village/town").fill("Private Village");
   await page.getByRole("button", { name: "Add job" }).click();

@@ -11,6 +11,7 @@ import { audit } from "@/lib/business";
 import { db } from "@/lib/db";
 import { requireWorkspace } from "@/lib/guard";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
+import { confirmEmailChange, resendEmailChange, startEmailChange } from "@/lib/email-change";
 import { clearForUser } from "@/lib/mfa";
 import { setNotice } from "@/lib/pending";
 import type { FormState } from "@/app/(platform)/provider/actions";
@@ -104,4 +105,21 @@ export async function changePassword(_prev: FormState, fd: FormData): Promise<Fo
   await auth.api.signOut({ headers: await headers() });
   await setNotice("password-changed");
   redirect("/provider/sign-in");
+}
+
+/* ----------------------------------------------------------- change email */
+
+export async function startEmailChangeAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { user } = await requireWorkspace();
+  return startEmailChange(user, fd, "/provider/settings/email?step=code");
+}
+
+export async function resendEmailChangeAction(): Promise<FormState> {
+  const { user } = await requireWorkspace();
+  return resendEmailChange(user);
+}
+
+export async function confirmEmailChangeAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { user } = await requireWorkspace();
+  return confirmEmailChange(user, fd, "/provider/settings/account", "/provider/settings/email");
 }

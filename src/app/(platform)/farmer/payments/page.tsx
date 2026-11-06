@@ -13,6 +13,7 @@ import { districtLabel } from "@/lib/business";
 import { bookingsForFarmer } from "@/lib/jobs";
 import { LAND_ACCESS, LAND_CONDITION, landLabel } from "@/lib/land";
 import { getById, serviceLabel } from "@/lib/requests";
+import { landSize } from "@/lib/land-size";
 
 export const metadata: Metadata = { title: "Payments" };
 export const dynamic = "force-dynamic";
@@ -112,7 +113,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
             <header className="modal__head"><h2>Payment details</h2></header>
             <div className="detail-list">
               <Row label="Service">{serviceLabel(request.service)}</Row>
-              <Row label="Land size">{request.acres} acres</Row>
+              <Row label="Land size">{landSize(request.acres)}</Row>
               <Row label="Location">{request.village}, {districtLabel(request.district)}</Row>
               <Row label="Scheduled start date">{day(booking?.startDate ?? null) ?? "Not yet"}</Row>
               {request.landAccess ? <Row label="Land access">{landLabel(LAND_ACCESS, request.landAccess)}</Row> : null}

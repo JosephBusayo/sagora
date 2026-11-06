@@ -5,6 +5,7 @@ import { districtLabel } from "@/lib/business";
 import { STATUS_LABEL, serviceLabel, type ServiceRequest } from "@/lib/requests";
 import { PageHead } from "@/components/app/Shell";
 import { Pager } from "@/components/app/Pager";
+import { landSize } from "@/lib/land-size";
 
 const BOOK = [
   { service: "ploughing", title: "Book ploughing service", body: "Prepare your land for planting" },
@@ -70,7 +71,7 @@ export function FarmerRequestsList({ rows, page, pages, justCreated }: {
                     <td><span className="table__ref"><ServiceIcon service={r.service} /><Link href={`/farmer/requests/${r.id}`}>{r.reference}</Link></span></td>
                     <td>{serviceLabel(r.service)}</td>
                     <td>{districtLabel(r.district)}</td>
-                    <td>{r.acres} acres</td>
+                    <td>{landSize(r.acres)}</td>
                     <td>{fmt(r.preferredDate)}</td>
                     <td><span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
                     <td className="table__go">

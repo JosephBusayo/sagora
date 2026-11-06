@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import { createPrivateJobAction } from "@/app/(platform)/provider/(app)/jobs/actions";
 import { SoftForm } from "@/components/app/SoftForm";
 import { Field } from "@/components/auth/Field";
+import { LandSizeField } from "@/components/requests/LandSizeField";
 
 type Option = { id: string; label: string };
 
@@ -42,7 +43,7 @@ export function PrivateJobForm({ services, districts }: { services: readonly Opt
             <Field name="customerName" label="Customer name" defaultValue={v.customerName} error={e.customerName} />
             <Field name="customerPhone" label="Customer phone" required={false} defaultValue={v.customerPhone} error={e.customerPhone} />
             <Select name="service" label="Service" options={services} placeholder="Select the work" value={v.service} error={e.service} />
-            <Field name="acres" label="Land size (acres)" inputMode="numeric" defaultValue={v.acres} error={e.acres} />
+            <LandSizeField id="p-acres" value={v.acres} unit={v.unit} error={e.acres} />
             <Select icon="pin" name="district" label="District" options={districts.map((d) => ({ id: d, label: d }))} placeholder="Select a district" value={v.district} error={e.district} />
             <Field icon="pin" name="village" label="Village/town" defaultValue={v.village} error={e.village} />
             <Field name="notes" label="Additional notes" required={false} defaultValue={v.notes} error={e.notes} maxLength={500} />

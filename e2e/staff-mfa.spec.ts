@@ -249,7 +249,7 @@ test("staff take a request over the phone, with who called on record", async ({ 
   await page.getByLabel("Farmer's name").fill("Fatmata Kamara");
   await page.getByLabel("Who may accept a quote").fill("Fatmata Kamara");
   await page.getByLabel("Service").selectOption("ploughing");
-  await page.getByLabel("Land size (acres)").fill("4");
+  await page.getByLabel("Land size").fill("4");
   await page.getByLabel("Land access").selectOption("easy");
   await page.getByLabel("Land clearance").selectOption("cleared");
   await page.getByLabel("District").selectOption("Bombali");
