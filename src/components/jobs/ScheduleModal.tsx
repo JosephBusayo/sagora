@@ -16,7 +16,7 @@ function Buttons({ onClose }: { onClose: () => void }) {
     <div className="form-actions">
       <button type="button" className="button button--soft" onClick={onClose} disabled={pending}>Cancel</button>
       <button type="submit" formNoValidate className="button" disabled={pending} aria-busy={pending}>
-        {pending ? "Saving…" : "Commit the machines"}
+        {pending ? "Saving…" : "Commit the equipment"}
       </button>
     </div>
   );
@@ -68,9 +68,9 @@ export function ScheduleModal({ job, assets, operators, onClose }: {
           </div>
 
           <fieldset className={`field${e.assetIds ? " field--invalid" : ""}`} style={{ border: 0, padding: 0, margin: 0 }}>
-            <legend className="field__label">Machines</legend>
+            <legend className="field__label">Equipment</legend>
             {assets.length === 0 ? (
-              <p className="field__helper">No machine is available. Add one on the Equipment screen, or clear a fault.</p>
+              <p className="field__helper">No equipment is available. Add some on the Equipment screen, or clear a fault.</p>
             ) : (
               <div className="setup__checks">
                 {assets.map((a) => (
@@ -95,7 +95,7 @@ export function ScheduleModal({ job, assets, operators, onClose }: {
           </div>
 
           <p className="field__helper">
-            A machine can only be on one job at a time. If it is already committed for these dates, this will be refused.
+            Equipment can only be on one job at a time. If it is already committed for these dates, this will be refused.
           </p>
           {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
           <FormNotice state={state} />

@@ -132,7 +132,7 @@ function JobModal({ job: j, canEdit, onClose, onSchedule, onReport }: {
           {j.atRisk.length > 0 ? (
             <p className="notice notice--error" role="status">
               At risk: {j.atRisk.map((a) => `${a.name} (${a.why.toLowerCase()})`).join(", ")}. The commitment is kept
-              — replace the machine or move the dates.
+              — replace the equipment or move the dates.
             </p>
           ) : null}
           {j.atRisk.length > 0 && canEdit && !j.privateCustomer ? (

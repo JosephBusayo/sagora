@@ -120,7 +120,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
               <Row label="Scheduled start date">{open.startDate ? `${fmt(open.startDate)} to ${fmt(open.endDate)}` : "The provider has not given you dates yet."}</Row>
               <Row label="Provider">{open.businessName}</Row>
               {open.amountMinor > 0 ? <Row label="Amount">{formatAmount(open.amountMinor)}</Row> : null}
-              {open.assetNames.length > 0 ? <Row label="Machines">{open.assetNames.join(", ")}</Row> : null}
+              {open.assetNames.length > 0 ? <Row label="Equipment">{open.assetNames.join(", ")}</Row> : null}
               <Row label="Payment"><span className={`pill pill--${paid ? "quotes_sent" : "awaiting_quotes"}`}>{paid ? "Paid" : "Not paid"}</span></Row>
               <Row label="Status"><span className={`pill pill--${PILL_FARMER[open.status]}`}>{JOB_STATUS_LABEL[open.status as JobStatus]}</span></Row>
             </div>

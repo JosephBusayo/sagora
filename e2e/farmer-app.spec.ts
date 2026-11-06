@@ -162,6 +162,12 @@ test("the home tiles pre-choose the service on the booking form", async ({ page 
   // And the plain link does not pre-choose anything.
   await page.goto("/farmer/book");
   await expect(page.getByLabel("What work do you need?")).toHaveValue("");
+
+  // Picking Harvesting there shows Crop at once, not after a failed submit.
+  await expect(page.getByLabel("Crop")).toHaveCount(0);
+  await page.getByLabel("What work do you need?").selectOption("harvesting");
+  await expect(page.getByLabel("Crop")).toBeVisible();
+  await expect(page.getByLabel("Additional notes")).toHaveAttribute("placeholder", /rice is ready/);
 });
 
 test("a farmer books work and the provider quotes it", async ({ page, browser }) => {

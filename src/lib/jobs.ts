@@ -111,6 +111,15 @@ export async function clashesFor(equipmentId: string, start: string, end: string
          AND j.start_date <= ? AND j.end_date >= ?`, equipmentId, ...HOLDING, exceptJobId, end, start) as { id: string; reference: string; start_date: string; end_date: string }[];
 }
 
+/** Other jobs the same operator is already on in that window. One person cannot run two machines at once. */
+export async function operatorClashesFor(operatorId: string, start: string, end: string, exceptJobId: string | null, t: Queries = db) {
+  return await t.all(`SELECT j.id, r.reference, j.start_date, j.end_date
+       FROM job j JOIN service_request r ON r.id = j.request_id
+       WHERE j.operator_id = ? AND j.status IN (${HOLDING.map(() => "?").join(",")})
+         AND j.id <> COALESCE(?, '')
+         AND j.start_date <= ? AND j.end_date >= ?`, operatorId, ...HOLDING, exceptJobId, end, start) as { id: string; reference: string; start_date: string; end_date: string }[];
+}
+
 export type ScheduleInput = { startDate: string; endDate: string; operatorId: string | null; assetIds: string[] };
 export type ScheduleResult = { ok: true } | { ok: false; reason: string };
 
@@ -123,7 +132,7 @@ export async function scheduleJob(businessId: string, actorId: string, jobId: st
   if (!job) return { ok: false, reason: "That job is not yours." };
   if (["completed", "cancelled", "disputed"].includes(job.status)) return { ok: false, reason: "That job is finished." };
   if (input.endDate < input.startDate) return { ok: false, reason: "The end date must be on or after the start date." };
-  if (input.assetIds.length === 0) return { ok: false, reason: "Choose at least one machine." };
+  if (input.assetIds.length === 0) return { ok: false, reason: "Choose at least one piece of equipment." };
 
   // Names are collected here, before the transaction: a lookup inside it would go through the
   // shared connection that the transaction itself is holding.
@@ -131,7 +140,7 @@ export async function scheduleJob(businessId: string, actorId: string, jobId: st
   const kinds = new Set<string>();
   for (const id of input.assetIds) {
     const asset = await getAsset(businessId, id);
-    if (!asset) return { ok: false, reason: "One of those machines is not on your register." };
+    if (!asset) return { ok: false, reason: "Some of that equipment is not on your register." };
     const why = unavailableReason(asset);
     if (why) return { ok: false, reason: `${asset.name} cannot be used: ${why.toLowerCase()}.` };
     names.set(id, asset.name);
@@ -155,6 +164,12 @@ export async function scheduleJob(businessId: string, actorId: string, jobId: st
           ok: false,
           reason: `${names.get(id)} is already committed to ${clash.reference} from ${clash.start_date} to ${clash.end_date}.`,
         };
+      }
+    }
+    if (input.operatorId) {
+      const busy = (await operatorClashesFor(input.operatorId, input.startDate, input.endDate, jobId, t))[0];
+      if (busy) {
+        return { ok: false, reason: `This operator is already on another job for those dates (${busy.reference}, ${busy.start_date} to ${busy.end_date}).` };
       }
     }
     await t.run("DELETE FROM job_asset WHERE job_id=?", jobId);
@@ -312,7 +327,7 @@ export async function bookingsForFarmer(farmerId: string): Promise<FarmerBooking
       const names = await Promise.all(
         job.assetIds.map(async (id) => {
           const a = (await db.get("SELECT name FROM equipment WHERE id=?", id)) as { name: string } | undefined;
-          return a?.name ?? "A machine";
+          return a?.name ?? "Equipment";
         }),
       );
       return {

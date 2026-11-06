@@ -81,8 +81,8 @@ export function AssetModal({ asset, kinds, services, availability, onClose }: {
   const next = () => {
     const fd = new FormData(form.current!);
     const missing = step === 0
-      ? (!fd.get("kind") ? "Choose what kind of machine this is" : !String(fd.get("brand") ?? "").trim() ? "Enter the brand" : !String(fd.get("model") ?? "").trim() ? "Enter the model" : "")
-      : fd.getAll("services").length === 0 ? "Choose what this machine is used for" : "";
+      ? (!fd.get("kind") ? "Choose the equipment type" : !String(fd.get("brand") ?? "").trim() ? "Enter the brand" : !String(fd.get("model") ?? "").trim() ? "Enter the model" : "")
+      : fd.getAll("services").length === 0 ? "Choose what this equipment is used for" : "";
     setStepError(missing);
     if (!missing) setStep(step + 1);
   };
@@ -116,7 +116,7 @@ export function AssetModal({ asset, kinds, services, availability, onClose }: {
             <Field name="brand" label="Brand" placeholder="eg: CAT" defaultValue={val("brand", legacyBrand)} error={e.brand} />
             <Field name="model" label="Model" placeholder="eg: 5075E" defaultValue={val("model", asset?.model ?? "")} error={e.model} />
             <Field name="year" label="Year (optional)" placeholder="eg: 2022" inputMode="numeric" required={false} defaultValue={val("year", asset?.year ?? "")} error={e.year} />
-            <Field name="identifier" label="Registration or serial number (optional)" placeholder="Tells two identical machines apart"
+            <Field name="identifier" label="Registration or serial number (optional)" placeholder="Tells two identical pieces of equipment apart"
               required={false} defaultValue={val("identifier", asset?.identifier ?? "")} error={e.identifier} />
           </div>
 

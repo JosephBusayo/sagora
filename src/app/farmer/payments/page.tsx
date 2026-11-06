@@ -50,7 +50,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
       audience="farmer"
       unread={await unreadCount(farmer)}
     >
-      <PageHead title="Payments" subtitle="View your earnings, payout details and transactions." />
+      <PageHead title="Payments" subtitle="See what you have paid for your bookings, what is still to pay, and any refunds." />
       <>
         {rows.length === 0 ? (
           <div className="table-card"><EmptyState icon="payments" title="No payments yet" body="Your payment records will appear here after you complete a booking" href="/farmer/book" action="Book a service" /></div>
@@ -62,7 +62,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
                   <th scope="col">Transaction ID</th>
                   <th scope="col">Type</th>
                   <th scope="col">Amount</th>
-                  <th scope="col">Date received</th>
+                  <th scope="col">Date</th>
                   <th scope="col">Status</th>
                   <th scope="col"><span className="sr-only">Open</span></th>
                 </tr>
@@ -78,7 +78,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
                       </span>
                     </td>
                     <td>
-                      {t.kind === "payment" ? "Payment" : "Refund"}
+                      {t.label}
                       <br />
                       <span className="field__helper">{methodLabel(t.method) || "—"}</span>
                     </td>
@@ -118,7 +118,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
               {request.landAccess ? <Row label="Land access">{landLabel(LAND_ACCESS, request.landAccess)}</Row> : null}
               {request.landCondition ? <Row label="Land condition">{landLabel(LAND_CONDITION, request.landCondition)}</Row> : null}
               {booking ? <Row label="Provider">{booking.businessName}</Row> : null}
-              <Row label="Amount">{formatAmount(open.amountMinor)}</Row>
+              <Row label={open.label}>{formatAmount(open.amountMinor)}</Row>
+              {open.agreedMinor !== null ? (
+                <>
+                  <Row label="Agreed price">{formatAmount(open.agreedMinor)}</Row>
+                  <Row label="Paid so far">{formatAmount(open.paidMinor)}</Row>
+                  <Row label="Still to pay">{formatAmount(Math.max(0, open.agreedMinor - open.paidMinor))}</Row>
+                </>
+              ) : null}
               <Row label="Status">
                 <span className={`pill pill--${open.status === "Being processed" ? "in_progress" : "completed"}`}>{open.status}</span>
               </Row>

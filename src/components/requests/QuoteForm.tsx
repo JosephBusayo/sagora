@@ -45,7 +45,15 @@ function DateField({ name, label, defaultValue, error, helper }: {
   );
 }
 
-export function QuoteForm({ requestId, existing, onDone }: { requestId: string; existing: MyQuote | null; onDone: () => void }) {
+/** The example matches the work, so a harvesting quote is not prompted with a plough. */
+const COVERS_EXAMPLE: Record<string, string> = {
+  ploughing: "Tractor, plough and operator",
+  harvesting: "Harvester, operator and fuel",
+};
+
+export function QuoteForm({ requestId, service, existing, onDone }: {
+  requestId: string; service: string; existing: MyQuote | null; onDone: () => void;
+}) {
   const [state, action] = useActionState(useSafely(sendQuoteAction), {} as FormState);
   // The toast says it worked, and the list behind is what changed.
   useEffect(() => {
@@ -86,7 +94,7 @@ export function QuoteForm({ requestId, existing, onDone }: { requestId: string; 
       ) : null}
       <Field name="amount" label="Total price (Le)" type="text" inputMode="numeric" placeholder="1,500.00"
         defaultValue={v.amount ?? existing?.amountInput} error={e.amount} />
-      <Field name="includes" label="What the price covers" placeholder="Tractor, plough and operator"
+      <Field name="includes" label="What the price covers" placeholder={COVERS_EXAMPLE[service] ?? "Equipment, operator and fuel"}
         defaultValue={v.includes ?? existing?.includes} error={e.includes} />
       <div className="form-row">
         <DateField name="startDate" label="Can start on" defaultValue={v.startDate ?? existing?.startDate} error={e.startDate} />

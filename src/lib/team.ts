@@ -87,8 +87,24 @@ export async function removeMember(businessId: string, actorId: string, id: stri
   const m = await getMember(businessId, id);
   if (!m || m.role === "owner") return false; // a business always keeps its owner
   const res = await db.run("UPDATE team_member SET status='removed', invite_hash=NULL, updated_at=? WHERE id=? AND business_id=?", new Date().toISOString(), id, businessId);
-  if (res.changes) await audit(actorId, "team.removed", businessId, m.email);
-  return res.changes > 0;
+  if (!res.changes) return false;
+  // Removed means out now, on every device, not at their next sign-in.
+  if (m.userId) await endSessions(m.userId);
+  await audit(actorId, "team.removed", businessId, m.email);
+  return true;
+}
+
+/** Signs a user out everywhere by deleting their sessions. */
+export async function endSessions(userId: string): Promise<void> {
+  await db.run(`DELETE FROM session WHERE "userId"=?`, userId);
+}
+
+/** The business a user was removed from, if they have no active membership anywhere. */
+export async function removedFrom(userId: string): Promise<string | null> {
+  if (await membershipFor(userId)) return null;
+  const r = await db.get(`SELECT b.name FROM team_member t JOIN provider_business b ON b.id = t.business_id
+       WHERE t.user_id=? AND t.status='removed' LIMIT 1`, userId) as { name: string } | undefined;
+  return r?.name ?? null;
 }
 
 /* ------------------------------------------------------------- accepting */

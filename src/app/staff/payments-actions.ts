@@ -63,7 +63,7 @@ export async function recordPaymentAction(fd: FormData) {
         subject: `${who.reference} is booked`,
         text:
           `Your payment for ${who.reference} has been received in full and the work is booked.\n\n` +
-          `${who.providerName ?? "The provider"} has the machines committed for your dates. ` +
+          `${who.providerName ?? "The provider"} has the equipment committed for your dates. ` +
           `You will be asked to confirm the work once it is done.\n\n` +
           `This payment was recorded by hand by our team, not by a payment provider.`,
       });
@@ -75,7 +75,7 @@ export async function recordPaymentAction(fd: FormData) {
         to: who.providerEmail,
         subject: `${who.reference} is paid and booked`,
         text:
-          `${who.reference} has been paid in full and is now booked. The machines you scheduled are ` +
+          `${who.reference} has been paid in full and is now booked. The equipment you scheduled is ` +
           `committed for those dates.\n\nYou are paid once the farmer confirms the work.`,
       });
     }

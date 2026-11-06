@@ -149,7 +149,7 @@ export async function recordPayment(staffId: string, input: RecordInput): Promis
       return {
         ok: true,
         outcome: "case_opened",
-        message: "Paid in full, but this job has no dates or machines yet, so it is not booked. A case has been opened.",
+        message: "Paid in full, but this job has no dates or equipment yet, so it is not booked. A case has been opened.",
       };
     }
 
@@ -160,18 +160,18 @@ export async function recordPayment(staffId: string, input: RecordInput): Promis
           t,
           input.requestId,
           "payment_received_booking_not_confirmed",
-          `Paid in full, but a machine is now committed to ${clash.reference} for these dates.`,
+          `Paid in full, but some of the equipment is now committed to ${clash.reference} for these dates.`,
         );
         return {
           ok: true,
           outcome: "case_opened",
-          message: `Paid in full, but a machine is now committed to ${clash.reference}. The money is held and a case has been opened — nothing was overbooked.`,
+          message: `Paid in full, but some of the equipment is now committed to ${clash.reference}. The money is held and a case has been opened — nothing was overbooked.`,
         };
       }
     }
 
     await t.run("INSERT INTO booking (id, request_id, job_id, business_id, amount_minor, confirmed_at, confirmed_by) VALUES (?,?,?,?,?,?,?)", randomUUID(), input.requestId, job.id, agreement.businessId, agreement.amountMinor, new Date().toISOString(), staffId);
-    return { ok: true, outcome: "booked", message: "Paid in full and booked. The machines are confirmed for those dates." };
+    return { ok: true, outcome: "booked", message: "Paid in full and booked. The equipment is confirmed for those dates." };
   });
 
   // The audit trail is written after the decision has actually committed.

@@ -28,7 +28,7 @@ export async function scheduleJobAction(_prev: FormState, fd: FormData): Promise
   const fieldErrors: Record<string, string> = {};
   if (!startDate) fieldErrors.startDate = "Choose the day work starts";
   if (!endDate) fieldErrors.endDate = "Choose the day work ends";
-  if (assetIds.length === 0) fieldErrors.assetIds = "Choose at least one machine";
+  if (assetIds.length === 0) fieldErrors.assetIds = "Choose at least one piece of equipment";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
   const before = await getJob(business.id, jobId);
@@ -40,7 +40,7 @@ export async function scheduleJobAction(_prev: FormState, fd: FormData): Promise
   const removed = (before?.assetIds ?? []).filter((id) => !assetIds.includes(id));
   const added = assetIds.filter((id) => !(before?.assetIds ?? []).includes(id));
   if (removed.length > 0 && added.length > 0) {
-    const name = async (id: string) => (await getAsset(business.id, id))?.name ?? "A machine";
+    const name = async (id: string) => (await getAsset(business.id, id))?.name ?? "Equipment";
     const detail = `${(await Promise.all(removed.map(name))).join(", ")} replaced by ${(await Promise.all(added.map(name))).join(", ")}`;
     await audit(user.id, "job.machine_replaced", jobId, detail);
     const row = await db.get(`SELECT r.contact_email AS email, r.reference AS reference FROM job j
@@ -49,14 +49,14 @@ export async function scheduleJobAction(_prev: FormState, fd: FormData): Promise
       await notify({
         kind: "job.machine_replaced",
         to: row.email,
-        subject: `A machine has changed on ${row.reference}`,
+        subject: `Equipment has changed on ${row.reference}`,
         text: `${business.name} has changed the plan for ${row.reference}: ${detail}. Your price and terms have not changed.`,
       });
     }
   }
 
   revalidatePath("/provider/jobs");
-  return { notice: "Work scheduled. The machines are committed for those dates." };
+  return { notice: "Work scheduled. The equipment is committed for those dates." };
 }
 
 export async function startWorkAction(fd: FormData) {

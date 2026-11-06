@@ -8,8 +8,8 @@ import { readNotice } from "@/lib/pending";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ reset?: string; joined?: string }> }) {
-  const { reset, joined } = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<{ reset?: string; joined?: string; removed?: string }> }) {
+  const { reset, joined, removed } = await searchParams;
   const expired = await sessionExpired();
   const changed = (await readNotice()) === "password-changed";
   return (
@@ -26,6 +26,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
       {changed ? (
         <p className="notice notice--success" role="status" style={{ marginTop: 24 }}>
           Your password has been changed and every device has been signed out. Sign in again.
+        </p>
+      ) : null}
+      {removed ? (
+        <p className="notice notice--error" role="status" style={{ marginTop: 24 }}>
+          You no longer have access to that business&rsquo;s workspace. Ask its owner if you think this is a mistake.
         </p>
       ) : null}
       {joined ? (

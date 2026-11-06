@@ -3,7 +3,7 @@
 import { Icon, type IconName } from "@/components/app/Icon";
 import { today } from "@/components/app/today";
 import { useSafely } from "@/components/app/safely";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { bookService, type BookState } from "@/app/farmer/book/actions";
@@ -22,15 +22,16 @@ function Submit({ label }: { label: string }) {
   );
 }
 
-function Select({ name, label, options, placeholder, error, initial = "", icon }: {
+function Select({ name, label, options, placeholder, error, initial = "", icon, onChange }: {
   name: string; label: string; options: readonly Option[]; placeholder: string; error?: string; initial?: string; icon?: IconName;
+  onChange?: (value: string) => void;
 }) {
   return (
     <div className={`field${error ? " field--invalid" : ""}`}>
       <label className="field__label" htmlFor={`f-${name}`}>{label}</label>
       <div className="field__box">
         {icon ? <span className="field__icon" aria-hidden="true"><Icon name={icon} size={18} /></span> : null}
-        <select id={`f-${name}`} name={name} className="field__input" defaultValue={initial}>
+        <select id={`f-${name}`} name={name} className="field__input" defaultValue={initial} onChange={onChange ? (ev) => onChange(ev.target.value) : undefined}>
           <option value="">{placeholder}</option>
           {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
@@ -73,10 +74,16 @@ function Chips({ name, label, options, initial, error }: {
   );
 }
 
-function Notes({ value, error }: { value?: string; error?: string }) {
+/** The example fits the work asked for, so a harvesting request is not shown ploughing advice. */
+const NOTES_EXAMPLE: Record<string, string> = {
+  ploughing: "eg: the land is slightly sloped, has some stumps, needs deep ploughing",
+  harvesting: "eg: the rice is ready in two weeks, one end of the field is waterlogged",
+};
+
+function Notes({ value, error, service }: { value?: string; error?: string; service?: string }) {
   return (
     <Field name="notes" label="Additional notes" required={false} maxLength={500} defaultValue={value} error={error}
-      placeholder="eg: the land is slightly sloped, has some stumps, needs deep ploughing" />
+      placeholder={NOTES_EXAMPLE[service ?? ""] ?? "eg: the land is slightly sloped and has some stumps"} />
   );
 }
 
@@ -103,6 +110,9 @@ export function BookForm({ services, districts, service = "", requestId, initial
   const step = state.step ?? 1;
   const chosen = v.service ?? service;
   const label = services.find((s) => s.id === chosen)?.label;
+  // Picked from the drop-down before any submit: Crop shows at once rather than after a round trip.
+  const [picked, setPicked] = useState("");
+  const work = chosen || picked;
 
   return (
     <form key={step} action={action} className="form-soft book__form">
@@ -127,7 +137,7 @@ export function BookForm({ services, districts, service = "", requestId, initial
       {step === 1 ? (
         <>
           {label ? <input type="hidden" name="service" value={chosen} /> : (
-            <Select name="service" label="What work do you need?" options={services} placeholder="Select the work" error={e.service} />
+            <Select name="service" label="What work do you need?" options={services} placeholder="Select the work" error={e.service} onChange={setPicked} />
           )}
           <div className={`field${e.acres ? " field--invalid" : ""}`}>
             <label className="field__label" htmlFor="f-acres">Land size</label>
@@ -137,8 +147,8 @@ export function BookForm({ services, districts, service = "", requestId, initial
             </div>
             {e.acres ? <p className="field__error">{e.acres}</p> : null}
           </div>
-          {chosen === "harvesting" ? <Field name="crop" label="Crop" placeholder="For example, rice" maxLength={60} defaultValue={v.crop} error={e.crop} /> : null}
-          <Notes value={v.notes} error={e.notes} />
+          {work === "harvesting" ? <Field name="crop" label="Crop" placeholder="For example, rice" maxLength={60} defaultValue={v.crop} error={e.crop} /> : null}
+          <Notes value={v.notes} error={e.notes} service={work} />
           <Chips name="landAccess" label="Land access" options={LAND_ACCESS} initial={v.landAccess} error={e.landAccess} />
           <Chips name="landCondition" label="Land condition (optional)" options={LAND_CONDITION} initial={v.landCondition} error={e.landCondition} />
           <Chips name="landClearance" label="Land clearance" options={LAND_CLEARANCE} initial={v.landClearance} error={e.landClearance} />
@@ -152,7 +162,7 @@ export function BookForm({ services, districts, service = "", requestId, initial
           <Field icon="pin" name="village" label="Village/town" placeholder="Where the farm is" defaultValue={v.village} error={e.village} />
           <DateField name="preferredDate" label="Preferred start date" defaultValue={v.preferredDate} error={e.preferredDate} />
           <DateField name="alternateDate" label="Latest start date" defaultValue={v.alternateDate} error={e.alternateDate} />
-          <Notes value={v.notes} error={e.notes} />
+          <Notes value={v.notes} error={e.notes} service={work} />
         </>
       )}
 

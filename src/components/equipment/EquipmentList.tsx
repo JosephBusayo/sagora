@@ -175,7 +175,7 @@ export function EquipmentList({ assets, kinds, services, availability, canEdit }
       </div>
 
       {assets.length === 0 ? (
-        <div className="table-card"><EmptyState icon="equipment" title="No equipment yet" body="No machines on your register yet." /></div>
+        <div className="table-card"><EmptyState icon="equipment" title="No equipment yet" body="No equipment on your register yet." /></div>
       ) : (
         <div className="equipment-grid">
           {shown.map((a) => (

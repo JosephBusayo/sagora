@@ -4,7 +4,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { DISTRICTS, SERVICES, ensureBusiness, getBusinessForUser, type BusinessStatus } from "@/lib/business";
 import { requireProvider } from "@/lib/session";
-import { membershipFor } from "@/lib/team";
+import { endSessions, membershipFor, removedFrom } from "@/lib/team";
 import { SetupForm } from "@/components/setup/SetupForm";
 import { signOut } from "../actions";
 
@@ -22,7 +22,7 @@ const STATUS: Record<Exclude<BusinessStatus, "draft">, { title: string; body: st
   },
   approved: {
     title: "Your business is approved",
-    body: "You can now receive requests. Your workspace is the next thing we are building.",
+    body: "You can now receive requests.",
   },
   rejected: {
     title: "We couldn't approve your business",
@@ -35,6 +35,10 @@ export default async function Page() {
   // A teammate who accepted an invite has no business of their own: send them to the workspace.
   const owned = await getBusinessForUser(user.id);
   if (!owned && await membershipFor(user.id)) redirect("/provider/dashboard");
+  if (!owned && await removedFrom(user.id)) {
+    await endSessions(user.id);
+    redirect("/provider/sign-in?removed=1");
+  }
   const b = owned ?? await ensureBusiness(user);
   if (b.status === "approved") redirect("/provider/dashboard");
   const editable = b.status === "draft" || b.status === "changes_requested";

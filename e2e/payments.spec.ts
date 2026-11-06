@@ -110,7 +110,7 @@ async function scheduledJob(browser: Browser, acres: string, village: string, pr
   await s.getByLabel("Work starts").fill(inDays(day));
   await s.getByLabel("Work ends").fill(inDays(day + 1));
   await s.getByLabel("Green Tractor").check();
-  await s.getByRole("button", { name: "Commit the machines" }).click();
+  await s.getByRole("button", { name: "Commit the equipment" }).click();
   await expect(p.page.getByRole("dialog")).toHaveCount(0, { timeout: 8000 });
   await p.ctx.close();
   return reference;
@@ -263,7 +263,9 @@ test("the farmer sees payment and booking as two separate things", async ({ page
 
   await page.goto("/farmer/payments");
   await expect(page.getByRole("cell", { name: `MM-${run}-A1` })).toBeVisible();
-  await expect(page.getByRole("row").filter({ hasText: `BK-${run}-A2` }).getByText("Payment")).toBeVisible();
+  // Named from the farmer's side: the first part payment is the deposit, the last one the balance.
+  await expect(page.getByRole("row").filter({ hasText: `MM-${run}-A1` })).toContainText("Deposit");
+  await expect(page.getByRole("row").filter({ hasText: `BK-${run}-A2` })).toContainText("Balance");
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${SHOTS}/28-farmer-payments.png`, fullPage: true });
 });
@@ -292,7 +294,7 @@ test("money arriving after the machine is taken opens a case instead of overbook
   await expect(page.getByText("nothing was overbooked").first()).toBeVisible();
   await page.goto("/staff/payments?tab=cases");
   await expect(page.getByText(refB)).toBeVisible();
-  await expect(page.getByText(/a machine is now committed to/)).toBeVisible();
+  await expect(page.getByText(/some of the equipment is now committed to/)).toBeVisible();
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${SHOTS}/29-payment-case.png`, fullPage: true });
 });

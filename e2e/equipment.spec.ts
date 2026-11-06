@@ -95,13 +95,13 @@ test("a machine is validated, then added", async ({ page }) => {
   await signIn(page, P.email, P.password);
   await page.goto("/provider/equipment");
   await expect(page.getByRole("heading", { name: "Equipments", exact: true })).toBeVisible();
-  await expect(page.getByText("No machines on your register yet.")).toBeVisible();
+  await expect(page.getByText("No equipment on your register yet.")).toBeVisible();
 
   await page.getByRole("button", { name: "Add equipment" }).click();
   const d = page.getByRole("dialog");
   // Each step is checked before moving on.
   await d.getByRole("button", { name: "Continue" }).click();
-  await expect(d.getByText("Choose what kind of machine this is")).toBeVisible();
+  await expect(d.getByText("Choose the equipment type")).toBeVisible();
   await d.getByLabel("Equipment type").selectOption("tractor");
   await d.getByRole("button", { name: "Continue" }).click();
   await expect(d.getByText("Enter the brand")).toBeVisible();
@@ -111,7 +111,7 @@ test("a machine is validated, then added", async ({ page }) => {
   await d.getByLabel("Registration or serial number (optional)").fill("AAA-111");
   await d.getByRole("button", { name: "Continue" }).click();
   await d.getByRole("button", { name: "Continue" }).click();
-  await expect(d.getByText("Choose what this machine is used for")).toBeVisible();
+  await expect(d.getByText("Choose what this equipment is used for")).toBeVisible();
   await d.getByLabel("Ploughing").check();
   await d.getByLabel("Horsepower (HP)").fill("75");
   await d.getByRole("button", { name: "Continue" }).click();
@@ -237,7 +237,7 @@ test("one provider cannot see or touch another provider's machines", async ({ br
   await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);
 
   await o.page.goto("/provider/equipment");
-  await expect(o.page.getByText("No machines on your register yet.")).toBeVisible();
+  await expect(o.page.getByText("No equipment on your register yet.")).toBeVisible();
   await expect(o.page.getByText("Massey Ferguson 375")).toHaveCount(0);
   await o.ctx.close();
 });

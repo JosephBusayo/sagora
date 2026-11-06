@@ -1,7 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { ensureBusiness, getBusinessForUser, type Business } from "./business";
-import { ensureOwner, membershipFor } from "./team";
+import { endSessions, ensureOwner, membershipFor, removedFrom } from "./team";
 import { requireProvider } from "./session";
 
 export type Workspace = {
@@ -29,6 +29,12 @@ export async function requireWorkspace(): Promise<Workspace> {
       if (owned.status !== "approved") redirect("/provider/setup");
       return { user, business: owned, role: member.role, permission: member.permission };
     }
+  }
+
+  // Someone removed from a team, with no business of their own, is not handed a fresh one.
+  if (!(await getBusinessForUser(user.id)) && (await removedFrom(user.id))) {
+    await endSessions(user.id);
+    redirect("/provider/sign-in?removed=1");
   }
 
   const business = await ensureBusiness(user);

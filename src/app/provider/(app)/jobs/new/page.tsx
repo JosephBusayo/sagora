@@ -14,7 +14,7 @@ export default async function Page() {
   if (permission === "view_jobs") redirect("/provider/jobs");
   return (
     <Shell crumb={{ label: "Jobs", icon: "jobs" }} user={{ name: user.name }}>
-      <PageHead title="Add a private job" subtitle="Work from outside Sagora. It blocks your machines and no one else can see it." />
+      <PageHead title="Add a private job" subtitle="Work from outside Sagora. It blocks your equipment and no one else can see it." />
       <PrivateJobForm services={SERVICES} districts={DISTRICTS} />
     </Shell>
   );

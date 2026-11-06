@@ -7,9 +7,9 @@ const FARMER = [
 
 const PROVIDER = [
   ["How do I get requests?", "Once Sagora approves your business, requests appear under Requests. Send a quote from the request itself."],
-  ["Can one machine go on two jobs?", "No. A machine already committed for those dates is refused when you schedule a job."],
+  ["Can the same equipment go on two jobs?", "No. Equipment already committed for those dates is refused when you schedule a job."],
   ["When am I paid?", "After the farmer confirms the work. A reported job is not a confirmed one. Approved money shows in your wallet."],
-  ["What if a machine breaks down?", "Report a fault on the machine. A blocking fault flags its jobs as at risk and keeps the commitment on record."],
+  ["What if equipment breaks down?", "Report a fault on the equipment. A blocking fault flags its jobs as at risk and keeps the commitment on record."],
 ];
 
 /** Answers taken from how the product actually behaves, so they cannot promise anything else. */

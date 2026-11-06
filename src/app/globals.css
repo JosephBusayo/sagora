@@ -244,11 +244,15 @@ textarea.field__input, .staff__note { min-height: 86px; height: auto; padding: 1
 /* ---------------------------------------------------------------------------
    One-time code: seven boxes
 --------------------------------------------------------------------------- */
+/* Seven 53px boxes are 431px wide: on a phone they shrink to share the row instead. */
 .otp {
   display: flex;
-  gap: 10px;
+  gap: clamp(4px, 2vw, 10px);
 }
 .otp__box {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 53px;
   width: 53px;
   height: 50px;
   padding: 0;
@@ -1395,3 +1399,4 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 /* Reports: no design frame, so it borrows the overview cards and tables. */
 .table__muted { color: var(--color-subtitle); }
 @media (max-width: 480px) { .overview__card { flex-wrap: wrap; } .overview__badge { margin-left: 50px; } }
+.auth__hint { margin-top: 16px; text-align: center; }

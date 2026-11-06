@@ -195,6 +195,33 @@ test("a teammate without full access cannot invite or change the business", asyn
   await ctx.close();
 });
 
+test("removing a teammate signs them out at once and gives them no workspace", async ({ page, browser }) => {
+  // The teammate is signed in and working when the owner removes them.
+  const { ctx, page: mate } = await fresh(browser);
+  await signIn(mate, MATE.email, MATE.password);
+  await mate.goto("/provider/jobs");
+  await expect(mate).toHaveURL(/\/provider\/jobs$/);
+
+  await signIn(page, OWNER.email, OWNER.password);
+  await page.goto("/provider/team");
+  await page.getByRole("button", { name: `Actions for ${MATE.name}` }).click();
+  await page.getByRole("menuitem", { name: "Remove from team" }).click();
+  await page.getByRole("dialog", { name: "Confirm" }).getByRole("button", { name: "Remove from team" }).click();
+  await expect(page.getByRole("cell", { name: MATE.name, exact: true })).toHaveCount(0);
+
+  // Their open session is gone: the next page sends them to sign in.
+  await mate.goto("/provider/jobs");
+  await expect(mate).toHaveURL(/sign-in/);
+
+  // Signing in again does not hand them a new business of their own.
+  await signIn(mate, MATE.email, MATE.password).catch(() => {});   // it lands back on sign-in, by design
+  await expect(mate).toHaveURL(/sign-in\?removed=1/);
+  await expect(mate.getByText("You no longer have access")).toBeVisible();
+  const owned = await testGet(`SELECT b.id FROM provider_business b JOIN "user" u ON u.id = b.user_id WHERE u.email=?`, MATE.email);
+  expect(owned).toBeUndefined();
+  await ctx.close();
+});
+
 test("changing the password signs other browsers out", async ({ page, browser }) => {
   await signIn(page, OWNER.email, OWNER.password);
   await expect(page).toHaveURL(/\/provider\/dashboard$/);

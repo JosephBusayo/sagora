@@ -4,6 +4,12 @@ import path from "node:path";
 
 export type Email = { to: string; subject: string; text: string };
 
+/** Who our email comes from. EMAIL_FROM should be a sagora.sl address once that domain is verified. */
+const SENDER = () => process.env.EMAIL_FROM ?? "Sagora <onboarding@resend.dev>";
+
+/** Just the address, for telling people what to look for in their inbox. */
+export const senderAddress = () => SENDER().match(/<([^>]+)>/)?.[1] ?? SENDER();
+
 /**
  * Single seam for outgoing email. Swap the provider here without touching callers.
  *
@@ -22,7 +28,7 @@ export async function sendEmail(email: Email): Promise<void> {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM ?? "Sagora <onboarding@resend.dev>",
+        from: SENDER(),
         to: [email.to],
         subject: email.subject,
         text: email.text,

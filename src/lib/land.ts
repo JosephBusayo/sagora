@@ -22,7 +22,7 @@ export const LAND_CONDITION = [
 export const LAND_CLEARANCE = [
   { id: "vegetation_remains", label: "Vegetation remains" },
   { id: "cleared", label: "Cleared" },
-  { id: "stumps_or_stones", label: "Stomps or stones" },
+  { id: "stumps_or_stones", label: "Stumps or stones" },
 ] as const;
 
 type Option = { id: string; label: string };

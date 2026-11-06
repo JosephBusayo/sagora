@@ -326,6 +326,10 @@ export async function voidRelease(actorId: string, id: string, reason: string): 
 export type Transaction = {
   id: string; reference: string; requestId: string; kind: "payment" | "refund";
   amountMinor: number; at: string; status: string; method: string;
+  /** What this money was, from the farmer's side: Deposit, Part payment, Balance, Full payment or Refund. */
+  label: string;
+  /** The agreed price for the request, and how much of it has been paid in total. Null before a quote is accepted. */
+  agreedMinor: number | null; paidMinor: number;
 };
 
 /**
@@ -346,15 +350,36 @@ export async function transactionsFor(farmerId: string): Promise<Transaction[]> 
       net_minor: number; status: ReleaseStatus; method: string; at: string;
     }[];
 
+  const agreed = new Map((await db.all(`SELECT a.request_id, a.amount_minor FROM agreement a
+       JOIN service_request r ON r.id = a.request_id WHERE r.farmer_id = ?`, farmerId) as { request_id: string; amount_minor: number }[])
+    .map((x) => [x.request_id, Number(x.amount_minor)]));
+  const paidTotal = new Map<string, number>();
+  for (const p of paid) paidTotal.set(p.request_id, (paidTotal.get(p.request_id) ?? 0) + Number(p.amount_minor));
+
+  // Each payment is named by where it left the running total against the agreed price.
+  const sofar = new Map<string, number>();
+  const labelled = [...paid].sort((x, y) => x.recorded_at.localeCompare(y.recorded_at)).map((p) => {
+    const price = agreed.get(p.request_id);
+    const before = sofar.get(p.request_id) ?? 0;
+    const after = before + Number(p.amount_minor);
+    sofar.set(p.request_id, after);
+    const label = price === undefined ? "Payment"
+      : before === 0 ? (after >= price ? "Full payment" : "Deposit")
+      : after >= price ? "Balance" : "Part payment";
+    return { p, label };
+  });
+
   const rows: Transaction[] = [
-    ...paid.map((p) => ({
+    ...labelled.map(({ p, label }) => ({
       id: p.id, reference: p.reference, requestId: p.request_id, kind: "payment" as const,
-      amountMinor: Number(p.amount_minor), at: p.recorded_at, status: "Received", method: p.method,
+      amountMinor: Number(p.amount_minor), at: p.recorded_at, status: "Received", method: p.method, label,
+      agreedMinor: agreed.get(p.request_id) ?? null, paidMinor: paidTotal.get(p.request_id) ?? 0,
     })),
     ...refunds.map((r) => ({
       id: r.external_ref || r.id.slice(0, 8).toUpperCase(), reference: r.reference, requestId: r.request_id,
       kind: "refund" as const, amountMinor: -Number(r.net_minor), at: r.at,
-      status: r.status === "paid" ? "Sent to you" : "Being processed", method: r.method,
+      status: r.status === "paid" ? "Sent to you" : "Being processed", method: r.method, label: "Refund",
+      agreedMinor: agreed.get(r.request_id) ?? null, paidMinor: paidTotal.get(r.request_id) ?? 0,
     })),
   ];
   return rows.sort((a, b) => b.at.localeCompare(a.at));

@@ -38,7 +38,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Fil
   const jobs: JobView[] = await Promise.all(
     paged.rows.map(async (j) => {
     const names = await Promise.all(
-      j.assetIds.map(async (id) => (await getAsset(business.id, id))?.name ?? "A machine"),
+      j.assetIds.map(async (id) => (await getAsset(business.id, id))?.name ?? "Equipment"),
     );
     return {
       id: j.id,
@@ -77,7 +77,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Fil
     ...(await Promise.all(
       [...onJobs]
         .filter((id) => !available.some((a) => a.id === id))
-        .map(async (id) => ({ id, label: `${(await getAsset(business.id, id))?.name ?? "A machine"} (unavailable)` })),
+        .map(async (id) => ({ id, label: `${(await getAsset(business.id, id))?.name ?? "Equipment"} (unavailable)` })),
     )),
   ];
 

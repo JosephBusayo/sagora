@@ -69,7 +69,7 @@ export function FaultModal({ asset, onClose }: { asset: AssetView; onClose: () =
             {e.description ? <p className="field__error">{e.description}</p> : null}
           </div>
           <p className="field__helper">
-            A fault never erases work already committed. It marks the machine so it is not given out again.
+            A fault never erases work already committed. It marks the equipment so it is not given out again.
           </p>
           {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
           <FormNotice state={state} />

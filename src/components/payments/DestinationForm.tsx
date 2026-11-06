@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Field } from "@/components/auth/Field";
 import { SoftForm } from "@/components/app/SoftForm";
@@ -26,7 +27,7 @@ function Save() {
  * Where a provider's money is sent. This is the part of the design's "payment method" step that
  * does not depend on a payment provider, so it works today and keeps working once one is added.
  */
-export function DestinationForm({ initial }: { initial: DestinationInitial }) {
+export function DestinationForm({ initial, cancelHref }: { initial: DestinationInitial; cancelHref?: string }) {
   const [method, setMethod] = useState(initial.method || "mobile_money");
 
   return (
@@ -72,7 +73,10 @@ export function DestinationForm({ initial }: { initial: DestinationInitial }) {
               helper="Changing this sends any payout waiting to be paid back for approval."
             />
 
-            <Save />
+            <div className="form-actions">
+              {cancelHref ? <Link href={cancelHref} className="button button--soft">Cancel</Link> : null}
+              <Save />
+            </div>
           </>
         );
       }}

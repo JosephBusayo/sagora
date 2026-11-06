@@ -178,7 +178,8 @@ test("scheduling commits the machines for those dates", async ({ page }) => {
   await d.getByLabel("Work ends").fill(inDays(22));
   await d.getByLabel("Green Tractor").check();
   await d.getByLabel("Shared Plough").check();
-  await d.getByRole("button", { name: "Commit the machines" }).click();
+  await d.getByLabel("Operator").selectOption({ index: 1 });   // the owner, the only teammate
+  await d.getByRole("button", { name: "Commit the equipment" }).click();
   await expect(d.page().getByText("Work scheduled.")).toBeVisible();
 
   await page.reload();
@@ -197,7 +198,7 @@ test("the same plough cannot be committed to an overlapping job", async ({ page 
   await d.getByLabel("Work starts").fill(inDays(22));
   await d.getByLabel("Work ends").fill(inDays(24));
   await d.getByLabel("Shared Plough").check();
-  await d.getByRole("button", { name: "Commit the machines" }).click();
+  await d.getByRole("button", { name: "Commit the equipment" }).click();
   await expect(d.getByText(new RegExp(`Shared Plough is already committed to ${refA}`))).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/24-job-clash.png` });
 
@@ -211,8 +212,28 @@ test("the same plough cannot be committed to an overlapping job", async ({ page 
   await d2.getByLabel("Work starts").fill(inDays(23));
   await d2.getByLabel("Work ends").fill(inDays(25));
   await d2.getByLabel("Shared Plough").check();
-  await d2.getByRole("button", { name: "Commit the machines" }).click();
+  await d2.getByRole("button", { name: "Commit the equipment" }).click();
   await expect(d2.page().getByText("Work scheduled.")).toBeVisible();
+});
+
+test("the same operator cannot be on two overlapping jobs, even with free equipment", async ({ page }) => {
+  // A third machine nobody has committed, so only the operator can clash.
+  const { business_id } = await testGet(`SELECT business_id FROM equipment WHERE name='Shared Plough'`) as { business_id: string };
+  const now = new Date().toISOString();
+  await testRun(`INSERT INTO equipment (id, business_id, kind, name, identifier, ownership, notes, created_at, updated_at)
+     VALUES (?,?,'tractor','Spare Tractor','','owned','',?,?)`, `spare-${run}`, business_id, now, now);
+
+  await signInProvider(page);
+  await page.goto("/provider/jobs");
+  await (await openJob(page, refB)).getByRole("button", { name: "Change plan" }).click();
+  const d = page.getByRole("dialog");
+  await d.getByLabel("Work starts").fill(inDays(21));
+  await d.getByLabel("Work ends").fill(inDays(21));
+  await d.getByLabel("Shared Plough").uncheck();
+  await d.getByLabel("Spare Tractor").check();
+  await d.getByLabel("Operator").selectOption({ index: 1 });
+  await d.getByRole("button", { name: "Commit the equipment" }).click();
+  await expect(d.getByText(`This operator is already on another job for those dates (${refA}`)).toBeVisible();
 });
 
 test("a fault flags the job without erasing the commitment", async ({ page }) => {

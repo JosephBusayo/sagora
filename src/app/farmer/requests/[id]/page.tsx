@@ -124,7 +124,7 @@ export default async function Page({ params, searchParams }: {
         {accepted ? (
           <p className="notice notice--success" role="status">
             You accepted this quote. The price and terms are now fixed. The work is booked once the
-            payment is in and the machines are still free for your dates.
+            payment is in and the equipment is still free for your dates.
           </p>
         ) : null}
 
@@ -177,7 +177,7 @@ export default async function Page({ params, searchParams }: {
             ) : null}
             {!booking && received >= agreement.amountMinor ? (
               <p className="notice notice--error" role="status">
-                Your payment is in, but the booking is not confirmed — the machines are no longer free for
+                Your payment is in, but the booking is not confirmed — the equipment is no longer free for
                 those dates. Sagora is sorting this out with you and your money is safe.
               </p>
             ) : null}
@@ -234,7 +234,7 @@ export default async function Page({ params, searchParams }: {
                     <label className="field__label" htmlFor="concern">Or raise a concern</label>
                     <div className="field__box" style={{ height: "auto", alignItems: "flex-start" }}>
                       <textarea id="concern" name="concern" className="field__input" rows={2} maxLength={400}
-                        placeholder="Only half the field was ploughed" style={{ resize: "vertical" }} />
+                        placeholder="Only half the field was done" style={{ resize: "vertical" }} />
                     </div>
                   </div>
                   <PendingButton className="button button--soft button--inline">Raise a concern</PendingButton>
@@ -306,7 +306,7 @@ export default async function Page({ params, searchParams }: {
                         <form action={acceptQuoteAction}>
                           <input type="hidden" name="quoteId" value={q.id} />
                           <input type="hidden" name="requestId" value={request.id} />
-                          <PendingButton className="button" confirm="Accept this quote?" confirmBody="The price and terms become fixed, and the other quotes close. The work is booked once your payment is in and the machines are still free." confirmAction="Accept quote">Accept quote</PendingButton>
+                          <PendingButton className="button" confirm="Accept this quote?" confirmBody="The price and terms become fixed, and the other quotes close. The work is booked once your payment is in and the equipment is still free." confirmAction="Accept quote">Accept quote</PendingButton>
                         </form>
                       </div>
                     )}

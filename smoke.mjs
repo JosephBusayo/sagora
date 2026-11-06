@@ -259,7 +259,7 @@ await step("Provider schedules the work, committing the tractor", p.page, async 
   await d.getByLabel("Work starts").fill(inDays(20));
   await d.getByLabel("Work ends").fill(inDays(21));
   await d.getByLabel("Blue Massey").check();
-  await d.getByRole("button", { name: "Commit the machines" }).click();
+  await d.getByRole("button", { name: "Commit the equipment" }).click();
   await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: WAIT });
   await p.page.screenshot({ path: path.join(OUT, "09-job-scheduled.png"), fullPage: true });
 });
@@ -424,6 +424,15 @@ await step("Every page fits every screen, from a small phone up", p.page, async 
   await audit(guest, [
     "/provider/sign-in", "/provider/sign-up", "/provider/forgot-password", "/farmer/sign-in", "/farmer/sign-up", "/farmer/forgot-password", "/staff/sign-in",
   ], report);
+  // The code screen only opens mid sign-up, so a throwaway sign-up gets there first.
+  await guest.goto("/farmer/sign-up");
+  await guest.getByLabel("First and last name").fill("Code Screen");
+  await guest.getByLabel("Your phone number").fill("076 999 001");
+  await guest.getByLabel("Email").fill(`smoke.code.${run}@example.com`);
+  await guest.getByLabel("Password", { exact: true }).fill("smoke-code-2026");
+  await guest.getByRole("button", { name: "Create account" }).click();
+  await guest.waitForURL(/verify-email/);
+  await audit(guest, ["/farmer/verify-email"], report);
   fs.writeFileSync(path.join(OUT, "responsive.json"), JSON.stringify(report, null, 1));
   // What a phone actually shows, for a person to look at: numbers cannot judge a layout.
   const shot = async (page, name, url, then) => {

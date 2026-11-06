@@ -32,7 +32,7 @@ function parse(fd: FormData) {
   const name = `${brand} ${model}`.trim();
 
   const fieldErrors: Record<string, string> = {};
-  if (!kindIds.includes(kind)) fieldErrors.kind = "Choose what kind of machine this is";
+  if (!kindIds.includes(kind)) fieldErrors.kind = "Choose the equipment type";
   if (!brand) fieldErrors.brand = "Enter the brand";
   else if (brand.length > 40) fieldErrors.brand = "Use 40 characters or fewer";
   if (!model) fieldErrors.model = "Enter the model";
@@ -43,7 +43,7 @@ function parse(fd: FormData) {
   if (horsepower && (!/^\d{1,4}$/.test(horsepower) || hp < 1 || hp > 1000)) fieldErrors.horsepower = "Enter the horsepower as a number, like 75";
   if (implements_.length > 120) fieldErrors.implements = "Use 120 characters or fewer";
   if (identifier.length > 60) fieldErrors.identifier = "Use 60 characters or fewer";
-  if (services.length === 0) fieldErrors.services = "Choose what this machine is used for";
+  if (services.length === 0) fieldErrors.services = "Choose what this equipment is used for";
   if (!availabilityIds.includes(availability)) fieldErrors.availability = "Choose whether it can be booked";
   if (ownership !== "owned" && ownership !== "leased") fieldErrors.ownership = "Say whether you own or lease it";
   if (notes.length > 400) fieldErrors.notes = "Use 400 characters or fewer";
@@ -67,12 +67,12 @@ export async function saveAsset(_prev: FormState, fd: FormData): Promise<FormSta
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
   if (id) {
-    if (!await updateAsset(business.id, user.id, id, input)) return { error: "That machine can no longer be changed.", values };
+    if (!await updateAsset(business.id, user.id, id, input)) return { error: "That equipment can no longer be changed.", values };
   } else {
     await addAsset(business.id, user.id, input);
   }
   revalidatePath("/provider/equipment");
-  return { notice: id ? "Machine updated." : `${input.name} added to your equipment.` };
+  return { notice: id ? "Equipment updated." : `${input.name} added to your equipment.` };
 }
 
 export async function setAvailabilityAction(fd: FormData) {
@@ -88,7 +88,7 @@ export async function retireAssetAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
   await retireAsset(business.id, user.id, str(fd, "id"), str(fd, "reason") || "No reason given");
-  await flash("Machine retired.");
+  await flash("Equipment retired.");
   revalidatePath("/provider/equipment");
 }
 
@@ -96,7 +96,7 @@ export async function restoreAssetAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
   await restoreAsset(business.id, user.id, str(fd, "id"));
-  await flash("Machine back in service.");
+  await flash("Equipment back in service.");
   revalidatePath("/provider/equipment");
 }
 
@@ -114,13 +114,13 @@ export async function reportFaultAction(_prev: FormState, fd: FormData): Promise
   if (Object.keys(fieldErrors).length) return { fieldErrors, values: { severity, description } };
 
   if (!await reportFault(business.id, user.id, equipmentId, severity as "blocking" | "minor", description)) {
-    return { error: "That machine is not on your register." };
+    return { error: "That equipment is not on your register." };
   }
   revalidatePath("/provider/equipment");
   return {
     notice: severity === "blocking"
-      ? "Fault recorded. This machine is now out of service and cannot be put on a job."
-      : "Fault recorded. The machine can still be used.",
+      ? "Fault recorded. This equipment is now out of service and cannot be put on a job."
+      : "Fault recorded. The equipment can still be used.",
   };
 }
 

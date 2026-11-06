@@ -87,7 +87,7 @@ export default async function Page() {
         <div className="home-section__head"><h2 className="home-section__title">Equipment use</h2></div>
         <div className="table-card">
           {r.byMachine.length === 0 ? (
-            <EmptyState icon="equipment" title="No equipment yet" body="Add your machines to see how often each one is used." href="/provider/equipment" action="Go to equipment" />
+            <EmptyState icon="equipment" title="No equipment yet" body="Add your equipment to see how often each one is used." href="/provider/equipment" action="Go to equipment" />
           ) : (
             <table className="table table--report">
               <thead>

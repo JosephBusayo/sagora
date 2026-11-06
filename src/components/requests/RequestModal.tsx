@@ -90,7 +90,7 @@ export function RequestModal({ request, myQuote, onClose }: { request: RequestDe
         ) : tab === "quote" ? (
           <>
             <div className="detail-list"><LandRows request={request} /></div>
-            <QuoteForm requestId={request.id} existing={myQuote} onDone={onClose} />
+            <QuoteForm requestId={request.id} service={request.service} existing={myQuote} onDone={onClose} />
           </>
         ) : (
         <>

@@ -5,6 +5,7 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { VerifyCodeForm } from "@/components/auth/forms";
 import { resendCode, verifyCode } from "../actions";
 import { getPending } from "@/lib/pending";
+import { senderAddress } from "@/lib/email";
 
 export const metadata: Metadata = { title: "Email verification" };
 
@@ -19,6 +20,9 @@ export default async function Page() {
       footer={<Link href="/provider/sign-in">Back to sign in</Link>}
     >
       <VerifyCodeForm action={verifyCode} resendAction={resendCode} />
+      <p className="field__helper auth__hint">
+        The code comes from {senderAddress()}. If you can&rsquo;t find it, check your Junk or Spam folder.
+      </p>
     </AuthShell>
   );
 }

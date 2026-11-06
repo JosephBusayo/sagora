@@ -170,10 +170,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
               : "Not set yet. Add it so a payout can be sent without chasing you for details."}
           </p>
           <p className="field__helper">
-            Payments are sent by hand by the Sagora team today and recorded with a transfer reference.
-            Automatic payouts need the payment provider account, which we are still waiting on.
+            Payouts are sent by the Sagora team and recorded with a transfer reference.
           </p>
           <DestinationForm
+            cancelHref="/provider/payments"
             initial={{
               method: destination?.method ?? "mobile_money",
               accountName: destination?.accountName ?? business.name,
