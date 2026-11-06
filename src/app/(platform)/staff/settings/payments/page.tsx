@@ -19,6 +19,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
   const { done, err } = await searchParams;
   const ready = monimeConfigured();
   const secret = Boolean(process.env.MONIME_WEBHOOK_SECRET?.trim());
+  // Monime only registers notices for a live token: its webhooks API refuses test ones.
+  const test = ready && monimeTestMode();
   return (
     <StaffShell staff={staff} crumb={{ label: "Settings", icon: "settings" }}>
       <PageHead title="Online payments" subtitle="Monime, the payment provider farmers pay through" />
@@ -38,8 +40,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
         {err ? <p className="notice notice--error" role="alert">{err}</p> : null}
         <form action={connectMonimeAction} className="form-actions">
           <Link href="/staff/settings" className="button button--soft" style={{ display: "grid", placeItems: "center" }}>Close</Link>
-          <PendingButton className="button" disabled={!ready || !secret}>Set up payment notices</PendingButton>
+          <PendingButton className="button" disabled={!ready || !secret || test}>Set up payment notices</PendingButton>
         </form>
+        {test ? (
+          <p className="field__helper">
+            Monime only sets up payment notices for a live token. In test mode, a payment is recorded when the farmer comes
+            back to Sagora after paying, or by the daily check. Switch to a live token, then set up payment notices here.
+          </p>
+        ) : null}
         <p className="field__helper">
           Tells Monime to let Sagora know when a farmer pays, so the payment is recorded straight away. Safe to press again,
           for example after switching from test to live.

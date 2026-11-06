@@ -8,7 +8,7 @@ import { APIError } from "better-auth/api";
 import { auth } from "@/lib/auth";
 import { clearForUser } from "@/lib/mfa";
 import { requireAdmin, requireStaff } from "@/lib/session";
-import { monimeConfigured, registerWebhook } from "@/lib/monime";
+import { monimeConfigured, monimeTestMode, registerWebhook } from "@/lib/monime";
 import { siteUrl } from "@/lib/site";
 import { audit } from "@/lib/business";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
@@ -94,6 +94,7 @@ export async function connectMonimeAction() {
   const admin = await requireAdmin();
   const secret = process.env.MONIME_WEBHOOK_SECRET?.trim();
   if (!monimeConfigured() || !secret) redirect(`/staff/settings/payments?err=${encodeURIComponent("Monime is not set up yet.")}`);
+  if (monimeTestMode()) redirect(`/staff/settings/payments?err=${encodeURIComponent("Monime only sets up payment notices for a live token.")}`);
   let done = "";
   try {
     const how = await registerWebhook(`${siteUrl()}/api/monime/webhook`, secret!);
