@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Field } from "@/components/auth/Field";
 import { SoftForm } from "@/components/app/SoftForm";
 import { useFormStatus } from "react-dom";
-import { saveDestination } from "@/app/provider/(app)/payments/actions";
+import { saveDestination } from "@/app/(platform)/provider/(app)/payments/actions";
 
 export type DestinationInitial = { method: string; accountName: string; accountRef: string; bank: string };
 

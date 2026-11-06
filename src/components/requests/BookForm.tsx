@@ -6,7 +6,7 @@ import { useSafely } from "@/components/app/safely";
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { bookService, type BookState } from "@/app/farmer/book/actions";
+import { bookService, type BookState } from "@/app/(platform)/farmer/book/actions";
 import { Field } from "@/components/auth/Field";
 import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION } from "@/lib/land";
 

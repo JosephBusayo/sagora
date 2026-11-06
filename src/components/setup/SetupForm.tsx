@@ -4,8 +4,8 @@ import { useSafely } from "@/components/app/safely";
 import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useId } from "react";
 import { useFormStatus } from "react-dom";
-import { saveSetup } from "@/app/provider/setup/actions";
-import type { FormState } from "@/app/provider/actions";
+import { saveSetup } from "@/app/(platform)/provider/setup/actions";
+import type { FormState } from "@/app/(platform)/provider/actions";
 import { Field } from "@/components/auth/Field";
 
 type Initial = {

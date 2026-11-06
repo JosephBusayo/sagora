@@ -422,7 +422,7 @@ await step("Every page fits every screen, from a small phone up", p.page, async 
   await audit(s.page, ["/staff/providers", "/staff/payments", "/staff/payments?tab=releases", "/staff/payments?tab=books", "/staff/outbox"], report);
   const guest = await (await browser.newContext({ baseURL: BASE })).newPage();
   await audit(guest, [
-    "/provider/sign-in", "/provider/sign-up", "/provider/forgot-password", "/farmer/sign-in", "/farmer/sign-up", "/farmer/forgot-password", "/staff/sign-in",
+    "/", "/provider/sign-in", "/provider/sign-up", "/provider/forgot-password", "/farmer/sign-in", "/farmer/sign-up", "/farmer/forgot-password", "/staff/sign-in",
   ], report);
   // The code screen only opens mid sign-up, so a throwaway sign-up gets there first.
   await guest.goto("/farmer/sign-up");

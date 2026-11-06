@@ -3,7 +3,7 @@
 import { Icon, type IconName } from "@/components/app/Icon";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
-import { createPrivateJobAction } from "@/app/provider/(app)/jobs/actions";
+import { createPrivateJobAction } from "@/app/(platform)/provider/(app)/jobs/actions";
 import { SoftForm } from "@/components/app/SoftForm";
 import { Field } from "@/components/auth/Field";
 

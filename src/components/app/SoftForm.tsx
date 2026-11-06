@@ -5,7 +5,7 @@ import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import type { FormState } from "@/app/provider/actions";
+import type { FormState } from "@/app/(platform)/provider/actions";
 
 export function Actions({ saveLabel = "Save changes", closeHref }: { saveLabel?: string; closeHref: string }) {
   const { pending } = useFormStatus();

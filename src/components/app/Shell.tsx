@@ -4,8 +4,8 @@ import { SearchBox } from "./SearchBox";
 import { TableLabels } from "./TableLabels";
 import { Icon, type IconName } from "./Icon";
 import type { Audience } from "./nav";
-import { signOut } from "@/app/provider/actions";
-import { signOutFarmer } from "@/app/farmer/actions";
+import { signOut } from "@/app/(platform)/provider/actions";
+import { signOutFarmer } from "@/app/(platform)/farmer/actions";
 
 type Props = {
   /** Breadcrumb shown at the top left, as in the design. */

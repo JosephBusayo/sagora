@@ -2,7 +2,7 @@
 
 import { Field } from "@/components/auth/Field";
 import { PasswordField } from "@/components/auth/PasswordField";
-import { saveAccount, saveBusinessDetails, changePassword } from "@/app/provider/(app)/settings/actions";
+import { saveAccount, saveBusinessDetails, changePassword } from "@/app/(platform)/provider/(app)/settings/actions";
 import { Actions, SoftForm } from "./SoftForm";
 
 const SETTINGS = "/provider/settings";

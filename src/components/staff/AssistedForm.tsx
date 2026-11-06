@@ -6,7 +6,7 @@ import { useSafely } from "@/components/app/safely";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
-import { createAssistedAction } from "@/app/staff/assisted-actions";
+import { createAssistedAction } from "@/app/(platform)/staff/assisted-actions";
 import type { FormState } from "@/lib/auth-flows";
 
 type Option = { id: string; label: string };

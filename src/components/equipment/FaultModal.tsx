@@ -5,7 +5,7 @@ import { useModal } from "@/components/app/useModal";
 import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
-import { reportFaultAction } from "@/app/provider/(app)/equipment/actions";
+import { reportFaultAction } from "@/app/(platform)/provider/(app)/equipment/actions";
 import type { FormState } from "@/lib/auth-flows";
 import type { AssetView } from "./EquipmentList";
 

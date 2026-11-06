@@ -1,7 +1,7 @@
 import { EmptyState } from "@/components/app/EmptyState";
 import { FilterPill } from "./FilterPill";
 import { FilterAutoSubmit } from "@/components/requests/FilterAutoSubmit";
-import { openNotificationAction } from "@/app/notification-actions";
+import { openNotificationAction } from "@/app/(platform)/notification-actions";
 import { PendingButton } from "@/components/app/PendingButton";
 import { Icon, type IconName } from "./Icon";
 import { FILTERS, type Filter, type Notification } from "@/lib/notifications";

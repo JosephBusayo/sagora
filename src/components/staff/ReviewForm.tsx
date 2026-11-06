@@ -4,8 +4,8 @@ import { useSafely } from "@/components/app/safely";
 import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { reviewBusiness } from "@/app/staff/actions";
-import type { FormState } from "@/app/provider/actions";
+import { reviewBusiness } from "@/app/(platform)/staff/actions";
+import type { FormState } from "@/app/(platform)/provider/actions";
 
 function Buttons() {
   const { pending } = useFormStatus();

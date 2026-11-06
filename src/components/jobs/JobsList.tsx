@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 import { Icon, ServiceIcon, type IconName } from "@/components/app/Icon";
 import { ScheduleModal } from "./ScheduleModal";
 import { ReportModal } from "./ReportModal";
-import { noReplacementAction, startWorkAction } from "@/app/provider/(app)/jobs/actions";
+import { noReplacementAction, startWorkAction } from "@/app/(platform)/provider/(app)/jobs/actions";
 
 export type Option = { id: string; label: string };
 export type JobView = {

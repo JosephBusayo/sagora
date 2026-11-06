@@ -6,8 +6,8 @@ import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
-import type { FormState } from "@/app/provider/actions";
-import { editMember, inviteMember } from "@/app/provider/(app)/team/actions";
+import type { FormState } from "@/app/(platform)/provider/actions";
+import { editMember, inviteMember } from "@/app/(platform)/provider/(app)/team/actions";
 import type { Row } from "./TeamTable";
 
 type Option = { id: string; label: string };

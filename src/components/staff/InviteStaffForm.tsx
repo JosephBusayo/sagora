@@ -4,7 +4,7 @@ import { useSafely } from "@/components/app/safely";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
-import { inviteStaffAction } from "@/app/staff/team-actions";
+import { inviteStaffAction } from "@/app/(platform)/staff/team-actions";
 import type { FormState } from "@/lib/auth-flows";
 
 function Send() {

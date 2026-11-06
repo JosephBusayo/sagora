@@ -6,7 +6,7 @@ import { useModal } from "@/components/app/useModal";
 import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
-import { scheduleJobAction } from "@/app/provider/(app)/jobs/actions";
+import { scheduleJobAction } from "@/app/(platform)/provider/(app)/jobs/actions";
 import type { FormState } from "@/lib/auth-flows";
 import type { JobView, Option } from "./JobsList";
 

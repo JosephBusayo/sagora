@@ -5,8 +5,8 @@ import { useActionState } from "react";
 import { Field } from "@/components/auth/Field";
 import { PasswordField } from "@/components/auth/PasswordField";
 import { SubmitButton } from "@/components/auth/SubmitButton";
-import { acceptInviteAction } from "@/app/provider/join/actions";
-import type { FormState } from "@/app/provider/actions";
+import { acceptInviteAction } from "@/app/(platform)/provider/join/actions";
+import type { FormState } from "@/app/(platform)/provider/actions";
 
 export function JoinForm({ token, name }: { token: string; name: string }) {
   const [state, action] = useActionState(useSafely(acceptInviteAction), {} as FormState);

@@ -6,7 +6,7 @@ import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
-import { sendQuoteAction } from "@/app/provider/(app)/requests/quote-actions";
+import { sendQuoteAction } from "@/app/(platform)/provider/(app)/requests/quote-actions";
 import type { FormState } from "@/lib/auth-flows";
 
 export type MyQuote = {

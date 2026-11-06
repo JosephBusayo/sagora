@@ -6,7 +6,7 @@ import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
-import { saveAsset } from "@/app/provider/(app)/equipment/actions";
+import { saveAsset } from "@/app/(platform)/provider/(app)/equipment/actions";
 import type { FormState } from "@/lib/auth-flows";
 import type { AssetView } from "./EquipmentList";
 import { PhotoPicker } from "./PhotoPicker";

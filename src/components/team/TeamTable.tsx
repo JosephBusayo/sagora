@@ -5,7 +5,7 @@ import { PendingButton } from "@/components/app/PendingButton";
 import { useState } from "react";
 import { Icon } from "@/components/app/Icon";
 import { MemberModal } from "./MemberModal";
-import { removeTeamMember } from "@/app/provider/(app)/team/actions";
+import { removeTeamMember } from "@/app/(platform)/provider/(app)/team/actions";
 
 export type Row = {
   id: string; name: string; phone: string; email: string;

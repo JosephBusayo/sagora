@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { Icon } from "@/components/app/Icon";
 import { AssetModal } from "./AssetModal";
 import { FaultModal } from "./FaultModal";
-import { restoreAssetAction, retireAssetAction, resolveFaultAction, setAvailabilityAction, setPhotoAction } from "@/app/provider/(app)/equipment/actions";
+import { restoreAssetAction, retireAssetAction, resolveFaultAction, setAvailabilityAction, setPhotoAction } from "@/app/(platform)/provider/(app)/equipment/actions";
 import { PhotoPicker } from "./PhotoPicker";
 
 export type FaultView = { id: string; severity: "blocking" | "minor"; description: string; reportedAt: string };

@@ -2,7 +2,7 @@
 
 import { Field } from "@/components/auth/Field";
 import { PasswordField } from "@/components/auth/PasswordField";
-import { saveFarmerAccount, changeFarmerPassword } from "@/app/farmer/settings/actions";
+import { saveFarmerAccount, changeFarmerPassword } from "@/app/(platform)/farmer/settings/actions";
 import { Actions, SoftForm } from "./SoftForm";
 
 const SETTINGS = "/farmer/settings";

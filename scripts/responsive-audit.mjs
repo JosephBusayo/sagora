@@ -23,6 +23,8 @@ function inspect({ phone, tap }) {
     const cs = getComputedStyle(el);
     if (cs.display === "none" || cs.visibility === "hidden" || cs.position === "fixed") continue;
     if (el.closest(".sr-only") || el.closest("[aria-hidden='true']")) continue;
+    // Marked by a page that crops something at the screen edge by design.
+    if (el.closest("[data-bleeds]")) continue;
     const r = el.getBoundingClientRect();
     if (r.width === 0 || r.height === 0) continue;
     if ((r.right > vw + 1 || r.left < -1) && !scrolls(el)) out.offscreen.push(name(el));

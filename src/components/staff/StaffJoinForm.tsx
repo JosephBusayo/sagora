@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { Field } from "@/components/auth/Field";
 import { PasswordField } from "@/components/auth/PasswordField";
 import { SubmitButton } from "@/components/auth/SubmitButton";
-import { acceptStaffInviteAction } from "@/app/staff/join/actions";
+import { acceptStaffInviteAction } from "@/app/(platform)/staff/join/actions";
 import type { FormState } from "@/lib/auth-flows";
 
 export function StaffJoinForm({ token, name }: { token: string; name: string }) {
