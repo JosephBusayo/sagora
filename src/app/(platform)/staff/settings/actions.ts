@@ -7,7 +7,10 @@ import { headers } from "next/headers";
 import { APIError } from "better-auth/api";
 import { auth } from "@/lib/auth";
 import { clearForUser } from "@/lib/mfa";
-import { requireStaff } from "@/lib/session";
+import { requireAdmin, requireStaff } from "@/lib/session";
+import { monimeConfigured, registerWebhook } from "@/lib/monime";
+import { siteUrl } from "@/lib/site";
+import { audit } from "@/lib/business";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
 import { confirmEmailChange, resendEmailChange, startEmailChange } from "@/lib/email-change";
 import { setNotice } from "@/lib/pending";
@@ -82,4 +85,23 @@ export async function resendEmailChangeAction(): Promise<FormState> {
 export async function confirmEmailChangeAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const user = await requireStaff();
   return confirmEmailChange(user, fd, "/staff/settings/account", "/staff/settings/email");
+}
+
+/* -------------------------------------------------------- online payments */
+
+/** Registers Sagora's notice address with Monime, using the keys that only the live site holds. */
+export async function connectMonimeAction() {
+  const admin = await requireAdmin();
+  const secret = process.env.MONIME_WEBHOOK_SECRET?.trim();
+  if (!monimeConfigured() || !secret) redirect(`/staff/settings/payments?err=${encodeURIComponent("Monime is not set up yet.")}`);
+  let done = "";
+  try {
+    const how = await registerWebhook(`${siteUrl()}/api/monime/webhook`, secret!);
+    done = how === "created" ? "Payment notices are set up." : "Payment notices were already set up and have been refreshed.";
+  } catch (err) {
+    logError("monime.webhook-setup", err);
+    redirect(`/staff/settings/payments?err=${encodeURIComponent("Monime refused the request. Check the token can manage webhooks, then try again.")}`);
+  }
+  await audit(admin.id, "monime.webhook_registered", admin.id, siteUrl());
+  redirect(`/staff/settings/payments?done=${encodeURIComponent(done)}`);
 }

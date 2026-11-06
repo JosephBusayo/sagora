@@ -6,8 +6,8 @@ import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/session";
 import { parseAmount } from "@/lib/money";
 import { notify } from "@/lib/outbox";
-import { db } from "@/lib/db";
 import { recordPayment, resolveCase } from "@/lib/payments";
+import { contactsFor, tellBooked } from "@/lib/payment-notices";
 import {
   approveRelease, closePayoutRequest, getRelease, markSent, prepareRefund, resolveDispute, preparePayout, reviseAmount, voidRelease,
 } from "@/lib/settlement";
@@ -19,22 +19,6 @@ async function back(tab: string, message: string, kind: "ok" | "err" = "ok") {
     redirect(`/staff/payments?tab=${tab}`);
   }
   redirect(`/staff/payments?tab=${tab}&err=${encodeURIComponent(message)}`);
-}
-
-/** Who to tell about money, looked up rather than passed in a form. */
-async function contactsFor(requestId: string) {
-  // The quotes around the aliases are not decoration. Postgres folds an unquoted identifier to
-  // lower case, so an unquoted alias arrives flattened — "farmeremail" rather than the name the
-  // code reads — and the value comes back undefined. Here that would mean the booking
-  // confirmation quietly never sends while the screen still says the job is booked.
-  // `npm run check:sql` fails the build if one of these loses its quotes again.
-  return (await db.get(`SELECT r.reference AS reference, r.contact_email AS "farmerEmail", b.email AS "providerEmail", b.name AS "providerName"
-       FROM service_request r
-       LEFT JOIN agreement a ON a.request_id = r.id
-       LEFT JOIN provider_business b ON b.id = a.business_id
-       WHERE r.id = ?`, requestId)) as
-    | { reference: string; farmerEmail: string | null; providerEmail: string | null; providerName: string | null }
-    | undefined;
 }
 
 export async function recordPaymentAction(fd: FormData) {
@@ -52,34 +36,7 @@ export async function recordPaymentAction(fd: FormData) {
   });
   if (!result.ok) await back("collect", result.reason, "err");
 
-  const who = await contactsFor(requestId);
-  if (result.ok && result.outcome === "booked" && who) {
-    // Booking confirmation is one of the emails the brief requires.
-    if (who.farmerEmail) {
-      await notify({
-        kind: "booking.confirmed",
-        dedupeKey: `booking.confirmed:farmer:${requestId}`,
-        to: who.farmerEmail,
-        subject: `${who.reference} is booked`,
-        text:
-          `Your payment for ${who.reference} has been received in full and the work is booked.\n\n` +
-          `${who.providerName ?? "The provider"} has the equipment committed for your dates. ` +
-          `You will be asked to confirm the work once it is done.\n\n` +
-          `This payment was recorded by hand by our team, not by a payment provider.`,
-      });
-    }
-    if (who.providerEmail) {
-      await notify({
-        kind: "booking.confirmed",
-        dedupeKey: `booking.confirmed:provider:${requestId}`,
-        to: who.providerEmail,
-        subject: `${who.reference} is paid and booked`,
-        text:
-          `${who.reference} has been paid in full and is now booked. The equipment you scheduled is ` +
-          `committed for those dates.\n\nYou are paid once the farmer confirms the work.`,
-      });
-    }
-  }
+  if (result.ok && result.outcome === "booked") await tellBooked(requestId, "manual");
 
   revalidatePath("/staff/payments");
   await back("collect", (result as { message: string }).message);

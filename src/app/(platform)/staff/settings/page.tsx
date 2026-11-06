@@ -9,6 +9,7 @@ export const metadata: Metadata = { title: "Settings" };
 
 const ROWS: { href: string; icon: IconName; title: string; body: string; adminOnly?: boolean }[] = [
   { href: "/staff/team", icon: "team", title: "Staff", body: "Invite and remove staff", adminOnly: true },
+  { href: "/staff/settings/payments", icon: "payments", title: "Online payments", body: "Monime, the payment provider farmers pay through", adminOnly: true },
   { href: "/staff/settings/account", icon: "user", title: "Account", body: "Manage your personal account details" },
   { href: "/staff/settings/password", icon: "lock", title: "Password and security", body: "Manage your password" },
 ];

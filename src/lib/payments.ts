@@ -30,7 +30,9 @@ export const METHODS = [
   { id: "cash", label: "Cash" },
 ] as const;
 
-export const methodLabel = (id: string) => METHODS.find((m) => m.id === id)?.label ?? id;
+/** Online payments arrive through Monime, never from the staff form, so they are not in METHODS. */
+const ONLINE: Record<string, string> = { monime: "Monime", monime_test: "Monime (test)" };
+export const methodLabel = (id: string) => METHODS.find((m) => m.id === id)?.label ?? ONLINE[id] ?? id;
 
 export type Payment = {
   id: string; requestId: string; amountMinor: number; method: string; externalRef: string;
@@ -87,7 +89,11 @@ export async function resolveCase(id: string, resolution: string): Promise<boole
   return res.changes > 0;
 }
 
-export type RecordInput = { requestId: string; amountMinor: number; method: string; externalRef: string; note: string };
+export type RecordInput = {
+  requestId: string; amountMinor: number; method: string; externalRef: string; note: string;
+  /** "monime" when the payment provider confirmed it; staff entries are "manual". */
+  source?: "manual" | "monime";
+};
 export type RecordResult =
   | { ok: true; outcome: "booked" | "part_paid" | "case_opened"; message: string }
   | { ok: false; reason: string };
@@ -102,7 +108,10 @@ export async function recordPayment(staffId: string, input: RecordInput): Promis
 
   const agreement = await agreementFor(input.requestId);
   if (!agreement) return { ok: false, reason: "No quote has been accepted on this request yet." };
-  if (await bookingFor(input.requestId)) return { ok: false, reason: "This job is already booked and paid." };
+  const verified = input.source === "monime";
+  // Staff are stopped from recording more against a booked job. Money the provider confirms has
+  // already arrived, so it is recorded whatever happens and the surplus goes to a case.
+  if (!verified && await bookingFor(input.requestId)) return { ok: false, reason: "This job is already booked and paid." };
 
   const job = await jobForRequest(input.requestId);
   if (!job) return { ok: false, reason: "There is no job for this request." };
@@ -116,8 +125,9 @@ export async function recordPayment(staffId: string, input: RecordInput): Promis
     // The receipt reference is unique, so recording the same payment twice is refused here
     // rather than quietly doubling the money.
     try {
-      await t.run(`INSERT INTO payment (id, request_id, amount_minor, method, external_ref, note, recorded_by, recorded_at)
-         VALUES (?,?,?,?,?,?,?,?)`, randomUUID(), input.requestId, input.amountMinor, input.method, ref, input.note, staffId, new Date().toISOString());
+      await t.run(`INSERT INTO payment (id, request_id, amount_minor, method, external_ref, source, psp_verified, note, recorded_by, recorded_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`, randomUUID(), input.requestId, input.amountMinor, input.method, ref, verified ? "monime" : "manual", verified ? 1 : 0,
+        input.note, staffId, new Date().toISOString());
     } catch {
       // A duplicate reference: nothing else has been written, so there is nothing to undo.
       return { ok: false, reason: `A payment with reference "${ref}" has already been recorded.` };
@@ -135,6 +145,13 @@ export async function recordPayment(staffId: string, input: RecordInput): Promis
     );
 
     const held = await balance(account.funds(input.requestId), t);
+    if (await t.get("SELECT 1 AS x FROM booking WHERE request_id=?", input.requestId)) {
+      await openCase(t, input.requestId, "payment_after_booking", `${formatAmount(input.amountMinor)} arrived after the job was already paid and booked.`);
+      return { ok: true, outcome: "case_opened", message: "This job was already paid. The extra money is held and a case has been opened." };
+    }
+    if (held > agreement.amountMinor) {
+      await openCase(t, input.requestId, "overpaid", `${formatAmount(held)} received against ${formatAmount(agreement.amountMinor)} agreed.`);
+    }
     if (held < agreement.amountMinor) {
       return {
         ok: true,

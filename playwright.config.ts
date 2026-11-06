@@ -32,6 +32,11 @@ export default defineConfig({
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
       BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-123456",
       SAGORA_TEST_OUTBOX: "1", // test-only: write emails to data/dev-outbox.jsonl even under `next start`
+      // A stand-in Monime (e2e/monime-stub.ts), started by the tests that pay online.
+      MONIME_API_URL: "http://localhost:3499",
+      MONIME_ACCESS_TOKEN: "mon_test_stub_token",
+      MONIME_SPACE_ID: "spc-test",
+      MONIME_WEBHOOK_SECRET: "test-webhook-secret",
     },
   },
 });

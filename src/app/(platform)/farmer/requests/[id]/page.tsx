@@ -24,6 +24,8 @@ import { Shell } from "@/components/app/Shell";
 import { Icon } from "@/components/app/Icon";
 import { unreadCount } from "@/lib/notifications";
 import { landSize } from "@/lib/land-size";
+import { monimeOfferedTo, monimeTestMode } from "@/lib/monime";
+import { payOnlineAction } from "../pay-actions";
 
 export const metadata: Metadata = { title: "Request" };
 export const dynamic = "force-dynamic";
@@ -45,11 +47,11 @@ const businessName = async (id: string) =>
 
 export default async function Page({ params, searchParams }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ accepted?: string; error?: string; confirmed?: string; concern?: string }>;
+  searchParams: Promise<{ accepted?: string; error?: string; confirmed?: string; concern?: string; payment?: string }>;
 }) {
   const farmer = await requireFarmer();
   const { id } = await params;
-  const { accepted, error, confirmed, concern } = await searchParams;
+  const { accepted, error, confirmed, concern, payment } = await searchParams;
 
   const request = await getById(id);
   if (!request || request.farmerId !== farmer.id) notFound(); // never reveal another farmer's request
@@ -68,6 +70,10 @@ export default async function Page({ params, searchParams }: {
   // The list behind the window: its first page, as the My requests screen opens.
   const { rows, pages } = pageOf(await listForFarmer(farmer.id), "1");
   const refunds = (await releasesFor(id)).filter((r) => r.kind === "refund" && r.status !== "void");
+  // Online payment: offered once there is something to book and money still owed.
+  const online = monimeOfferedTo(farmer.email);
+  const due = agreement ? agreement.amountMinor - received : 0;
+  const scheduled = Boolean(job?.startDate && job.assetIds.length);
 
   return (
     <Shell
@@ -130,6 +136,15 @@ export default async function Page({ params, searchParams }: {
         </section>
 
         {error ? <p className="notice notice--error" role="alert">{error}</p> : null}
+        {payment === "received" ? (
+          <p className="notice notice--success" role="status">Thank you. Your payment was received.</p>
+        ) : payment === "pending" ? (
+          <p className="notice notice--success" role="status">
+            Your payment is being confirmed. It shows here as soon as Monime confirms it.
+          </p>
+        ) : payment === "cancelled" ? (
+          <p className="notice notice--error" role="status">The payment was not completed. You can try again.</p>
+        ) : null}
         {accepted ? (
           <p className="notice notice--success" role="status">
             You accepted this quote. The price and terms are now fixed. The work is booked once the
@@ -197,9 +212,26 @@ export default async function Page({ params, searchParams }: {
               </p>
             ) : null}
 
+            {online && !booking && due > 0 ? (
+              scheduled ? (
+                <form action={payOnlineAction} className="pay-online">
+                  <input type="hidden" name="requestId" value={request.id} />
+                  <PendingButton className="button">Pay {formatAmount(due)} now</PendingButton>
+                  <p className="field__helper">
+                    Pay by mobile money, card or bank on Monime&apos;s secure page.
+                    {monimeTestMode() ? " Test mode: no real money moves." : ""}
+                  </p>
+                </form>
+              ) : (
+                <p className="field__helper">You can pay once the provider has scheduled the work.</p>
+              )
+            ) : null}
+
             <p className="field__helper">
-              Payments are recorded by the Sagora team from your receipt, not by an automatic payment
-              provider yet. <Link href="/farmer/payments">See all your payments</Link>.
+              {online
+                ? "Online payments go through Monime, Sagora's payment provider. Other payments are recorded by the Sagora team from your receipt. "
+                : "Payments are recorded by the Sagora team from your receipt, not by an automatic payment provider yet. "}
+              <Link href="/farmer/payments">See all your payments</Link>.
             </p>
             {booking ? <p className="field__helper"><a href={`/farmer/requests/${request.id}/invoice`}>Download invoice (PDF)</a></p> : null}
           </section>

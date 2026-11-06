@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { confirmChecks } from "./checks";
 import { testGet, testRun } from "./testdb";
+import { STUB_PORT, startMonimeStub } from "./monime-stub";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -87,9 +88,10 @@ async function scheduledJob(browser: Browser, acres: string, village: string, pr
 
   const p = await fresh(browser);
   await signIn(p.page, PROV, "provider");
-  await p.page.goto("/provider/requests");
-  await p.page.getByRole("button", { name: `Open request ${reference}` }).click();
+  // Straight to this request: with the whole suite's requests in the list it may not be on page one.
+  await p.page.goto(`/provider/requests?open=${reference}`);
   const d = p.page.getByRole("dialog");
+  if (!(await d.isVisible())) await p.page.getByRole("button", { name: `Open request ${reference}` }).click();
   await d.getByRole("tab", { name: "My quote" }).click();
   await d.getByLabel("Total price (Le)").fill(price);
   await d.getByLabel("What the price covers").fill("Tractor, plough and operator");
@@ -437,6 +439,86 @@ test("changing where money goes withdraws an approval that has not been sent", a
     boss.page.locator("section.staff__item").filter({ hasText: `Payout · ${refC}` }).getByText("Waiting for a second approver"),
   ).toBeVisible();
   await boss.ctx.close();
+});
+
+/* ------------------------------------------------------------- Monime */
+
+const monime = startMonimeStub();
+
+async function openRequest(page: Page, reference: string) {
+  await page.goto("/farmer/requests");
+  await page.getByRole("link", { name: reference }).click();
+  await expect(page.getByRole("heading", { name: "Payment" })).toBeVisible();
+}
+
+test.describe("paying online through Monime", () => {
+  // Each test walks a new job to scheduled before paying, which is slow on a busy machine.
+  test.describe.configure({ timeout: 240_000 });
+  test.beforeAll(async () => { await monime.start(); });
+  test.afterAll(async () => { await monime.stop(); });
+
+  test("a farmer pays online, Sagora checks it with Monime, and the job is booked", async ({ page, browser }) => {
+    const ref = await scheduledJob(browser, "2", "Online Village", "750.00", 60);
+    await signIn(page, FARMER, "farmer");
+    await openRequest(page, ref);
+
+    // Changing their mind on Monime's page brings them back with nothing paid.
+    await page.getByRole("button", { name: "Pay Le 750.00 now" }).click();
+    await expect(page).toHaveURL(new RegExp(`localhost:${STUB_PORT}/pay/`));
+    await page.getByRole("link", { name: "Cancel" }).click();
+    await expect(page.getByText("The payment was not completed. You can try again.")).toBeVisible();
+
+    await page.getByRole("button", { name: "Pay Le 750.00 now" }).click();
+    await expect(page.getByRole("heading", { name: "Pay SLE 750" })).toBeVisible();
+    await page.getByRole("link", { name: "Pay with mobile money" }).click();
+    await expect(page.getByText("Thank you. Your payment was received.")).toBeVisible();
+    await expect(page.getByText("Booking confirmed", { exact: true })).toBeVisible();
+    await expect(page.getByText("Le 750.00 by Monime (test)")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Pay .* now/ })).toHaveCount(0);
+    await page.screenshot({ path: `${SHOTS}/34-paid-online.png`, fullPage: true });
+
+    // What Monime was asked: the amount owed, in cents, with the space and a retry key.
+    const created = monime.seen.filter((x) => x.method === "POST" && x.path === "/v1/checkout-sessions");
+    expect(created).toHaveLength(2);
+    expect((created[1].body as { lineItems: { price: { value: number } }[] }).lineItems[0].price.value).toBe(75000);
+    expect(created[1].headers["monime-space-id"]).toBe("spc-test");
+    expect(created[1].headers["idempotency-key"]).toBeTruthy();
+
+    const row = await testGet(`SELECT p.source, p.psp_verified, p.method FROM payment p JOIN service_request r ON r.id = p.request_id WHERE r.reference=?`, ref) as
+      { source: string; psp_verified: number; method: string };
+    expect(row).toMatchObject({ source: "monime", method: "monime_test" });
+    expect(Number(row.psp_verified)).toBe(1);
+    expect(mailsTo(FARMER.email).some((m) => m.subject === `${ref} is booked` && m.text.includes("through Monime"))).toBe(true);
+  });
+
+  test("Monime's notice records a payment the farmer never came back from, once, and only with the secret", async ({ page, browser, request }) => {
+    const ref = await scheduledJob(browser, "2", "Notice Village", "420.00", 70);
+    await signIn(page, FARMER, "farmer");
+    await openRequest(page, ref);
+    await page.getByRole("button", { name: "Pay Le 420.00 now" }).click();
+    await expect(page).toHaveURL(new RegExp(`localhost:${STUB_PORT}/pay/`));
+    const sessionId = new URL(page.url()).pathname.split("/").pop()!;
+    const notice = { event: { id: "evt-1", name: "checkout_session.completed" }, object: { id: sessionId, type: "checkout_session" }, data: {} };
+    const paidCount = async () => Number((await testGet(
+      `SELECT COUNT(*) AS n FROM payment p JOIN service_request r ON r.id = p.request_id WHERE r.reference=?`, ref) as { n: number | string }).n);
+
+    // Without the secret: refused.
+    expect((await request.post("/api/monime/webhook", { data: notice })).status()).toBe(401);
+    // With it, but Monime says the checkout is still open: a notice alone moves no money.
+    const early = await request.post("/api/monime/webhook", { data: notice, headers: { "x-sagora-webhook-secret": "test-webhook-secret" } });
+    expect(await early.json()).toEqual({ result: "pending" });
+    expect(await paidCount()).toBe(0);
+
+    // Paid on Monime's side, and the farmer closed the browser.
+    await fetch(`http://localhost:${STUB_PORT}/pay/${sessionId}/mark-paid`);
+    for (let i = 0; i < 2; i++) {
+      const res = await request.post("/api/monime/webhook", { data: notice, headers: { "x-sagora-webhook-secret": "test-webhook-secret" } });
+      expect(await res.json()).toEqual({ result: "paid" });
+    }
+    expect(await paidCount()).toBe(1);
+    await openRequest(page, ref);
+    await expect(page.getByText("Booking confirmed", { exact: true })).toBeVisible();
+  });
 });
 
 test("the books balance after all of that", async ({ page }) => {

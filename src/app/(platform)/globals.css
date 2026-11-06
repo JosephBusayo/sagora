@@ -748,6 +748,9 @@ a.topbar__round:hover, a.topbar__user:hover { background: var(--color-hover); te
 .quote-card--agreed { border-color: var(--color-brand); }
 .quote-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
 .quote-card__head h3 { margin: 0 0 4px; font: 600 17px/1.2 var(--font-sans); }
+/* Pay now: the button on its own line under the payment status, with its note beneath. */
+.pay-online { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 14px 0 6px; }
+.pay-online .button { min-width: 220px; }
 .quote-card__head p { margin: 0; color: var(--color-text-muted); font: var(--text-helper); }
 .quote-card__price { margin: 0; font: 600 20px/1.2 var(--font-sans); color: var(--color-brand); white-space: nowrap; }
 .quote-form { max-width: none; }
