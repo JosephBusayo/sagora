@@ -6,15 +6,20 @@ import { Icon, type IconName } from "./Icon";
 import type { Audience } from "./nav";
 import { signOut } from "@/app/(platform)/provider/actions";
 import { signOutFarmer } from "@/app/(platform)/farmer/actions";
+import { signOutStaff } from "@/app/(platform)/staff/actions";
+
+const SIGN_OUT = { provider: signOut, farmer: signOutFarmer, staff: signOutStaff };
 
 type Props = {
   /** Breadcrumb shown at the top left, as in the design. */
   crumb: { label: string; icon: IconName };
   user: { name: string };
-  /** Which app this is. The two differ only in their sidebar and where the bell points. */
+  /** Which app this is. They differ only in their sidebar and where the links point. */
   audience?: Audience;
   /** Unread notifications, shown on the bell. */
   unread?: number;
+  /** Staff admins see the pages only admins may use. */
+  admin?: boolean;
   /** What is in the search box, on the search results page. */
   search?: string;
   children: React.ReactNode;
@@ -33,19 +38,19 @@ function shortName(name: string): string {
   return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}`;
 }
 
-export function Shell({ crumb, user, audience = "provider", unread = 0, search, children }: Props) {
+export function Shell({ crumb, user, audience = "provider", unread = 0, admin = false, search, children }: Props) {
   const base = `/${audience}`;
   return (
     <div className="app">
       <a href="#main" className="skip-link">Skip to content</a>
-      <Sidebar audience={audience} signOutAction={audience === "farmer" ? signOutFarmer : signOut} />
+      <Sidebar audience={audience} signOutAction={SIGN_OUT[audience]} admin={admin} />
       <div className="app__panel">
         <header className="topbar">
           <p className="topbar__crumb">
             <Icon name={crumb.icon} size={18} />
             <span>{crumb.label}</span>
           </p>
-          <SearchBox key={search} base={base} initial={search} />
+          <SearchBox key={search} base={base} initial={search} placeholder={audience === "staff" ? "Search requests and providers..." : undefined} />
           <div className="topbar__actions">
             <Link
               href={`${base}/notifications`}

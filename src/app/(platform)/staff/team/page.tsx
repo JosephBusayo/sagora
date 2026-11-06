@@ -1,9 +1,9 @@
 import { PendingButton } from "@/components/app/PendingButton";
-import { StaffNav } from "@/components/staff/StaffNav";
+import { StaffShell } from "@/components/staff/StaffShell";
+import { PageHead } from "@/components/app/Shell";
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/session";
 import { listStaff, openInvites } from "@/lib/staff";
-import { signOut } from "@/app/(platform)/provider/actions";
 import { InviteStaffForm } from "@/components/staff/InviteStaffForm";
 import { cancelInviteAction, removeStaffAction } from "../team-actions";
 
@@ -17,10 +17,8 @@ export default async function Page() {
   const invites = await openInvites();
 
   return (
-    <main className="setup">
-      <div className="setup__card setup__card--wide">
-        <StaffNav current="team" role={admin.role} />
-        <h1 className="auth__title">Staff</h1>
+    <StaffShell staff={admin} crumb={{ label: "Staff", icon: "team" }}>
+        <PageHead title="Staff" />
         <section className="staff__item">
           <h2>Invite someone</h2>
           <InviteStaffForm />
@@ -57,8 +55,6 @@ export default async function Page() {
             </ul>
           </section>
         ) : null}
-        <form action={signOut} className="setup__signout"><PendingButton className="resend__button">Sign out</PendingButton></form>
-      </div>
-    </main>
+    </StaffShell>
   );
 }

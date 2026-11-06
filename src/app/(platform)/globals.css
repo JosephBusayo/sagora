@@ -469,22 +469,22 @@ select.field__input { appearance: auto; }
 .nav__burger { display: none; }
 .nav__brand { display: flex; align-items: center; height: 33px; padding: 0 10px; }
 .nav__group { display: flex; flex-direction: column; gap: 8px; }
-.nav__title { margin: 0 0 0 8px; padding: 0; font: 500 14px/10px var(--font-sans); letter-spacing: -0.28px; color: var(--color-nav-group); }
+.nav__title { margin: 0 0 0 8px; padding: 0; font: 500 15px/10px var(--font-sans); letter-spacing: -0.28px; color: var(--color-nav-group); }
 .nav__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.nav__item { display: flex; align-items: center; gap: 10px; width: 100%; height: 36px; padding: 0 8px; border: 0; white-space: nowrap; border-radius: 10px;
-  background: transparent; color: var(--color-nav-text); font: 500 14px/1 var(--font-sans); letter-spacing: -0.28px; text-align: left; cursor: pointer; }
+.nav__item { display: flex; align-items: center; gap: 10px; width: 100%; height: 38px; padding: 0 8px; border: 0; white-space: nowrap; border-radius: 10px;
+  background: transparent; color: var(--color-nav-text); font: 500 15px/1 var(--font-sans); letter-spacing: -0.28px; text-align: left; cursor: pointer; }
 .nav__item:hover { background: var(--color-hover); }
 .nav__item--active { background: var(--color-nav-active); color: var(--color-brand); }
-.nav__item .icon { flex: none; width: 20px; height: 20px; }
+.nav__item .icon { flex: none; width: 22px; height: 22px; }
 .nav__spacer { flex: 1; min-height: 20px; }
 
 /* With a sidebar, the app is exactly one screen tall: the sidebar stays put with every item in
    view, and only the page inside the panel scrolls. On a short screen the space around and
-   between the groups gives way (734px is the sidebar with every gap at its smallest), so
+   between the groups gives way (760px is the sidebar with every gap at its smallest), so
    Logout is still on screen. */
 @media (min-width: 901px) {
   .app { height: var(--screen-h); overflow: hidden; }
-  .nav { --give: calc((var(--screen-h) - 734px) / 6); height: var(--screen-h); overflow-y: auto; scrollbar-width: none;
+  .nav { --give: calc((var(--screen-h) - 760px) / 6); height: var(--screen-h); overflow-y: auto; scrollbar-width: none;
     padding-top: clamp(16px, calc(var(--give) + 16px), 39px); padding-bottom: clamp(16px, calc(var(--give) + 16px), 47px); }
   .nav::-webkit-scrollbar { display: none; }
   .nav__body { gap: clamp(14px, calc(var(--give) + 14px), 44px); }
@@ -1432,3 +1432,12 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .modal--request-page > * + * { margin-top: 16px; }
 .modal--request-page .request-card:last-child { margin-bottom: -36px; }
 @media (max-width: 640px) { .modal--request-page > :not(.request-card) { margin-inline: 20px; } }
+
+/* Staff screens, inside the same app frame as farmers and providers. Their working forms read
+   best at a comfortable line length; the finance screen has wide tables and takes the panel. */
+.staff-page { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.staff-page > .staff__item, .staff-page > .setup__summary, .staff-page > form { max-width: 900px; }
+.staff-page--finance { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.staff-page .pagehead { margin: 0; }
+.staff-page__lead { margin: -8px 0 0; }
+.staff-page .settings-row h2 .pill { margin-left: 8px; vertical-align: middle; }

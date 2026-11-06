@@ -1,10 +1,11 @@
 import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
-import { StaffNav } from "@/components/staff/StaffNav";
+import { StaffShell } from "@/components/staff/StaffShell";
+import { PageHead } from "@/components/app/Shell";
 import type { Metadata } from "next";
 import { requireStaff } from "@/lib/session";
 import { counts, listProblems } from "@/lib/outbox";
-import { drainNowAction, retryMessageAction } from "../outbox-actions";
+import { retryMessageAction } from "../outbox-actions";
 
 export const metadata: Metadata = { title: "Notification queue" };
 export const dynamic = "force-dynamic";
@@ -21,18 +22,11 @@ export default async function Page() {
   const rows = await listProblems();
 
   return (
-    <main className="setup">
-      <div className="setup__card setup__card--wide">
-        <StaffNav current="outbox" role={staff.role} />
-        <h1 className="auth__title">Notification queue</h1>
-        <p className="auth__subtitle">
-          Messages are saved before they are sent, so nothing is lost when email fails.
-          {" "}{sent} sent · {pending} waiting · {failed} gave up.
-        </p>
-
-        <form action={drainNowAction}>
-          <PendingButton className="button button--inline">Try the queue now</PendingButton>
-        </form>
+    <StaffShell staff={staff} crumb={{ label: "Notification queue", icon: "quotes" }}>
+        <PageHead
+          title="Notification queue"
+          subtitle={`Messages are saved before they are sent, so nothing is lost when email fails. ${sent} sent · ${pending} waiting · ${failed} gave up.`}
+        />
 
         {rows.length === 0 ? (
           <EmptyState icon="bell" title="No failed messages" body="Nothing has failed. Every message went out first time." />
@@ -75,7 +69,6 @@ export default async function Page() {
             </table>
           </div>
         )}
-      </div>
-    </main>
+    </StaffShell>
   );
 }

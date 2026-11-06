@@ -1,6 +1,7 @@
 import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
-import { StaffNav } from "@/components/staff/StaffNav";
+import { StaffShell } from "@/components/staff/StaffShell";
+import { PageHead } from "@/components/app/Shell";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireStaff } from "@/lib/session";
@@ -10,7 +11,6 @@ import {
   FEE_POLICY, RELEASE_STATUS_LABEL, openDisputes, openPayoutRequests, pendingReleases, reconcile, releasesFor,
 } from "@/lib/settlement";
 import { jobForRequest, JOB_STATUS_LABEL, type JobStatus } from "@/lib/jobs";
-import { signOut } from "@/app/(platform)/provider/actions";
 import {
   approveReleaseAction, closePayoutRequestAction, markSentAction, prepareRefundAction, resolveDisputeAction, preparePayoutAction,
   recordPaymentAction, resolveCaseAction, reviseReleaseAction, voidReleaseAction,
@@ -84,11 +84,10 @@ export default async function Page({
   ).filter((c) => c !== null);
 
   return (
-    <main className="setup">
-      <div className="setup__card setup__card--wide setup__card--finance">
-        <StaffNav current="payments" role={staff.role} />
-        <h1 className="auth__title">Payments</h1>
-        <p className="auth__subtitle">
+    <StaffShell staff={staff} crumb={{ label: "Payments", icon: "payments" }}>
+      <div className="staff-page--finance">
+        <PageHead title="Payments" />
+        <p className="pagehead__sub staff-page__lead">
           Every amount here was recorded by hand from a receipt — <strong>manual, not verified by a
           payment provider</strong>. {FEE_POLICY.approved
             ? `The platform fee is ${FEE_POLICY.pilotPercent}% after a provider's first ${FEE_POLICY.freeJobs} jobs.`
@@ -436,10 +435,7 @@ export default async function Page({
           </>
         ) : null}
 
-        <form action={signOut} className="setup__signout">
-          <PendingButton className="resend__button">Sign out</PendingButton>
-        </form>
       </div>
-    </main>
+    </StaffShell>
   );
 }

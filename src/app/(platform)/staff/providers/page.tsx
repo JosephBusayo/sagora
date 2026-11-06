@@ -1,24 +1,22 @@
-import { PendingButton } from "@/components/app/PendingButton";
-import { StaffNav } from "@/components/staff/StaffNav";
+import { PageHead } from "@/components/app/Shell";
+import { EmptyState } from "@/components/app/EmptyState";
+import { StaffShell } from "@/components/staff/StaffShell";
 import type { Metadata } from "next";
 import { listForReview, SERVICES } from "@/lib/business";
 import { requireStaff } from "@/lib/session";
 import { ReviewForm } from "@/components/staff/ReviewForm";
-import { signOut } from "@/app/(platform)/provider/actions";
 
 export const metadata: Metadata = { title: "Provider review" };
 export const dynamic = "force-dynamic";
 
-/** Plain working screen for staff. There is no design for this yet. */
+/** Staff screen, in the same frame as the apps. There is no design for this page itself. */
 export default async function Page() {
   const staff = await requireStaff();
   const items = await listForReview();
   return (
-    <main className="setup">
-      <div className="setup__card setup__card--wide">
-        <StaffNav current="providers" role={staff.role} />
-        <h1 className="auth__title">Providers waiting for review</h1>
-        {items.length === 0 ? <p className="auth__subtitle">Nothing is waiting.</p> : null}
+    <StaffShell staff={staff} crumb={{ label: "Provider review", icon: "store" }}>
+        <PageHead title="Providers waiting for review" />
+        {items.length === 0 ? <div className="table-card"><EmptyState icon="store" title="Nothing is waiting" body="New businesses appear here when they submit for review." /></div> : null}
         {items.map((b) => (
           <section key={b.id} className="staff__item">
             <h2>{b.name}</h2>
@@ -33,8 +31,6 @@ export default async function Page() {
             <ReviewForm id={b.id} />
           </section>
         ))}
-        <form action={signOut} className="setup__signout"><PendingButton className="resend__button">Sign out</PendingButton></form>
-      </div>
-    </main>
+    </StaffShell>
   );
 }

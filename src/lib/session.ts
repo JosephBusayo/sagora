@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "./auth";
 import { isVerified } from "./mfa";
 
-type SessionUser = { id: string; name: string; email: string; emailVerified: boolean; role?: string | null; phone?: string | null; businessName?: string | null };
+export type SessionUser = { id: string; name: string; email: string; emailVerified: boolean; role?: string | null; phone?: string | null; businessName?: string | null };
 
 /** Verified provider, or redirect to sign-in. Every provider page and action starts here. */
 export async function requireProvider(): Promise<SessionUser> {

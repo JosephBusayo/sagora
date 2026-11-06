@@ -272,12 +272,12 @@ export async function resetPassword(fd: FormData): Promise<FormState> {
 
 /* ---------------------------------------------------------------- sign out */
 
-export async function signOutTo(audience: Audience) {
+export async function signOutTo(audience: Audience, to: string = ROUTES[audience].signIn) {
   // The staff second factor belongs to the session, so signing out must end it too — otherwise
   // the next person to sign in on this machine inherits a browser that is already verified.
   const s = await auth.api.getSession({ headers: await headers() });
   if (s?.session.id) await clearFor(s.session.id);
   await auth.api.signOut({ headers: await headers() });
   await flash("You have signed out.");
-  redirect(ROUTES[audience].signIn);
+  redirect(to);
 }

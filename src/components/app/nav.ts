@@ -1,12 +1,13 @@
 import type { IconName } from "./Icon";
 
-export type NavItem = { href: string; label: string; icon: IconName };
+export type NavItem = { href: string; label: string; icon: IconName; adminOnly?: boolean };
 export type NavGroup = { title: string; items: NavItem[] };
-export type Audience = "provider" | "farmer";
+export type Audience = "provider" | "farmer" | "staff";
 
 /**
- * The sidebar, exactly as the design groups it. Both apps share one component; only this file
- * differs between them, so a change to how navigation looks is made once.
+ * The sidebar, exactly as the design groups it. Every app shares one component; only this file
+ * differs between them, so a change to how navigation looks is made once. Staff have no frame
+ * of their own in the design, so theirs follows the same layout with their own pages.
  */
 export const NAV: Record<Audience, { home: string; groups: NavGroup[]; personal: NavItem[] }> = {
   provider: {
@@ -57,6 +58,29 @@ export const NAV: Record<Audience, { home: string; groups: NavGroup[]; personal:
       { href: "/farmer/settings", label: "General settings", icon: "settings" },
       { href: "/farmer/help", label: "Help & support", icon: "help" },
       { href: "/farmer/settings/account", label: "Account", icon: "account" },
+    ],
+  },
+  staff: {
+    home: "/staff/providers",
+    groups: [
+      {
+        title: "General",
+        items: [
+          { href: "/staff/providers", label: "Provider review", icon: "store" },
+          { href: "/staff/requests", label: "Assisted requests", icon: "requests" },
+          { href: "/staff/payments", label: "Payments", icon: "payments" },
+          { href: "/staff/outbox", label: "Notification queue", icon: "quotes" },
+          { href: "/staff/notifications", label: "Notifications", icon: "bell" },
+        ],
+      },
+      {
+        title: "Team",
+        items: [{ href: "/staff/team", label: "Staff", icon: "team", adminOnly: true }],
+      },
+    ],
+    personal: [
+      { href: "/staff/settings", label: "General settings", icon: "settings" },
+      { href: "/staff/settings/account", label: "Account", icon: "account" },
     ],
   },
 };

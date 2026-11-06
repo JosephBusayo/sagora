@@ -36,9 +36,12 @@ export function BusinessForm({ initial }: { initial: { name: string; phone: stri
   );
 }
 
-export function AccountForm({ initial }: { initial: { name: string; phone: string; email: string } }) {
+type SaveAction = typeof saveAccount;
+
+/** Staff reuse the provider forms with their own action and settings page. */
+export function AccountForm({ initial, action = saveAccount, closeHref = SETTINGS }: { initial: { name: string; phone: string; email: string }; action?: SaveAction; closeHref?: string }) {
   return (
-    <SoftForm action={saveAccount}>
+    <SoftForm action={action}>
       {(s) => {
         const e = s.fieldErrors ?? {};
         const v = s.values ?? {};
@@ -53,7 +56,7 @@ export function AccountForm({ initial }: { initial: { name: string; phone: strin
               </div>
               <p className="field__helper">Changing your sign-in email needs a new verification code. That screen isn&apos;t designed yet.</p>
             </div>
-            <Actions closeHref={SETTINGS} />
+            <Actions closeHref={closeHref} />
           </>
         );
       }}
@@ -61,9 +64,9 @@ export function AccountForm({ initial }: { initial: { name: string; phone: strin
   );
 }
 
-export function PasswordForm() {
+export function PasswordForm({ action = changePassword, closeHref = SETTINGS }: { action?: SaveAction; closeHref?: string } = {}) {
   return (
-    <SoftForm action={changePassword} check={false}>
+    <SoftForm action={action} check={false}>
       {(s) => {
         const e = s.fieldErrors ?? {};
         return (
@@ -71,7 +74,7 @@ export function PasswordForm() {
             <PasswordField name="current" label="Current password" autoComplete="current-password" placeholder="Enter your current password" error={e.current} />
             <PasswordField name="password" label="New password" autoComplete="new-password" placeholder="Create a new password" helper="At least 8 characters" error={e.password} />
             <PasswordField name="confirm" label="Confirm new password" autoComplete="new-password" placeholder="Repeat your new password" error={e.confirm} />
-            <Actions saveLabel="Save new password" closeHref={SETTINGS} />
+            <Actions saveLabel="Save new password" closeHref={closeHref} />
           </>
         );
       }}

@@ -11,7 +11,8 @@ import { formatAmount } from "@/lib/money";
 import { agreementFor, isExpired, listForRequest } from "@/lib/quotes";
 import { STATUS_LABEL, contactsFor, getById, serviceLabel } from "@/lib/requests";
 import { requireStaff } from "@/lib/session";
-import { StaffNav } from "@/components/staff/StaffNav";
+import { StaffShell } from "@/components/staff/StaffShell";
+import { PageHead } from "@/components/app/Shell";
 import { acceptOnBehalfAction, confirmOnBehalfAction, logContactAction } from "../../assisted-actions";
 
 export const metadata: Metadata = { title: "Assisted request" };
@@ -35,11 +36,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   ] as const)));
 
   return (
-    <main className="setup">
-      <div className="setup__card setup__card--wide">
-        <StaffNav current="requests" role={staff.role} />
+    <StaffShell staff={staff} crumb={{ label: "Assisted requests", icon: "requests" }}>
         <p className="jobs-links"><Link href="/staff/requests">Back to assisted requests</Link></p>
-        <h1 className="auth__title">{r.reference}</h1>
+        <PageHead title={r.reference} />
         {error ? <p className="notice notice--error" role="alert">{error}</p> : null}
         <dl className="setup__summary">
           <dt>Status</dt><dd>{STATUS_LABEL[r.status]}</dd>
@@ -100,7 +99,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             </ul>
           ) : null}
         </section>
-      </div>
-    </main>
+    </StaffShell>
   );
 }

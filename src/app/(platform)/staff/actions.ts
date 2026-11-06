@@ -5,6 +5,7 @@ import { decide, type Decision } from "@/lib/business";
 import { notify } from "@/lib/outbox";
 import { requireStaff } from "@/lib/session";
 import { db } from "@/lib/db";
+import { signOutTo } from "@/lib/auth-flows";
 import type { FormState } from "@/app/(platform)/provider/actions";
 
 const DECISIONS: Decision[] = ["approved", "changes_requested", "rejected"];
@@ -46,4 +47,9 @@ export async function reviewBusiness(_prev: FormState, fd: FormData): Promise<Fo
     rejected: `${b.name} was rejected.`,
   };
   return { notice: said[decision] };
+}
+
+/** Staff sign out back to their own sign-in screen. */
+export async function signOutStaff() {
+  return signOutTo("provider", "/staff/sign-in");
 }

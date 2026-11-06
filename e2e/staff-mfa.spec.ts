@@ -166,8 +166,8 @@ test("signing out ends it: coming back needs a new code", async ({ page }) => {
   await typeCode(page, await latestCode(STAFF.email));
   await expect(page).toHaveURL(/\/staff\/providers$/);
 
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/provider\/sign-in$/);
+  await page.getByRole("button", { name: "Logout" }).click();
+  await expect(page).toHaveURL(/\/staff\/sign-in$/);
   await page.goto("/staff/payments");
   await expect(page).toHaveURL(/\/provider\/sign-in$/);
 
@@ -200,6 +200,7 @@ test("staff have their own door, and an admin adds and removes staff", async ({ 
   await signIn(page);
   await typeCode(page, await latestCode(STAFF.email));
   await page.waitForURL(/\/staff\/providers/);
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Staff", exact: true })).toHaveCount(0);
   await page.goto("/staff/team");
   await expect(page).toHaveURL(/\/staff\/providers$/);
   await testRun(`UPDATE "user" SET role='admin' WHERE email=?`, STAFF.email);
@@ -262,4 +263,25 @@ test("staff take a request over the phone, with who called on record", async ({ 
   await page.getByLabel("What happened on the call").fill("Told her a quote is coming");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Told her a quote is coming")).toBeVisible();
+
+  // Staff work in the same frame as the apps: sidebar, search and account. This account was
+  // made an admin above, so it also sees the Staff page.
+  const nav = page.getByRole("navigation", { name: "Main" });
+  for (const name of ["Provider review", "Assisted requests", "Payments", "Notification queue", "Notifications", "General settings", "Account"]) {
+    await expect(nav.getByRole("link", { name, exact: true })).toBeVisible();
+  }
+  await expect(nav.getByRole("link", { name: "Staff", exact: true })).toBeVisible();
+  await expect(nav.getByRole("button", { name: "Logout" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Search" }).fill("Alie Kamara");
+  await page.keyboard.press("Enter");
+  await page.waitForURL(/\/staff\/search\?q=/);
+  await page.getByRole("link", { name: /^SG-/ }).first().click();
+  await expect(page.getByText("Alie Kamara (Her son)")).toBeVisible();
+
+  // The queue sends on its own; there is no button that appears to do nothing.
+  await page.goto("/staff/outbox");
+  await expect(page.getByRole("heading", { name: "Notification queue" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try the queue now" })).toHaveCount(0);
+  await page.goto("/staff/settings/account");
+  await expect(page.getByRole("heading", { name: "Account" })).toBeVisible();
 });

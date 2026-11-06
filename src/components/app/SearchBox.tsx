@@ -4,13 +4,13 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon, ServiceIcon } from "./Icon";
 
-export type Suggestion = { kind: "request" | "job" | "equipment"; service?: string; label: string; sub: string; href: string };
+export type Suggestion = { kind: "request" | "job" | "equipment" | "provider"; service?: string; label: string; sub: string; href: string };
 
 /**
  * The top bar's search, with suggestions under it as someone types. It is still a plain GET form
  * underneath, so Enter goes to the full results page, and it works with JavaScript off.
  */
-export function SearchBox({ base, initial }: { base: string; initial?: string }) {
+export function SearchBox({ base, initial, placeholder = "Search requests, jobs, equipments..." }: { base: string; initial?: string; placeholder?: string }) {
   const router = useRouter();
   const listId = useId();
   const [q, setQ] = useState(initial ?? "");
@@ -46,7 +46,7 @@ export function SearchBox({ base, initial }: { base: string; initial?: string })
     >
       <img src="/icons/search.svg" alt="" width={18} height={18} />
       <input
-        type="search" name="q" value={q} placeholder="Search requests, jobs, equipments..." aria-label="Search" maxLength={80} autoComplete="off"
+        type="search" name="q" value={q} placeholder={placeholder} aria-label="Search" maxLength={80} autoComplete="off"
         role="combobox" aria-expanded={shown.length > 0} aria-controls={listId} aria-autocomplete="list"
         aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
         onChange={(e) => { setQ(e.target.value); if (!e.target.value.trim()) setItems([]); setOpen(true); }}
@@ -66,8 +66,8 @@ export function SearchBox({ base, initial }: { base: string; initial?: string })
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => { e.preventDefault(); go(s); }}
               >
-                {s.kind === "equipment"
-                  ? <span className="suggest__thumb" aria-hidden="true"><Icon name="equipment" size={22} /></span>
+                {s.kind === "equipment" || s.kind === "provider"
+                  ? <span className="suggest__thumb" aria-hidden="true"><Icon name={s.kind === "provider" ? "store" : "equipment"} size={22} /></span>
                   : <ServiceIcon service={s.service ?? ""} />}
                 <span className="suggest__text"><strong>{s.label}</strong><span>{s.sub}</span></span>
                 <Icon name="chevron" size={14} />

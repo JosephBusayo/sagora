@@ -1,13 +1,12 @@
-import { PendingButton } from "@/components/app/PendingButton";
+import { PageHead } from "@/components/app/Shell";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
 import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION } from "@/lib/land";
 import { STATUS_LABEL, listAssisted, serviceLabel } from "@/lib/requests";
 import { requireStaff } from "@/lib/session";
-import { signOut } from "@/app/(platform)/provider/actions";
 import { AssistedForm } from "@/components/staff/AssistedForm";
-import { StaffNav } from "@/components/staff/StaffNav";
+import { StaffShell } from "@/components/staff/StaffShell";
 
 export const metadata: Metadata = { title: "Assisted requests" };
 export const dynamic = "force-dynamic";
@@ -17,11 +16,8 @@ export default async function Page() {
   const staff = await requireStaff();
   const rows = await listAssisted();
   return (
-    <main className="setup">
-      <div className="setup__card setup__card--wide">
-        <StaffNav current="requests" role={staff.role} />
-        <h1 className="auth__title">Assisted requests</h1>
-        <p className="auth__subtitle">For farmers who call instead of using the app.</p>
+    <StaffShell staff={staff} crumb={{ label: "Assisted requests", icon: "requests" }}>
+        <PageHead title="Assisted requests" subtitle="For farmers who call instead of using the app." />
         {rows.length > 0 ? (
           <ul className="search-results">
             {rows.map((r) => (
@@ -37,8 +33,6 @@ export default async function Page() {
           <h2>New request</h2>
           <AssistedForm services={SERVICES} districts={DISTRICTS} access={LAND_ACCESS} condition={LAND_CONDITION} clearance={LAND_CLEARANCE} />
         </section>
-        <form action={signOut} className="setup__signout"><PendingButton className="resend__button">Sign out</PendingButton></form>
-      </div>
-    </main>
+    </StaffShell>
   );
 }

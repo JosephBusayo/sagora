@@ -34,7 +34,7 @@ function Group({ title, items, pathname, exact }: { title: string; items: NavIte
   );
 }
 
-export function Sidebar({ audience, signOutAction }: { audience: Audience; signOutAction: () => Promise<void> }) {
+export function Sidebar({ audience, signOutAction, admin = false }: { audience: Audience; signOutAction: () => Promise<void>; admin?: boolean }) {
   const pathname = usePathname();
   const nav = NAV[audience];
   return (
@@ -44,14 +44,14 @@ export function Sidebar({ audience, signOutAction }: { audience: Audience; signO
       <input key={pathname} id="nav-open" type="checkbox" className="nav__toggle" aria-label="Menu" />
       <div className="nav__bar">
         <Link href={nav.home} className="nav__brand">
-          <Image src="/brand/logo-wordmark.svg" alt="Sagora" width={108} height={28} priority />
+          <Image src="/brand/logo-wordmark.svg" alt="Sagora" width={120} height={31} priority />
         </Link>
         <label htmlFor="nav-open" className="nav__burger" aria-hidden="true">
           <span /><span /><span />
         </label>
       </div>
       <div className="nav__body">
-      {nav.groups.map((g) => (
+      {nav.groups.map((g) => ({ ...g, items: g.items.filter((i) => admin || !i.adminOnly) })).filter((g) => g.items.length > 0).map((g) => (
         <Group key={g.title} title={g.title} items={g.items} pathname={pathname} exact={false} />
       ))}
       <div className="nav__spacer" />

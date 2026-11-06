@@ -10,9 +10,3 @@ export async function retryMessageAction(fd: FormData) {
   await drain();
   revalidatePath("/staff/outbox");
 }
-
-export async function drainNowAction() {
-  await requireStaff();
-  await drain();
-  revalidatePath("/staff/outbox");
-}
