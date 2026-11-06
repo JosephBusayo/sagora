@@ -77,7 +77,7 @@ export function Footer({ onProviders }: { onProviders: () => void }) {
       </div>
 
       <Reveal className="footer__logo" variants={settle} duration={1}>
-        <img src="/img/logo-full.svg" alt="Sagora" width={497} height={113} loading="lazy" />
+        <img src="/brand/logo-wordmark.svg" alt="Sagora" width={497} height={129} loading="lazy" />
       </Reveal>
     </footer>
   )

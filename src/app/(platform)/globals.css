@@ -1,15 +1,16 @@
 /* ---------------------------------------------------------------------------
-   Desktop is drawn at 75%: the design is a 1728×1117 canvas, and it reads right on a laptop
-   when Chrome is zoomed to 75%, so desktop screens get that zoom without anyone setting it.
-   Phones and tablets stay at 100%.
+   Desktop is drawn at 80%: the design is a 1728×1117 canvas, read on a laptop at a browser
+   zoom, so desktop screens get that zoom without anyone setting it. The sign-in, sign-up,
+   code and password screens are drawn larger, at 90%. Phones and tablets stay at 100%.
 
    zoom scales viewport units too, so anything sized to the screen divides by --zoom to fill
    it. Media queries still measure the real window, so a desktop breakpoint written for a
-   layout width W is written here as 0.75 × W (1500 → 1125); below 1024 nothing is zoomed.
+   layout width W is written here as 0.8 × W (1500 → 1200); below 1024 nothing is zoomed.
 --------------------------------------------------------------------------- */
 :root { --zoom: 1; --screen-h: calc(100dvh / var(--zoom)); }
 @media (min-width: 1024px) {
-  :root { zoom: 0.75; --zoom: 0.75; }
+  :root { zoom: 0.8; --zoom: 0.8; }
+  :root:has(.auth) { zoom: 0.9; --zoom: 0.9; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -879,7 +880,7 @@ a.home-card:hover { background: var(--color-hover); border-color: var(--color-ho
    then three lines so the three cards stop matching each other. Stepping the type
    down once keeps the proportion the design has rather than the measurement.
 --------------------------------------------------------------------------- */
-@media (max-width: 1125px) {
+@media (max-width: 1200px) {
   .app__content { padding: 32px 40px 40px 40px; }
   .greeting__title { font-size: 24px; line-height: 31px; }
   .greeting__date, .greeting__sub { font-size: 15px; }
