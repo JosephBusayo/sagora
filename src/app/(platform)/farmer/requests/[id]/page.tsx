@@ -1,3 +1,7 @@
+import { ModalShell } from "@/components/app/ModalShell";
+import { FarmerRequestsList } from "@/components/requests/FarmerRequestsList";
+import { placeLine } from "@/lib/chiefdoms";
+import { pageOf } from "@/components/app/Pager";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
 import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, landLabel } from "@/lib/land";
@@ -7,7 +11,7 @@ import { notFound } from "next/navigation";
 import { requireFarmer } from "@/lib/session";
 import { districtLabel } from "@/lib/business";
 import { formatAmount } from "@/lib/money";
-import { STATUS_LABEL, getById, serviceLabel } from "@/lib/requests";
+import { STATUS_LABEL, getById, listForFarmer, serviceLabel } from "@/lib/requests";
 import { agreementFor, isExpired, listForRequest } from "@/lib/quotes";
 import { db } from "@/lib/db";
 import { acceptQuoteAction, declineQuoteAction } from "../accept-actions";
@@ -60,6 +64,8 @@ export default async function Page({ params, searchParams }: {
     request.landCondition && landLabel(LAND_CONDITION, request.landCondition),
     request.landClearance && landLabel(LAND_CLEARANCE, request.landClearance),
   ].filter(Boolean) as string[];
+  // The list behind the window: its first page, as the My requests screen opens.
+  const { rows, pages } = pageOf(await listForFarmer(farmer.id), "1");
   const refunds = (await releasesFor(id)).filter((r) => r.kind === "refund" && r.status !== "void");
 
   return (
@@ -69,7 +75,9 @@ export default async function Page({ params, searchParams }: {
       audience="farmer"
       unread={await unreadCount(farmer)}
     >
-      <>
+      <FarmerRequestsList rows={rows} page={1} pages={pages} />
+      {/* The request opens over the list, as every detail window in the design does. */}
+      <ModalShell closeHref="/farmer/requests" label="Request details" className="modal--request-page">
         <section className="request-card">
           <div className="request-card__banner" aria-hidden="true">
             <span className="banner__ring banner__outer" />
@@ -90,7 +98,7 @@ export default async function Page({ params, searchParams }: {
               <Detail label="Request ID" value={request.reference} />
               <Detail label="Requested on" value={fmtTime(request.createdAt)} />
               <Detail label="Land size" value={`${request.acres} acres`} />
-              <Detail label="Location" value={`${request.village}, ${districtLabel(request.district)}`} />
+              <Detail label="Location" value={placeLine(request.village, request.chiefdom, districtLabel(request.district))} />
               <Detail label="Preferred start date" value={fmt(request.preferredDate)} />
               {request.crop ? <Detail label="Crop" value={request.crop} /> : null}
               <Detail label="Land access" value={landLabel(LAND_ACCESS, request.landAccess)} />
@@ -316,7 +324,7 @@ export default async function Page({ params, searchParams }: {
             })}
           </div>
         )}
-      </>
+      </ModalShell>
     </Shell>
   );
 }

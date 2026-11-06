@@ -7,7 +7,8 @@ import { z } from "zod";
 import { DISTRICTS, SERVICES } from "@/lib/business";
 import type { FormState } from "@/lib/auth-flows";
 import { confirmOnBehalf } from "@/lib/jobs";
-import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION } from "@/lib/land";
+import { chiefdomFits } from "@/lib/chiefdoms";
+import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, cropMissing, needsCrop } from "@/lib/land";
 import { notify } from "@/lib/outbox";
 import { acceptQuote, getQuote } from "@/lib/quotes";
 import { createRequest, getById, logContact, providersCovering } from "@/lib/requests";
@@ -31,6 +32,7 @@ const schema = z.object({
   landCondition: z.string().refine((v) => !v || oneOf(LAND_CONDITION)(v), "Choose the land condition"),
   landClearance: z.string().refine(oneOf(LAND_CLEARANCE), "Choose the land clearance"),
   district: z.enum(DISTRICTS, { error: "Choose the district" }),
+  chiefdom: z.string().max(100),
   village: z.string().min(2, "Enter the village or town").max(100),
   preferredDate: z.string().min(1, "Choose a date").refine((v) => v >= today(), "Choose a date in the future"),
   notes: z.string().max(500),
@@ -42,14 +44,15 @@ export async function createAssistedAction(_prev: FormState, fd: FormData): Prom
   const parsed = schema.safeParse(values);
   const fieldErrors: Record<string, string> = {};
   if (!parsed.success) for (const i of parsed.error.issues) fieldErrors[String(i.path[0])] ??= i.message;
-  if (values.service === "harvesting" && values.crop.length < 2) fieldErrors.crop = "Say what crop is being harvested";
+  if (needsCrop(values.service) && values.crop.length < 2) fieldErrors.crop = cropMissing(values.service);
+  if (!fieldErrors.district && !chiefdomFits(values.district, values.chiefdom)) fieldErrors.chiefdom = "Choose the chiefdom";
   if (!parsed.success || Object.keys(fieldErrors).length) return { fieldErrors, values };
 
   const d = parsed.data;
   const created = await createRequest(null, {
     service: d.service, acres: d.acres, landAccess: d.landAccess, landCondition: d.landCondition, landClearance: d.landClearance,
-    crop: d.service === "harvesting" ? d.crop : "", preferredDate: d.preferredDate, alternateDate: null,
-    district: d.district, village: d.village, notes: d.notes,
+    crop: needsCrop(d.service) ? d.crop : "", preferredDate: d.preferredDate, alternateDate: null,
+    district: d.district, chiefdom: d.chiefdom, village: d.village, notes: d.notes,
     contactName: d.farmerName, contactPhone: d.callerPhone, contactEmail: "",
     assisted: { by: staff.id, callerName: d.callerName, callerRelation: d.callerRelation, mayAccept: d.mayAccept },
   });

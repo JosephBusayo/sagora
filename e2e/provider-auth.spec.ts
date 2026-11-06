@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { confirmChecks } from "./checks";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -42,8 +43,10 @@ async function signUp(page: Page, u: typeof A) {
 }
 async function freshPage(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
-  return { ctx, page: await ctx.newPage() };
+  return { ctx, page: await confirmChecks(await ctx.newPage()) };
 }
+
+test.beforeEach(async ({ page }) => { await confirmChecks(page); });
 
 test.describe.configure({ mode: "serial" });
 
@@ -200,7 +203,7 @@ test("reset screen is closed without a checked code", async ({ page }) => {
 
 test("sign-up works without JavaScript", async ({ browser }) => {
   const ctx = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 1728, height: 1117 } });
-  const page = await ctx.newPage();
+  const page = await confirmChecks(await ctx.newPage());
   const u = { ...A, email: `nojs.${run}@example.com`, business: "No Script Farms" };
   await signUp(page, u);
   await expect(page).toHaveURL(/\/provider\/verify-email$/);

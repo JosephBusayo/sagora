@@ -83,7 +83,7 @@ export function FilterMenu({ name, label, value, icon, options, onChange }: {
               <button type="button" tabIndex={-1}
                 className={`suggest__item${i === active ? " suggest__item--active" : ""}${o.value === current ? " suggest__item--current" : ""}`}
                 onMouseEnter={() => setActive(i)} onClick={() => pick(o)}>
-                {o.value === "ploughing" || o.value === "harvesting" ? <ServiceIcon service={o.value} /> : null}
+                {o.value === "ploughing" || o.value === "harvesting" || o.value === "planting" ? <ServiceIcon service={o.value} /> : null}
                 <span className="suggest__text"><strong>{o.label}</strong></span>
                 <Icon name="chevron" size={14} />
               </button>

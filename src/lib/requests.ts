@@ -45,6 +45,8 @@ export type ServiceRequest = {
   preferredDate: string;
   alternateDate: string | null;
   district: string;
+  /** Empty in the Western Area, and on requests made before it was asked. */
+  chiefdom: string;
   village: string;
   notes: string;
   status: RequestStatus;
@@ -56,7 +58,7 @@ type Row = {
   contact_email: string; service: string; acres: number; land_access: string; land_condition: string;
   land_clearance: string; crop: string; direct_to: string | null; assisted_by: string | null;
   caller_name: string; caller_relation: string; may_accept: string; preferred_date: string; alternate_date: string | null;
-  district: string; village: string; notes: string; status: RequestStatus; created_at: string;
+  district: string; chiefdom: string | null; village: string; notes: string; status: RequestStatus; created_at: string;
 };
 
 const fromRow = (r: Row): ServiceRequest => ({
@@ -66,7 +68,7 @@ const fromRow = (r: Row): ServiceRequest => ({
   crop: r.crop, directTo: r.direct_to, assistedBy: r.assisted_by, callerName: r.caller_name,
   callerRelation: r.caller_relation, mayAccept: r.may_accept,
   preferredDate: r.preferred_date, alternateDate: r.alternate_date, district: r.district,
-  village: r.village, notes: r.notes, status: r.status, createdAt: r.created_at,
+  chiefdom: r.chiefdom ?? "", village: r.village, notes: r.notes, status: r.status, createdAt: r.created_at,
 });
 
 export const serviceLabel = (id: string) => SERVICES.find((s) => s.id === id)?.label ?? id;
@@ -96,6 +98,7 @@ export type NewRequest = {
   preferredDate: string;
   alternateDate: string | null;
   district: string;
+  chiefdom?: string;
   village: string;
   notes: string;
   contactName: string;
@@ -125,11 +128,11 @@ export async function createRequest(farmerId: string | null, input: NewRequest):
     await t.run(`INSERT INTO service_request
         (id, reference, farmer_id, contact_name, contact_phone, contact_email, service, acres,
          land_access, land_condition, land_clearance, crop, direct_to, assisted_by, caller_name, caller_relation, may_accept,
-         preferred_date, alternate_date, district, village, notes, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, next, farmerId, input.contactName, input.contactPhone, input.contactEmail,
+         preferred_date, alternate_date, district, chiefdom, village, notes, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, next, farmerId, input.contactName, input.contactPhone, input.contactEmail,
       input.service, input.acres, input.landAccess, input.landCondition, input.landClearance, input.crop ?? "", input.directTo ?? null,
       input.assisted?.by ?? null, input.assisted?.callerName ?? "", input.assisted?.callerRelation ?? "", input.assisted?.mayAccept ?? "",
-      input.preferredDate, input.alternateDate, input.district,
+      input.preferredDate, input.alternateDate, input.district, input.chiefdom ?? "",
       input.village, input.notes, now, now);
     return { existing: null, reference: next };
   });
@@ -144,10 +147,10 @@ export async function updateRequest(
   d: Omit<NewRequest, "contactName" | "contactPhone" | "contactEmail" | "directTo" | "assisted">,
 ): Promise<boolean> {
   const res = await db.run(`UPDATE service_request SET service=?, acres=?, land_access=?, land_condition=?, land_clearance=?, crop=?,
-       preferred_date=?, alternate_date=?, district=?, village=?, notes=?, updated_at=?
+       preferred_date=?, alternate_date=?, district=?, chiefdom=?, village=?, notes=?, updated_at=?
        WHERE id=? AND farmer_id=? AND status='awaiting_quotes'`,
     d.service, d.acres, d.landAccess, d.landCondition, d.landClearance, d.crop ?? "", d.preferredDate, d.alternateDate,
-    d.district, d.village, d.notes, new Date().toISOString(), id, farmerId);
+    d.district, d.chiefdom ?? "", d.village, d.notes, new Date().toISOString(), id, farmerId);
   if (res.changes) await audit(farmerId, "request.edited", id);
   return res.changes > 0;
 }

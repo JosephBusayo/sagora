@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { confirmChecks } from "./checks";
 import { testAll, testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -39,7 +40,7 @@ async function enterCode(page: Page, email: string) {
 }
 async function fresh(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
-  return { ctx, page: await ctx.newPage() };
+  return { ctx, page: await confirmChecks(await ctx.newPage()) };
 }
 const inDays = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
 
@@ -66,6 +67,8 @@ async function outboxRows(kindLike: string) {
     "SELECT kind, status, attempts, recipient, dedupe_key FROM notification_outbox WHERE kind LIKE ? ORDER BY created_at", kindLike) as { kind: string; status: string; attempts: number; recipient: string; dedupe_key: string | null }[];
   return rows;
 }
+
+test.beforeEach(async ({ page }) => { await confirmChecks(page); });
 
 test.describe.configure({ mode: "serial" });
 
@@ -103,8 +106,10 @@ test("the same event queued twice only sends once", async ({ page }) => {
   await page.getByLabel("Cleared").check();
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByLabel("District").selectOption("Bombali");
+  await page.getByLabel("Chiefdom").selectOption({ index: 1 });
   await page.getByLabel("Village/town").fill("Outbox Village");
   await page.getByLabel("Preferred start date").fill(inDays(30));
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Send request" }).click();
   const reference = (await page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
 

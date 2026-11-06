@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { confirmChecks } from "./checks";
 import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -41,7 +42,7 @@ async function enterCode(page: Page, email: string) {
 }
 async function fresh(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
-  return { ctx, page: await ctx.newPage() };
+  return { ctx, page: await confirmChecks(await ctx.newPage()) };
 }
 const inDays = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
 
@@ -77,8 +78,10 @@ async function scheduledJob(browser: Browser, acres: string, village: string, pr
   await f.page.getByLabel("Cleared").check();
   await f.page.getByRole("button", { name: "Continue" }).click();
   await f.page.getByLabel("District").selectOption("Bombali");
+  await f.page.getByLabel("Chiefdom").selectOption({ index: 1 });
   await f.page.getByLabel("Village/town").fill(village);
   await f.page.getByLabel("Preferred start date").fill(inDays(day + 30));
+  await f.page.getByRole("button", { name: "Continue" }).click();
   await f.page.getByRole("button", { name: "Send request" }).click();
   const reference = (await f.page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
 
@@ -139,6 +142,8 @@ const collectRow = (page: Page, reference: string) => page.getByRole("row").filt
 let refA = "";
 let refB = "";
 let refC = "";
+
+test.beforeEach(async ({ page }) => { await confirmChecks(page); });
 
 test.describe.configure({ mode: "serial" });
 

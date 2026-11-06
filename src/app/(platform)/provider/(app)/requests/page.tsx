@@ -63,6 +63,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
     preferredDate: fmt(r.preferredDate),
     alternateDate: r.alternateDate ? fmtLong(r.alternateDate) : null,
     district: districtLabel(r.district),
+    chiefdom: r.chiefdom,
     village: r.village,
     notes: r.notes,
     submittedOn: fmt(r.createdAt.slice(0, 10)),

@@ -21,7 +21,7 @@ function Select({ name, label, options, placeholder, value, error, icon }: {
       <label className="field__label" htmlFor={`p-${name}`}>{label}</label>
       <div className="field__box">
         {icon ? <span className="field__icon" aria-hidden="true"><Icon name={icon} size={18} /></span> : null}
-        <select id={`p-${name}`} name={name} className="field__input" defaultValue={value ?? ""}>
+        <select key={value ?? ""} id={`p-${name}`} name={name} className="field__input" defaultValue={value ?? ""}>
           <option value="">{placeholder}</option>
           {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>

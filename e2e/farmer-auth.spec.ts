@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { confirmChecks } from "./checks";
 import { testGet } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -41,12 +42,14 @@ async function enterCode(page: Page, email: string, min = 1) {
 }
 async function fresh(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
-  return { ctx, page: await ctx.newPage() };
+  return { ctx, page: await confirmChecks(await ctx.newPage()) };
 }
 const roleOf = async (email: string) => {
   const r = await testGet(`SELECT role FROM "user" WHERE email=?`, email) as { role: string } | undefined;
   return r?.role;
 };
+
+test.beforeEach(async ({ page }) => { await confirmChecks(page); });
 
 test.describe.configure({ mode: "serial" });
 
@@ -149,7 +152,7 @@ test("farmer password reset returns to the farmer sign-in, not the provider one"
 
 test("farmer sign-up works without JavaScript", async ({ browser }) => {
   const ctx = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 1728, height: 1117 } });
-  const page = await ctx.newPage();
+  const page = await confirmChecks(await ctx.newPage());
   const u = { ...F, email: `nojs.farmer.${run}@example.com`, name: "Fatmata Kamara" };
   await page.goto("/farmer/sign-up");
   await page.getByLabel("First and last name").fill(u.name);

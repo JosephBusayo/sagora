@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckFirst } from "@/components/app/CheckFirst";
 import { today } from "@/components/app/today";
 import { useSafely } from "@/components/app/safely";
 import { useModal } from "@/components/app/useModal";
@@ -49,6 +50,7 @@ export function ScheduleModal({ job, assets, operators, onClose }: {
           <p>{job.serviceLabel} · {job.acres} acres · {job.village}, {job.district}</p>
         </div>
         <form action={action} className="form-soft">
+          <CheckFirst title="Check the plan" action="Confirm plan" />
           <input type="hidden" name="jobId" value={job.id} />
           <div className="form-row">
             <div className={`field${e.startDate ? " field--invalid" : ""}`}>

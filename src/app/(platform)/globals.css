@@ -703,6 +703,7 @@ a.topbar__round:hover, a.topbar__user:hover { background: var(--color-hover); te
 .filter .icon { color: var(--color-text); }
 .request-icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 40px; background: var(--color-chip); color: var(--color-brand); }
 .request-icon--harvest { background: rgba(232, 237, 162, 0.95); }
+.request-icon--plant { background: var(--color-success-bg); } /* (assumed) no planting tile in the design yet */
 .pager { display: flex; justify-content: center; gap: 5px; margin-top: auto; padding-top: 32px; }
 .pager a, .pager span { display: grid; place-items: center; width: 50px; height: 48px; border-radius: 30px;
   border: 1px solid var(--color-hairline); font: 500 18px/21px var(--font-sans); color: var(--color-heading); }
@@ -834,6 +835,8 @@ a.tab { text-decoration: none; display: inline-block; text-align: center; }
 /* Two service tiles side by side; three "How it works" steps. */
 .home-cards { display: grid; gap: 30px; }
 .home-cards--two { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+/* The services on offer: three now planting is one, so they sit in a row of three when there is room. */
+.home-cards--services { grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); }
 /* 29px between the three steps, as the design spaces them. */
 .home-cards--three { grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 30px; }
 
@@ -1413,3 +1416,18 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .asset__photo-form .photo-pick__box { height: 306px; border-radius: 18px; }
 .asset__photo-form .field__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 @media (max-width: 640px) { .asset__photo-form .photo-pick__box { height: 200px; } }
+
+/* Check before sending: what was entered, read back before it goes. */
+.check-first { width: min(520px, calc(100vw / var(--zoom) - 32px)); }
+.check-first .confirm__body { margin-bottom: 8px; }
+.check-first__list { max-height: min(50vh, 420px); overflow-y: auto; border-top: 1px solid var(--color-border); }
+.check-first__list .detail-row { padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+.check-first__list .detail-row__value { max-width: 60%; overflow-wrap: anywhere; }
+
+/* A whole request, opened over My requests: the request card is the window itself. */
+.modal--request-page { max-width: 600px; padding: 0 0 36px; border-radius: 33px; }
+.modal--request-page .request-card { max-width: none; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+.modal--request-page > :not(.request-card) { margin-inline: 45px; }
+.modal--request-page > * + * { margin-top: 16px; }
+.modal--request-page .request-card:last-child { margin-bottom: -36px; }
+@media (max-width: 640px) { .modal--request-page > :not(.request-card) { margin-inline: 20px; } }

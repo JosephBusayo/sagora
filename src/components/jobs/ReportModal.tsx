@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckFirst } from "@/components/app/CheckFirst";
 import { useSafely } from "@/components/app/safely";
 import { useModal } from "@/components/app/useModal";
 import { FormNotice } from "@/components/app/FormNotice";
@@ -46,6 +47,7 @@ export function ReportModal({ job, onClose }: { job: JobView; onClose: () => voi
           <p>{job.reference} · agreed {job.acres} acres</p>
         </div>
         <form action={action} className="form-soft">
+          <CheckFirst title="Check your report" action="Send report" />
           <input type="hidden" name="jobId" value={job.id} />
           <Field name="acres" label="How much was done (acres)" type="text" inputMode="numeric"
             placeholder={String(job.acres)} defaultValue={v.acres} error={e.acres} />

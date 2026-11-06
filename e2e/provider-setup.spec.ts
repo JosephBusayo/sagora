@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { confirmChecks } from "./checks";
 import { testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -70,8 +71,10 @@ async function passStaffCheck(page: Page, email: string, landing: string) {
 
 async function fresh(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
-  return { ctx, page: await ctx.newPage() };
+  return { ctx, page: await confirmChecks(await ctx.newPage()) };
 }
+
+test.beforeEach(async ({ page }) => { await confirmChecks(page); });
 
 test.describe.configure({ mode: "serial" });
 
@@ -123,7 +126,7 @@ test("a provider cannot open the staff screen", async ({ page }) => {
   await page.goto("/staff/providers");
   await expect(page).toHaveURL(/\/provider\/sign-in$/);
   const anon = await page.context().browser()!.newContext();
-  const p = await anon.newPage();
+  const p = await confirmChecks(await anon.newPage());
   await p.goto("http://localhost:3100/staff/providers");
   await expect(p).toHaveURL(/\/provider\/sign-in$/);
   await anon.close();

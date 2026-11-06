@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckFirst } from "@/components/app/CheckFirst";
 import { useSafely } from "@/components/app/safely";
 import { useModal } from "@/components/app/useModal";
 import { FormNotice } from "@/components/app/FormNotice";
@@ -99,6 +100,7 @@ export function AssetModal({ asset, kinds, services, availability, onClose }: {
           <p>{editing ? "Edit details about your equipment" : "Tell us about your equipment"}</p>
         </div>
         <form ref={form} action={action} className="form-soft">
+          <CheckFirst title="Check the equipment details" action={editing ? "Save changes" : "Add equipment"} />
           {asset ? <input type="hidden" name="id" value={asset.id} /> : null}
           {asset ? <input type="hidden" name="ownership" value={asset.ownership} /> : null}
           {asset ? <input type="hidden" name="notes" value={asset.notes} /> : null}

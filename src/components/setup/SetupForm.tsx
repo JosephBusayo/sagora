@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckFirst } from "@/components/app/CheckFirst";
 import { useSafely } from "@/components/app/safely";
 import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useId } from "react";
@@ -18,7 +19,7 @@ function Buttons() {
   const { pending } = useFormStatus();
   return (
     <div className="setup__buttons">
-      <button type="submit" name="intent" value="draft" className="button button--ghost" disabled={pending} formNoValidate>
+      <button type="submit" name="intent" value="draft" className="button button--ghost" disabled={pending} formNoValidate data-check-skip>
         Save for later
       </button>
       <button type="submit" name="intent" value="submit" className="button" disabled={pending} aria-busy={pending}>
@@ -39,6 +40,7 @@ export function SetupForm({ initial, districts, services }: Props) {
 
   return (
     <form action={action} className="setup__form">
+      <CheckFirst title="Check your business details" action="Submit for review" />
       <Field name="name" label="Business name" placeholder="Enter your business name" autoComplete="organization" defaultValue={val("name")} error={e.name} />
       <Field name="phone" label="Business phone number" type="tel" inputMode="tel" prefix="+232" placeholder="00 000 000" autoComplete="tel-national" defaultValue={val("phone").replace(/^\+232/, "")} error={e.phone} />
       <Field name="email" label="Business email" type="email" inputMode="email" placeholder="abc@gmail.com" autoComplete="email" defaultValue={val("email")} error={e.email} />

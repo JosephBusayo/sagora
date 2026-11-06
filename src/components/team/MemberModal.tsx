@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckFirst } from "@/components/app/CheckFirst";
 import { useSafely } from "@/components/app/safely";
 import { useModal } from "@/components/app/useModal";
 import { FormNotice } from "@/components/app/FormNotice";
@@ -26,7 +27,7 @@ function Select({ name, label, options, placeholder, defaultValue, error }: {
     <div className={`field${error ? " field--invalid" : ""}`}>
       <label className="field__label" htmlFor={`sel-${name}`}>{label}</label>
       <div className="field__box">
-        <select id={`sel-${name}`} name={name} className="field__input" defaultValue={defaultValue ?? ""}>
+        <select key={defaultValue ?? ""} id={`sel-${name}`} name={name} className="field__input" defaultValue={defaultValue ?? ""}>
           <option value="">{placeholder}</option>
           {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
@@ -74,6 +75,7 @@ export function MemberModal({ mode, member, roles, permissions, onClose }: Props
           <p>{mode === "invite" ? "Add someone to your business and set their permissions" : "Update team member details and permissions"}</p>
         </div>
         <form action={formAction} className="form-soft">
+          <CheckFirst />
           {member ? <input type="hidden" name="id" value={member.id} /> : null}
           <Field name="name" label="Full name" placeholder="Salieu Jalloh" autoComplete="name" defaultValue={val("name", member?.name ?? "")} error={e.name} />
           <Field name="phone" label="Phone number" type="tel" inputMode="tel" prefix="+232" placeholder="00 000 000" autoComplete="tel-national"

@@ -15,6 +15,7 @@ export const LAND_ACCESS = [
 export const LAND_CONDITION = [
   { id: "sloped", label: "Sloped" },
   { id: "wet_swampy", label: "Wet/swampy" },
+  { id: "dry", label: "Dry" },
   { id: "flat", label: "Flat" },
   { id: "rocky", label: "Rocky" },
 ] as const;
@@ -26,6 +27,13 @@ export const LAND_CLEARANCE = [
 ] as const;
 
 type Option = { id: string; label: string };
+
+/** Work on a crop that is already chosen: the farmer says which crop. Ploughing comes before one. */
+export const needsCrop = (service: string) => service === "harvesting" || service === "planting";
+
+/** The crop question's error, in the words of the work. */
+export const cropMissing = (service: string) =>
+  service === "planting" ? "Say what crop is being planted" : "Say what crop is being harvested";
 
 /** Requests made before these questions existed hold an empty string. */
 export const landLabel = (options: readonly Option[], id: string) =>

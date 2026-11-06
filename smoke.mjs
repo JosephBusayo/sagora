@@ -51,6 +51,17 @@ const browser = await chromium.launch(
 async function newPage() {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 950 }, baseURL: BASE });
   const page = await ctx.newPage();
+  // Forms read the answers back before sending; the smoke run confirms them as a person would.
+  await page.addInitScript(() => {
+    new MutationObserver((changes) => {
+      for (const c of changes) {
+        const el = c.target;
+        if (c.attributeName === "open" && el.matches?.("dialog.check-first[open]")) {
+          setTimeout(() => { const b = el.querySelectorAll(".request-card__actions .button"); b[b.length - 1]?.click(); }, 0);
+        }
+      }
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ["open"] });
+  });
   page.on("pageerror", (e) => steps.push({ name: `JS ERROR: ${e.message}`, ok: false }));
   page.on("response", (r) => {
     if (r.status() >= 500) steps.push({ name: `HTTP ${r.status()} on ${r.url().replace(BASE, "")}`, ok: false });
@@ -110,9 +121,11 @@ await step("Farmer books ploughing and gets a reference", f.page, async () => {
   await f.page.getByLabel("Cleared").check();
   await f.page.getByRole("button", { name: "Continue" }).click();
   await f.page.getByLabel("District").selectOption("Bombali");
+  await f.page.getByLabel("Chiefdom").selectOption({ index: 1 });
   await f.page.getByLabel("Village/town").fill("Mabanta Village");
   await f.page.getByLabel("Preferred start date").fill(inDays(35));
   await f.page.getByLabel("Additional notes").fill("Some stumps near the road.");
+  await f.page.getByRole("button", { name: "Continue" }).click();
   await f.page.getByRole("button", { name: "Send request" }).click();
   await f.page.waitForURL(/\/farmer\/requests\?new=/);
   reference = (await f.page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)[0];
@@ -199,7 +212,7 @@ await step("Provider adds a tractor to the equipment register", p.page, async ()
   await d.getByLabel("Ploughing").check();
   await d.getByRole("button", { name: "Continue" }).click();
   await d.getByRole("button", { name: "Add equipment" }).click();
-  await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: WAIT });
+  await p.page.locator(".modal").waitFor({ state: "detached", timeout: WAIT });
   await p.page.reload();
   await p.page.getByText("Blue Massey").waitFor();
   await p.page.screenshot({ path: path.join(OUT, "04-equipment.png"), fullPage: true });
@@ -260,7 +273,7 @@ await step("Provider schedules the work, committing the tractor", p.page, async 
   await d.getByLabel("Work ends").fill(inDays(21));
   await d.getByLabel("Blue Massey").check();
   await d.getByRole("button", { name: "Commit the equipment" }).click();
-  await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: WAIT });
+  await p.page.locator(".modal").waitFor({ state: "detached", timeout: WAIT });
   await p.page.screenshot({ path: path.join(OUT, "09-job-scheduled.png"), fullPage: true });
 });
 await step("Staff records a part payment, which does not book the job", s.page, async () => {
@@ -320,7 +333,7 @@ await step("Provider reports the work and the farmer confirms it", p.page, async
   const d = p.page.getByRole("dialog");
   await d.getByLabel("How much was done (acres)").fill("6");
   await d.getByRole("button", { name: "Report the work" }).click();
-  await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: WAIT });
+  await p.page.locator(".modal").waitFor({ state: "detached", timeout: WAIT });
 
   await f.page.goto("/farmer/requests");
   await f.page.getByRole("link", { name: reference }).click();
@@ -421,6 +434,16 @@ await step("Every page fits every screen, from a small phone up", p.page, async 
   ], report);
   await audit(s.page, ["/staff/providers", "/staff/payments", "/staff/payments?tab=releases", "/staff/payments?tab=books", "/staff/outbox"], report);
   const guest = await (await browser.newContext({ baseURL: BASE })).newPage();
+  await guest.addInitScript(() => {
+    new MutationObserver((changes) => {
+      for (const c of changes) {
+        const el = c.target;
+        if (c.attributeName === "open" && el.matches?.("dialog.check-first[open]")) {
+          setTimeout(() => { const b = el.querySelectorAll(".request-card__actions .button"); b[b.length - 1]?.click(); }, 0);
+        }
+      }
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ["open"] });
+  });
   await audit(guest, [
     "/", "/provider/sign-in", "/provider/sign-up", "/provider/forgot-password", "/farmer/sign-in", "/farmer/sign-up", "/farmer/forgot-password", "/staff/sign-in",
   ], report);

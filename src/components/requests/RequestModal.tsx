@@ -18,6 +18,7 @@ export type RequestDetail = {
   preferredDate: string;
   alternateDate: string | null;
   district: string;
+  chiefdom: string;
   village: string;
   notes: string;
   submittedOn: string;
@@ -109,6 +110,7 @@ export function RequestModal({ request, myQuote, onClose }: { request: RequestDe
           <Row icon="calendar" label="Preferred date" value={request.preferredDate} />
           <Row icon="calendarAlt" label="Alternate date" value={request.alternateDate ?? "Not given"} />
           <Row icon="pin" label="District" value={request.district} />
+          {request.chiefdom ? <Row icon="pin" label="Chiefdom" value={request.chiefdom} /> : null}
           <Row icon="village" label="Community / Village" value={request.village} />
           <Row icon="info" label="Additional information" value={request.notes || "None"} />
         </div>

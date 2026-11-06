@@ -29,6 +29,13 @@ const SERVICES: { href: string; service: string; title: string; body: string }[]
     // The design reads "crups"; corrected here, and raised with the designer.
     body: "Harvest your crops efficiently",
   },
+  {
+    // Not in the design yet: planting was added after it was drawn.
+    href: "/farmer/book?service=planting",
+    service: "planting",
+    title: "Book planting service",
+    body: "Get your crops in the ground on time",
+  },
 ];
 
 const STEPS: { icon: IconName; title: string; body: string }[] = [
@@ -48,7 +55,7 @@ export function FarmerHome({ name, requests }: { name: string; requests: Service
         <p className="greeting__sub">Get farm work done with trusted service providers in your area</p>
       </div>
 
-      <div className="home-cards home-cards--two home-section">
+      <div className="home-cards home-cards--services home-section">
         {SERVICES.map((s) => (
           <Link key={s.href} href={s.href} className="home-card">
             <ServiceIcon service={s.service} />

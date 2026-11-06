@@ -8,8 +8,9 @@ import { DISTRICTS, SERVICES, districtLabel, getApprovedBusiness } from "@/lib/b
 import { coversWork, createRequest, providersCovering, serviceLabel, updateRequest } from "@/lib/requests";
 import { requireFarmer } from "@/lib/session";
 import { notify } from "@/lib/outbox";
-import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION } from "@/lib/land";
+import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, cropMissing, needsCrop } from "@/lib/land";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
+import { chiefdomFits, placeLine } from "@/lib/chiefdoms";
 import type { FormState } from "@/lib/auth-flows";
 
 const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String(fd.get(k)).trim() : "");
@@ -37,7 +38,8 @@ const schema = land.extend({
   village: z.string().min(2, "Enter your community or village").max(100, "Use 100 characters or fewer"),
 });
 
-export type BookState = FormState & { step?: 1 | 2 };
+/** 1: the land, 2: where and when, 3: the summary to check before it is sent. */
+export type BookState = FormState & { step?: 1 | 2 | 3 };
 
 export async function bookService(_prev: BookState, fd: FormData): Promise<BookState> {
   const farmer = await requireFarmer();
@@ -51,10 +53,13 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     preferredDate: str(fd, "preferredDate"),
     alternateDate: str(fd, "alternateDate"),
     district: str(fd, "district"),
+    chiefdom: str(fd, "chiefdom"),
     village: str(fd, "village"),
     notes: str(fd, "notes"),
   };
   const values = { ...raw };
+  // "Edit details" on the summary goes back to the start with every answer kept.
+  if (str(fd, "back") === "1") return { step: 1, values };
 
   // Checked again on the final submit: the hidden fields can be edited like any other.
   const first = land.safeParse(raw);
@@ -63,10 +68,10 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     for (const i of first.error.issues) errors[String(i.path[0])] ??= i.message;
     return { step: 1, fieldErrors: errors, values };
   }
-  if (raw.service === "harvesting" && raw.crop.length < 2) {
-    return { step: 1, fieldErrors: { crop: "Say what crop is being harvested" }, values };
+  if (needsCrop(raw.service) && raw.crop.length < 2) {
+    return { step: 1, fieldErrors: { crop: cropMissing(raw.service) }, values };
   }
-  if (str(fd, "step") !== "2") return { step: 2, values };
+  if (str(fd, "step") === "1" || !str(fd, "step")) return { step: 2, values };
 
   const parsed = schema.safeParse(raw);
   const fieldErrors: Record<string, string> = {};
@@ -74,6 +79,7 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
   if (raw.alternateDate && raw.alternateDate < raw.preferredDate) {
     fieldErrors.alternateDate = "The latest start date must be on or after the preferred start date";
   }
+  if (!fieldErrors.district && !chiefdomFits(raw.district, raw.chiefdom)) fieldErrors.chiefdom = "Choose your chiefdom";
   if (!parsed.success || Object.keys(fieldErrors).length) return { step: 2, fieldErrors, values };
 
   // A direct request stays with the chosen provider, so one that cannot do the work is refused,
@@ -84,6 +90,8 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     const what = `${serviceLabel(parsed.data.service).toLowerCase()} in ${districtLabel(parsed.data.district)}`;
     return { step: 2, fieldErrors: { district: `${chosen?.name ?? "That provider"} does not offer ${what}.` }, values };
   }
+  // Everything checks out: show it all once more before anything is saved or sent.
+  if (str(fd, "step") !== "3") return { step: 3, values };
 
   const d = parsed.data;
   const details = {
@@ -92,10 +100,11 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     landAccess: d.landAccess,
     landCondition: d.landCondition,
     landClearance: d.landClearance,
-    crop: d.service === "harvesting" ? d.crop : "",
+    crop: needsCrop(d.service) ? d.crop : "",
     preferredDate: d.preferredDate,
     alternateDate: d.alternateDate || null,
     district: d.district,
+    chiefdom: raw.chiefdom,
     village: d.village,
     notes: d.notes,
   };
@@ -122,7 +131,7 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     to: farmer.email,
     subject: `Your Sagora request ${created.reference}`,
     text:
-      `We have your request for ${d.service} on ${d.acres} acres in ${d.village}, ${d.district}.\n\n` +
+      `We have your request for ${d.service} on ${d.acres} acres in ${placeLine(d.village, raw.chiefdom, d.district)}.\n\n` +
       `Your reference is ${created.reference}. Keep it: it is how you find this request again.\n\n` +
       `A request is not a booking. Providers will send you quotes, and nothing is confirmed ` +
       `until you accept one and pay.`,

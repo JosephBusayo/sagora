@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { confirmChecks } from "./checks";
 import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -41,7 +42,7 @@ async function enterCode(page: Page, email: string) {
 }
 async function fresh(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
-  return { ctx, page: await ctx.newPage() };
+  return { ctx, page: await confirmChecks(await ctx.newPage()) };
 }
 const inDays = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
 
@@ -53,11 +54,15 @@ async function book(page: Page, opts: { service: string; acres: string; district
   await page.getByLabel("Cleared").check();
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByLabel("District").selectOption(opts.district);
+  await page.getByLabel("Chiefdom").selectOption({ index: 1 });
   await page.getByLabel("Village/town").fill(opts.village);
   await page.getByLabel("Preferred start date").fill(inDays(opts.days));
   if (opts.notes) await page.getByLabel("Additional notes").fill(opts.notes);
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Send request" }).click();
 }
+
+test.beforeEach(async ({ page }) => { await confirmChecks(page); });
 
 test.describe.configure({ mode: "serial" });
 
@@ -126,20 +131,21 @@ test("the booking form refuses incomplete and impossible requests", async ({ pag
   await page.getByRole("button", { name: "Continue" }).click();
 
   // The second step: nothing chosen yet.
-  await page.getByRole("button", { name: "Send request" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByText("Choose your district")).toBeVisible();
 
   // A date in the past is refused.
   await page.getByLabel("Preferred start date").fill(inDays(-5));
   await page.getByLabel("District").selectOption("Bombali");
+  await page.getByLabel("Chiefdom").selectOption({ index: 1 });
   await page.getByLabel("Village/town").fill("Mabanta Village");
-  await page.getByRole("button", { name: "Send request" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByText("Choose a date in the future")).toBeVisible();
 
   // A latest start date before the preferred one is refused.
   await page.getByLabel("Preferred start date").fill(inDays(20));
   await page.getByLabel("Latest start date").fill(inDays(10));
-  await page.getByRole("button", { name: "Send request" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByText("must be on or after the preferred start date")).toBeVisible();
 });
 
@@ -286,9 +292,12 @@ test("a farmer edits a request nobody has quoted, in the design's two steps", as
   await page.getByLabel("Land size").fill("9");
   await page.getByRole("button", { name: "Next" }).click();
   await expect(page.getByLabel("Village/town")).toHaveValue("Edit Village");
+  await expect(page.getByLabel("Chiefdom")).not.toHaveValue(""); // the saved chiefdom comes back
+  await page.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByRole("heading", { name: "Check your request" })).toBeVisible();
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("heading", { name: "Request details" })).toBeVisible();
-  await expect(page.getByText("9 acres")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Request details" }).getByText("9 acres")).toBeVisible();
 });
 
 test("a request reaches only the providers covering its district and service", async ({ page }) => {
@@ -304,4 +313,98 @@ test("a bad link is not a dead end", async ({ browser }) => {
   await b.page.goto("/this-page-does-not-exist");
   await expect(b.page.getByRole("heading", { name: "We can't find that page" })).toBeVisible();
   await b.ctx.close();
+});
+
+test("the farmer checks a summary before the request is sent, with chiefdom, Dry and planting", async ({ page }) => {
+  await signInFarmer(page);
+  await page.goto("/farmer/book");
+  await page.getByLabel("What work do you need?").selectOption("planting");
+  // Planting asks for the crop, as harvesting does.
+  await expect(page.getByLabel("Crop")).toBeVisible();
+  await page.getByLabel("Crop").fill("Rice");
+  await page.getByLabel("Land size").fill("6");
+  await page.getByLabel("Easy access").check();
+  await page.getByLabel("Dry").check();
+  await page.getByLabel("Cleared").check();
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  await page.getByLabel("District").selectOption("Pujehun");
+  // The chiefdoms are the district's own.
+  await expect(page.getByLabel("Chiefdom").locator("option", { hasText: "Kpaka" })).toHaveCount(1);
+  await expect(page.getByLabel("Chiefdom").locator("option", { hasText: "Makari" })).toHaveCount(0);
+  await page.getByLabel("Village/town").fill("Summary Village");
+  await page.getByLabel("Preferred start date").fill(inDays(25));
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByText("Choose your chiefdom")).toBeVisible();
+  await page.getByLabel("Chiefdom").selectOption("Kpaka");
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  // Nothing is saved yet: the summary shows what will be sent.
+  await expect(page.getByRole("heading", { name: "Check your request" })).toBeVisible();
+  const summary = page.locator(".book__summary");
+  await expect(summary).toContainText("Planting");
+  await expect(summary).toContainText("Rice");
+  await expect(summary).toContainText("Dry");
+  await expect(summary).toContainText("Kpaka");
+  let rows = await testGet(`SELECT COUNT(*) AS n FROM service_request WHERE village='Summary Village'`) as { n: number | string };
+  expect(Number(rows.n)).toBe(0);
+
+  // Edit details goes back with every answer kept.
+  await page.getByRole("button", { name: "Edit details" }).click();
+  await expect(page.getByLabel("Crop")).toHaveValue("Rice");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByLabel("Chiefdom")).toHaveValue("Kpaka");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Send request" }).click();
+  await expect(page).toHaveURL(/\/farmer\/requests\?new=SG-/);
+
+  rows = await testGet(`SELECT service, crop, land_condition, chiefdom FROM service_request WHERE village='Summary Village'`) as never;
+  expect(rows).toMatchObject({ service: "planting", crop: "Rice", land_condition: "dry", chiefdom: "Kpaka" });
+});
+
+test("a request opens as a window over My requests, and closing it goes back to the list", async ({ page }) => {
+  await signInFarmer(page);
+  await page.goto("/farmer/requests");
+  await page.locator(".table--requests").getByRole("link", { name: /^SG-/ }).first().click();
+  const window = page.getByRole("dialog", { name: "Request details" });
+  await expect(window).toBeVisible();
+  await expect(window).toContainText("Pujehun");
+  // The list stays behind it.
+  await expect(page.getByRole("heading", { name: "My requests" })).toBeAttached();
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/\/farmer\/requests$/);
+  await expect(window).toHaveCount(0);
+});
+
+test("a form reads the answers back, and nothing is sent until they are confirmed", async ({ browser }) => {
+  // A page of its own: the others confirm the window automatically.
+  const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
+  const page = await ctx.newPage();
+  await signInFarmer(page);
+  await page.goto("/farmer/settings/account");
+  const name = page.getByLabel("First and last name");
+  const before = await name.inputValue();
+  await name.fill("Checked Name");
+  await page.getByRole("button", { name: "Save changes" }).click();
+
+  const check = page.locator("dialog.check-first[open]");
+  await expect(check.getByRole("heading", { name: "Check before sending" })).toBeVisible();
+  await expect(check).toContainText("Checked Name");
+  // Edit closes the window and sends nothing.
+  await check.getByRole("button", { name: "Edit" }).click();
+  await expect(check).toHaveCount(0);
+  await page.reload();
+  await expect(name).toHaveValue(before);
+
+  await name.fill("Checked Name");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await check.getByRole("button", { name: "Confirm and send" }).click();
+  await expect(page.getByRole("status").or(page.locator(".notice--success")).first()).toBeVisible();
+  await page.reload();
+  await expect(name).toHaveValue("Checked Name");
+  await name.fill(before);
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await check.getByRole("button", { name: "Confirm and send" }).click();
+  await expect(check).toHaveCount(0);
+  await ctx.close();
 });

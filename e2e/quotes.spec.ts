@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { confirmChecks } from "./checks";
 import { testAll, testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -42,7 +43,7 @@ async function enterCode(page: Page, email: string) {
 }
 async function fresh(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
-  return { ctx, page: await ctx.newPage() };
+  return { ctx, page: await confirmChecks(await ctx.newPage()) };
 }
 const inDays = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
 
@@ -93,6 +94,8 @@ async function quote(page: Page, reference: string, opts: { amount: string; incl
 
 let reference = "";
 
+test.beforeEach(async ({ page }) => { await confirmChecks(page); });
+
 test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async ({ browser }) => {
@@ -115,8 +118,10 @@ test.beforeAll(async ({ browser }) => {
   await f.page.getByLabel("Cleared").check();
   await f.page.getByRole("button", { name: "Continue" }).click();
   await f.page.getByLabel("District").selectOption("Bombali");
+  await f.page.getByLabel("Chiefdom").selectOption({ index: 1 });
   await f.page.getByLabel("Village/town").fill("Mabanta Village");
   await f.page.getByLabel("Preferred start date").fill(inDays(40));
+  await f.page.getByRole("button", { name: "Continue" }).click();
   await f.page.getByRole("button", { name: "Send request" }).click();
   reference = (await f.page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
   await f.ctx.close();
@@ -189,7 +194,7 @@ test("the farmer compares both quotes and accepts one", async ({ page, browser }
   await page.goto("/farmer/requests");
   await page.getByRole("link", { name: reference }).click();
   await expect(page.getByRole("heading", { name: "Request details" })).toBeVisible();
-  await expect(page.getByText(reference)).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Request details" }).getByText(reference)).toBeVisible();
   await expect(page.getByText("Le 1,200.50")).toBeVisible();
   await expect(page.getByText("Le 1,350.00")).toBeVisible();
   await page.waitForLoadState("networkidle");
@@ -244,8 +249,10 @@ test("an expired quote cannot be accepted", async ({ page, browser }) => {
   await f.page.getByLabel("Cleared").check();
   await f.page.getByRole("button", { name: "Continue" }).click();
   await f.page.getByLabel("District").selectOption("Bombali");
+  await f.page.getByLabel("Chiefdom").selectOption({ index: 1 });
   await f.page.getByLabel("Village/town").fill("Kagbo");
   await f.page.getByLabel("Preferred start date").fill(inDays(45));
+  await f.page.getByRole("button", { name: "Continue" }).click();
   await f.page.getByRole("button", { name: "Send request" }).click();
   const ref2 = (await f.page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
   await f.ctx.close();

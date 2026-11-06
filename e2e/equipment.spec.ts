@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { confirmChecks } from "./checks";
 import { testAll, testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -41,7 +42,7 @@ async function enterCode(page: Page, email: string) {
 }
 async function fresh(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
-  return { ctx, page: await ctx.newPage() };
+  return { ctx, page: await confirmChecks(await ctx.newPage()) };
 }
 async function signIn(page: Page, email: string, password: string) {
   await page.goto("/provider/sign-in");
@@ -69,6 +70,8 @@ async function openCard(page: Page, name: string, nth = 0) {
   await page.getByRole("button", { name: `Open ${name}` }).nth(nth).click();
   return page.getByRole("dialog", { name });
 }
+
+test.beforeEach(async ({ page }) => { await confirmChecks(page); });
 
 test.describe.configure({ mode: "serial" });
 

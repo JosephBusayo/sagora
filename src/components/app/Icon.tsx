@@ -32,6 +32,7 @@ import {
   IconPlusMedium,
   IconResize,
   IconSettingsGear1,
+  IconShovel,
   IconSquareGridCircle,
   IconStore1,
   IconSuitcaseWork,
@@ -73,6 +74,8 @@ const ICONS = {
   village: IconGarage,
   info: IconBubbleInfo,
   trash: IconTrashCan,
+  // Planting has no tile in the design yet; a shovel until the designer draws one.
+  planting: IconShovel,
 } as const;
 
 export type IconName = keyof typeof ICONS;
@@ -84,6 +87,13 @@ export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 
 /** The tile the design puts beside a request: a truck for ploughing, cherries for harvesting. */
 export function ServiceIcon({ service }: { service: string }) {
+  if (service === "planting") {
+    return (
+      <span className="request-icon request-icon--plant" aria-hidden="true">
+        <Icon name="planting" size={22} />
+      </span>
+    );
+  }
   const harvesting = service === "harvesting";
   return (
     <span className={`request-icon${harvesting ? " request-icon--harvest" : ""}`} aria-hidden="true">

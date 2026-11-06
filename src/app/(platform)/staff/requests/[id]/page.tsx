@@ -1,3 +1,4 @@
+import { placeLine } from "@/lib/chiefdoms";
 import Link from "next/link";
 import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
@@ -46,7 +47,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <dt>Called by</dt><dd>{r.callerName} ({r.callerRelation}) · {r.contactPhone}</dd>
           <dt>May accept</dt><dd>{r.mayAccept}</dd>
           <dt>Work</dt><dd>{serviceLabel(r.service)}{r.crop ? `, ${r.crop}` : ""}, {r.acres} acres</dd>
-          <dt>Where</dt><dd>{r.village}, {districtLabel(r.district)}</dd>
+          <dt>Where</dt><dd>{placeLine(r.village, r.chiefdom, districtLabel(r.district))}</dd>
           <dt>Land</dt><dd>{landLabel(LAND_ACCESS, r.landAccess)} · {landLabel(LAND_CONDITION, r.landCondition)} · {landLabel(LAND_CLEARANCE, r.landClearance)}</dd>
         </dl>
 

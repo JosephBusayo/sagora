@@ -8,7 +8,8 @@ import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { bookService, type BookState } from "@/app/(platform)/farmer/book/actions";
 import { Field } from "@/components/auth/Field";
-import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION } from "@/lib/land";
+import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, landLabel, needsCrop } from "@/lib/land";
+import { chiefdomsOf } from "@/lib/chiefdoms";
 
 type Option = { id: string; label: string };
 
@@ -31,12 +32,42 @@ function Select({ name, label, options, placeholder, error, initial = "", icon, 
       <label className="field__label" htmlFor={`f-${name}`}>{label}</label>
       <div className="field__box">
         {icon ? <span className="field__icon" aria-hidden="true"><Icon name={icon} size={18} /></span> : null}
-        <select id={`f-${name}`} name={name} className="field__input" defaultValue={initial} onChange={onChange ? (ev) => onChange(ev.target.value) : undefined}>
+        <select key={initial} id={`f-${name}`} name={name} className="field__input" defaultValue={initial} onChange={onChange ? (ev) => onChange(ev.target.value) : undefined}>
           <option value="">{placeholder}</option>
           {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
       </div>
       {error ? <p className="field__error">{error}</p> : null}
+    </div>
+  );
+}
+
+/** Every answer, carried to the next submit. */
+const FIELDS = ["service", "acres", "landAccess", "landCondition", "landClearance", "crop", "district", "chiefdom", "village", "preferredDate", "alternateDate", "notes"] as const;
+
+const longDate = (iso: string) =>
+  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+
+function Row({ label, value }: { label: string; value: string }) {
+  return <div className="detail-row"><span className="detail-row__label">{label}</span><span className="detail-row__value">{value}</span></div>;
+}
+
+/** Step three: what will be sent, to check before it goes. Nothing is saved until then. */
+function Summary({ v, serviceName }: { v: Record<string, string>; serviceName: string }) {
+  return (
+    <div className="detail-list book__summary">
+      <Row label="Service" value={serviceName} />
+      <Row label="Land size" value={`${v.acres} acres`} />
+      {v.crop ? <Row label="Crop" value={v.crop} /> : null}
+      <Row label="Land access" value={landLabel(LAND_ACCESS, v.landAccess)} />
+      {v.landCondition ? <Row label="Land condition" value={landLabel(LAND_CONDITION, v.landCondition)} /> : null}
+      <Row label="Land clearance" value={landLabel(LAND_CLEARANCE, v.landClearance)} />
+      <Row label="District" value={v.district} />
+      {v.chiefdom ? <Row label="Chiefdom" value={v.chiefdom} /> : null}
+      <Row label="Village/town" value={v.village} />
+      <Row label="Preferred start date" value={longDate(v.preferredDate)} />
+      {v.alternateDate ? <Row label="Latest start date" value={longDate(v.alternateDate)} /> : null}
+      {v.notes ? <Row label="Additional notes" value={v.notes} /> : null}
     </div>
   );
 }
@@ -78,6 +109,7 @@ function Chips({ name, label, options, initial, error }: {
 const NOTES_EXAMPLE: Record<string, string> = {
   ploughing: "eg: the land is slightly sloped, has some stumps, needs deep ploughing",
   harvesting: "eg: the rice is ready in two weeks, one end of the field is waterlogged",
+  planting: "eg: the land was ploughed last month, we will bring our own seed",
 };
 
 function Notes({ value, error, service }: { value?: string; error?: string; service?: string }) {
@@ -113,11 +145,20 @@ export function BookForm({ services, districts, service = "", requestId, initial
   // Picked from the drop-down before any submit: Crop shows at once rather than after a round trip.
   const [picked, setPicked] = useState("");
   const work = chosen || picked;
+  // The chiefdoms follow the district as soon as it is picked.
+  const [pickedDistrict, setPickedDistrict] = useState("");
+  const place = pickedDistrict || v.district || "";
+  const chiefdoms = chiefdomsOf(place);
 
   return (
     <form key={step} action={action} className="form-soft book__form">
       <header className="book__head">
-        {requestId ? (
+        {step === 3 ? (
+          <>
+            <h2>Check your request</h2>
+            <p>Make sure everything is right before you {requestId ? "save it" : "send it"}.</p>
+          </>
+        ) : requestId ? (
           <>
             <h2>Edit details</h2>
             <p>Edit details of your request</p>
@@ -136,6 +177,9 @@ export function BookForm({ services, districts, service = "", requestId, initial
 
       {step === 1 ? (
         <>
+          {(["district", "chiefdom", "village", "preferredDate", "alternateDate"] as const).map((k) => (
+            <input key={k} type="hidden" name={k} value={v[k] ?? ""} />
+          ))}
           {label ? <input type="hidden" name="service" value={chosen} /> : (
             <Select name="service" label="What work do you need?" options={services} placeholder="Select the work" error={e.service} onChange={setPicked} />
           )}
@@ -147,29 +191,42 @@ export function BookForm({ services, districts, service = "", requestId, initial
             </div>
             {e.acres ? <p className="field__error">{e.acres}</p> : null}
           </div>
-          {work === "harvesting" ? <Field name="crop" label="Crop" placeholder="For example, rice" maxLength={60} defaultValue={v.crop} error={e.crop} /> : null}
+          {needsCrop(work) ? <Field name="crop" label="Crop" placeholder="For example, rice" maxLength={60} defaultValue={v.crop} error={e.crop} /> : null}
           <Notes value={v.notes} error={e.notes} service={work} />
           <Chips name="landAccess" label="Land access" options={LAND_ACCESS} initial={v.landAccess} error={e.landAccess} />
           <Chips name="landCondition" label="Land condition (optional)" options={LAND_CONDITION} initial={v.landCondition} error={e.landCondition} />
           <Chips name="landClearance" label="Land clearance" options={LAND_CLEARANCE} initial={v.landClearance} error={e.landClearance} />
         </>
-      ) : (
+      ) : step === 2 ? (
         <>
           {(["service", "acres", "landAccess", "landCondition", "landClearance", "crop"] as const).map((k) => (
             <input key={k} type="hidden" name={k} value={v[k] ?? ""} />
           ))}
-          <Select icon="pin" name="district" label="District" options={districts.map((d) => ({ id: d, label: d }))} placeholder="Select a district" error={e.district} initial={v.district} />
+          <Select icon="pin" name="district" label="District" options={districts.map((d) => ({ id: d, label: d }))} placeholder="Select a district" error={e.district} initial={v.district} onChange={setPickedDistrict} />
+          {chiefdoms.length ? (
+            <Select key={place} icon="pin" name="chiefdom" label="Chiefdom" options={chiefdoms.map((c) => ({ id: c, label: c }))}
+              placeholder="Select a chiefdom" error={e.chiefdom} initial={place === v.district ? v.chiefdom : ""} />
+          ) : null}
           <Field icon="pin" name="village" label="Village/town" placeholder="Where the farm is" defaultValue={v.village} error={e.village} />
           <DateField name="preferredDate" label="Preferred start date" defaultValue={v.preferredDate} error={e.preferredDate} />
           <DateField name="alternateDate" label="Latest start date" defaultValue={v.alternateDate} error={e.alternateDate} />
           <Notes value={v.notes} error={e.notes} service={work} />
         </>
+      ) : (
+        <>
+          {FIELDS.map((k) => <input key={k} type="hidden" name={k} value={v[k] ?? ""} />)}
+          <Summary v={v} serviceName={label ?? ""} />
+        </>
       )}
 
       {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
       <div className="form-actions book__actions">
-        <Link href={requestId ? `/farmer/requests/${requestId}` : "/farmer/home"} className="button button--soft">Cancel</Link>
-        <Submit label={step === 1 ? (requestId ? "Next" : "Continue") : requestId ? "Save changes" : "Send request"} />
+        {step === 3 ? (
+          <button type="submit" name="back" value="1" formNoValidate className="button button--soft">Edit details</button>
+        ) : (
+          <Link href={requestId ? `/farmer/requests/${requestId}` : "/farmer/home"} className="button button--soft">Cancel</Link>
+        )}
+        <Submit label={step === 3 ? (requestId ? "Save changes" : "Send request") : requestId ? "Next" : "Continue"} />
       </div>
     </form>
   );

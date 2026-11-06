@@ -11,6 +11,7 @@ export const DISTRICTS = [
 export const SERVICES = [
   { id: "ploughing", label: "Ploughing" },
   { id: "harvesting", label: "Harvesting" },
+  { id: "planting", label: "Planting" },
 ] as const;
 
 /** The design writes "Bombali District". The two Western Area names already read as places. */

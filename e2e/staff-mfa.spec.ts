@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
+import { confirmChecks } from "./checks";
 import { testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -40,7 +41,7 @@ async function enterCode(page: Page, email: string) {
 }
 async function fresh(browser: Browser) {
   const ctx = await browser.newContext({ viewport: { width: 1728, height: 1117 } });
-  return { ctx, page: await ctx.newPage() };
+  return { ctx, page: await confirmChecks(await ctx.newPage()) };
 }
 async function signIn(page: Page) {
   await page.goto("/staff/sign-in");
@@ -51,6 +52,8 @@ async function signIn(page: Page) {
 }
 
 const wrong = (right: string) => (right[0] === "0" ? "1" : "0") + right.slice(1);
+
+test.beforeEach(async ({ page }) => { await confirmChecks(page); });
 
 test.describe.configure({ mode: "serial" });
 
@@ -249,6 +252,7 @@ test("staff take a request over the phone, with who called on record", async ({ 
   await page.getByLabel("Land access").selectOption("easy");
   await page.getByLabel("Land clearance").selectOption("cleared");
   await page.getByLabel("District").selectOption("Bombali");
+  await page.getByLabel("Chiefdom").selectOption("Makari");
   await page.getByLabel("Village/town").fill("Assisted Village");
   await page.getByLabel("Preferred start date").fill(new Date(Date.now() + 20 * 86400000).toISOString().slice(0, 10));
   await page.getByRole("button", { name: "Create request" }).click();

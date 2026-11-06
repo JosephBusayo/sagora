@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckFirst } from "@/components/app/CheckFirst";
 import { useSafely } from "@/components/app/safely";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
@@ -18,6 +19,7 @@ export function InviteStaffForm() {
   const v = state.values ?? {};
   return (
     <form action={action} className="form-soft">
+      <CheckFirst action="Send invite" />
       <Field name="name" label="Name" defaultValue={v.name} error={e.name} />
       <Field name="email" label="Email" type="email" defaultValue={v.email} error={e.email} />
       <div className="field">

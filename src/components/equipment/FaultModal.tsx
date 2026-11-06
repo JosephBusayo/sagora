@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckFirst } from "@/components/app/CheckFirst";
 import { useSafely } from "@/components/app/safely";
 import { useModal } from "@/components/app/useModal";
 import { FormNotice } from "@/components/app/FormNotice";
@@ -45,6 +46,7 @@ export function FaultModal({ asset, onClose }: { asset: AssetView; onClose: () =
           <p>{asset.name} · {asset.kindLabel}</p>
         </div>
         <form action={action} className="form-soft">
+          <CheckFirst title="Check the fault report" action="Report fault" />
           <input type="hidden" name="equipmentId" value={asset.id} />
           <fieldset className={`field${e.severity ? " field--invalid" : ""}`} style={{ border: 0, padding: 0, margin: 0 }}>
             <legend className="field__label">How serious is it?</legend>

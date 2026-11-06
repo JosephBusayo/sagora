@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckFirst } from "@/components/app/CheckFirst";
 import { today } from "@/components/app/today";
 import { useSafely } from "@/components/app/safely";
 import { FormNotice } from "@/components/app/FormNotice";
@@ -49,6 +50,7 @@ function DateField({ name, label, defaultValue, error, helper }: {
 const COVERS_EXAMPLE: Record<string, string> = {
   ploughing: "Tractor, plough and operator",
   harvesting: "Harvester, operator and fuel",
+  planting: "Tractor, planter and operator",
 };
 
 export function QuoteForm({ requestId, service, existing, onDone }: {
@@ -84,6 +86,7 @@ export function QuoteForm({ requestId, service, existing, onDone }: {
 
   return (
     <form action={action} className="form-soft quote-form">
+      <CheckFirst title="Check your quote" action={existing ? "Replace quote" : "Send quote"} />
       <input type="hidden" name="requestId" value={requestId} />
       {existing ? (
         <p className="notice notice--success" role="status">

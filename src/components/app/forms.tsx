@@ -63,7 +63,7 @@ export function AccountForm({ initial }: { initial: { name: string; phone: strin
 
 export function PasswordForm() {
   return (
-    <SoftForm action={changePassword}>
+    <SoftForm action={changePassword} check={false}>
       {(s) => {
         const e = s.fieldErrors ?? {};
         return (

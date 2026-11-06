@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckFirst } from "@/components/app/CheckFirst";
 import { useSafely } from "@/components/app/safely";
 import { FormNotice } from "@/components/app/FormNotice";
 import Link from "next/link";
@@ -34,6 +35,7 @@ export function SignUpForm({ action, nameField }: { action: Action; nameField: N
   const v = state.values ?? {};
   return (
     <form action={formAction} className="auth__form">
+      <CheckFirst title="Check your details" action="Create account" />
       <Field
         name={nameField.name}
         label={nameField.label}

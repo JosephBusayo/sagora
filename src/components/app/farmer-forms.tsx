@@ -42,7 +42,7 @@ export function FarmerAccountForm({ initial }: { initial: { name: string; phone:
 
 export function FarmerPasswordForm() {
   return (
-    <SoftForm action={changeFarmerPassword}>
+    <SoftForm action={changeFarmerPassword} check={false}>
       {(s) => {
         const e = s.fieldErrors ?? {};
         return (
