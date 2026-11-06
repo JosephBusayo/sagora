@@ -9,11 +9,12 @@ import { Field } from "@/components/auth/Field";
 import { saveAsset } from "@/app/provider/(app)/equipment/actions";
 import type { FormState } from "@/lib/auth-flows";
 import type { AssetView } from "./EquipmentList";
+import { PhotoPicker } from "./PhotoPicker";
 
 type Option = { id: string; label: string };
 
 /** Which step of Add equipment each field is on, so a server error opens the right one. */
-const STEP_OF: Record<string, number> = { kind: 0, brand: 0, model: 0, year: 0, identifier: 0, horsepower: 1, implements: 1, services: 1, availability: 2 };
+const STEP_OF: Record<string, number> = { kind: 0, brand: 0, model: 0, year: 0, identifier: 0, horsepower: 1, implements: 1, services: 1, availability: 2, photo: 2 };
 
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -126,6 +127,11 @@ export function AssetModal({ asset, kinds, services, availability, onClose }: {
               defaultValue={val("implements", asset?.implements ?? "")} error={e.implements} />
             <Chips name="services" legend="Services" type="checkbox" options={services}
               checked={(v.services ?? asset?.services.join(",") ?? "").split(",").filter(Boolean)} error={e.services} />
+          </div>
+
+          <div className="form-step" hidden={!(editing || step === 2)}>
+            <PhotoPicker name="photo" label="Photo (optional)" current={asset?.photo} />
+            {e.photo ? <p className="field__error">{e.photo}</p> : null}
           </div>
 
           {!editing ? (

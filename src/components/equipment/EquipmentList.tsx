@@ -8,7 +8,8 @@ import { useRef, useState } from "react";
 import { Icon } from "@/components/app/Icon";
 import { AssetModal } from "./AssetModal";
 import { FaultModal } from "./FaultModal";
-import { restoreAssetAction, retireAssetAction, resolveFaultAction, setAvailabilityAction } from "@/app/provider/(app)/equipment/actions";
+import { restoreAssetAction, retireAssetAction, resolveFaultAction, setAvailabilityAction, setPhotoAction } from "@/app/provider/(app)/equipment/actions";
+import { PhotoPicker } from "./PhotoPicker";
 
 export type FaultView = { id: string; severity: "blocking" | "minor"; description: string; reportedAt: string };
 export type AssetView = {
@@ -16,6 +17,8 @@ export type AssetView = {
   ownership: "owned" | "leased"; status: "active" | "retired"; notes: string; retiredReason: string;
   brand: string; model: string; year: string; horsepower: string; implements: string; services: string[];
   availability: string; unavailable: string | null; faults: FaultView[];
+  /** Where its photo is served from, or null with no photo yet. */
+  photo: string | null;
 };
 type Option = { id: string; label: string };
 
@@ -33,8 +36,12 @@ function Kind({ a }: { a: AssetView }) {
   );
 }
 
-function Photo({ size = "card" }: { size?: "card" | "large" | "small" }) {
-  return <span className={`asset__photo asset__photo--${size}`} aria-hidden="true"><img src="/icons/plough.svg" alt="" width={44} height={34} /></span>;
+function Photo({ size = "card", src }: { size?: "card" | "large" | "small"; src: string | null }) {
+  return (
+    <span className={`asset__photo asset__photo--${size}`} aria-hidden="true">
+      {src ? <img src={src} alt="" className="asset__picture" /> : <img src="/icons/plough.svg" alt="" width={44} height={34} />}
+    </span>
+  );
 }
 
 /** One machine, as the design's details window shows it, with its faults and the ways to change it. */
@@ -47,7 +54,13 @@ function DetailsModal({ a, canEdit, availability, onClose, onEdit, onFault, onDe
   return (
     <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) close(); }}>
       <div className="modal modal--asset" role="dialog" aria-modal="true" aria-label={a.name} ref={ref}>
-        <Photo size="large" />
+        {canEdit && a.status === "active" ? (
+          // Picking a photo sends it at once; the window then shows it.
+          <form action={setPhotoAction} className="asset__photo-form" data-saves-itself>
+            <input type="hidden" name="id" value={a.id} />
+            <PhotoPicker name="photo" label="Photo" current={a.photo} onPicked={(f) => f?.requestSubmit()} />
+          </form>
+        ) : <Photo size="large" src={a.photo} />}
         <div className="asset__title asset__title--detail">
           <h3>{a.name}</h3>
           <Kind a={a} />
@@ -136,7 +149,7 @@ function DeleteModal({ a, onClose }: { a: AssetView; onClose: () => void }) {
         </div>
         <h2 className="modal__question">Are you sure you want to delete this equipment?</h2>
         <div className="asset__summary">
-          <Photo size="small" />
+          <Photo size="small" src={a.photo} />
           <div className="asset__title"><h3>{a.name}</h3><Kind a={a} /></div>
         </div>
         <form action={retireAssetAction} className="form-actions" onSubmit={() => setTimeout(onClose, 0)}>
@@ -182,7 +195,7 @@ export function EquipmentList({ assets, kinds, services, availability, canEdit }
             <article key={a.id} className={`asset${a.status === "retired" ? " asset--retired" : ""}`}>
               <button type="button" className="asset__open" onClick={() => setOpenId(a.id)} aria-label={`Open ${a.name}`} />
               <div className="asset__head">
-                <Photo />
+                <Photo src={a.photo} />
                 <div className="asset__title">
                   <h3>{a.name}</h3>
                   <Kind a={a} />

@@ -27,6 +27,7 @@ export default async function Page() {
     implements: a.implements,
     services: a.services,
     availability: a.availability,
+    photo: a.photoAt ? `/provider/equipment/photo/${a.id}?v=${encodeURIComponent(a.photoAt)}` : null,
     unavailable: unavailableReason(a),
     faults: a.openFaults.map((f) => ({
       id: f.id, severity: f.severity, description: f.description, reportedAt: f.reportedAt,

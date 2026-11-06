@@ -55,7 +55,6 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   });
   if (!result.ok) return { error: result.reason, values };
 
-  // TODO (stage 2): save to an outbox first and retry, so a quote is never lost to an email outage.
   const request = await getById(requestId);
   if (request?.contactEmail) {
     const isRevision = result.quote.version > 1;

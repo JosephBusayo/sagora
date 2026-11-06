@@ -1400,3 +1400,16 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .table__muted { color: var(--color-subtitle); }
 @media (max-width: 480px) { .overview__card { flex-wrap: wrap; } .overview__badge { margin-left: 50px; } }
 .auth__hint { margin-top: 16px; text-align: center; }
+
+/* Equipment photos: shown filling the photo box, picked from a tap on that box. */
+.asset__photo:has(.asset__picture) { overflow: hidden; }
+.asset__picture { width: 100%; height: 100%; object-fit: cover; }
+.photo-pick__box { position: relative; display: grid; place-items: center; align-content: center; gap: 8px; height: 160px; border-radius: 14px; background: #eff2e0; color: var(--color-brand); cursor: pointer; overflow: hidden; font: 500 14px/20px var(--font-sans); }
+.photo-pick__box:focus-within { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+.photo-pick__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.photo-pick__text { position: relative; padding: 4px 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.9); }
+.photo-pick__input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.asset__photo-form { margin-bottom: 26px; }
+.asset__photo-form .photo-pick__box { height: 306px; border-radius: 18px; }
+.asset__photo-form .field__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (max-width: 640px) { .asset__photo-form .photo-pick__box { height: 200px; } }

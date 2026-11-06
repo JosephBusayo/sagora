@@ -1,6 +1,7 @@
 import "server-only";
 import fs from "node:fs";
 import path from "node:path";
+import { emailHtml } from "./email-html";
 
 export type Email = { to: string; subject: string; text: string };
 
@@ -18,8 +19,8 @@ export const senderAddress = () => SENDER().match(/<([^>]+)>/)?.[1] ?? SENDER();
  *   you (and the browser tests) can read verification codes. In production this is
  *   refused, except when SAGORA_TEST_OUTBOX=1 is set (used only by the browser tests).
  *
- * TODO (stage 2): save an outbox row first, then send with retries and duplicate
- * protection, as the brief requires, so a provider outage never loses an event.
+ * Callers do not use this directly: lib/outbox.ts saves each message first and sends it from
+ * there, with retries and duplicate protection.
  */
 export async function sendEmail(email: Email): Promise<void> {
   const key = process.env.RESEND_API_KEY;
@@ -32,6 +33,7 @@ export async function sendEmail(email: Email): Promise<void> {
         to: [email.to],
         subject: email.subject,
         text: email.text,
+        html: emailHtml(email.text),
       }),
     });
     // The provider's own reason goes into the staff queue. It never contains the key.

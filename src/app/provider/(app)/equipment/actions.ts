@@ -3,7 +3,7 @@
 import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/guard";
-import { AVAILABILITY, KINDS, addAsset, reportFault, resolveFault, restoreAsset, retireAsset, setAvailability, updateAsset, type Availability } from "@/lib/equipment";
+import { AVAILABILITY, KINDS, addAsset, parsePhoto, reportFault, setPhoto, resolveFault, restoreAsset, retireAsset, setAvailability, updateAsset, type Availability } from "@/lib/equipment";
 import { SERVICES } from "@/lib/business";
 import type { FormState } from "@/lib/auth-flows";
 
@@ -64,15 +64,34 @@ export async function saveAsset(_prev: FormState, fd: FormData): Promise<FormSta
 
   const id = str(fd, "id");
   const { fieldErrors, values, input } = parse(fd);
+  // Optional: a photo arrives already shrunk by the browser, as a data URL.
+  const sent = str(fd, "photo");
+  const photo = sent ? parsePhoto(sent) : null;
+  if (sent && !photo) fieldErrors.photo = "That photo could not be used. Choose a JPEG or PNG photo.";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
+  let savedId = id;
   if (id) {
     if (!await updateAsset(business.id, user.id, id, input)) return { error: "That equipment can no longer be changed.", values };
   } else {
-    await addAsset(business.id, user.id, input);
+    savedId = (await addAsset(business.id, user.id, input)).id;
   }
+  if (photo) await setPhoto(business.id, user.id, savedId, photo);
   revalidatePath("/provider/equipment");
   return { notice: id ? "Equipment updated." : `${input.name} added to your equipment.` };
+}
+
+/** A new photo from the details window, sent as soon as it is picked. */
+export async function setPhotoAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return;
+  const photo = parsePhoto(str(fd, "photo"));
+  if (!photo) {
+    await flash("That photo could not be used. Choose a JPEG or PNG photo.");
+    return;
+  }
+  await setPhoto(business.id, user.id, str(fd, "id"), photo);
+  revalidatePath("/provider/equipment");
 }
 
 export async function setAvailabilityAction(fd: FormData) {

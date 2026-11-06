@@ -35,7 +35,10 @@ export function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void
     document.body.style.overflow = "hidden";
     (box.querySelector<HTMLElement>("input:not([type='hidden']), select, textarea") ?? box.querySelector<HTMLElement>(FOCUSABLE))?.focus();
 
-    const onInput = () => { dirty.current = true; };
+    // A form that sends itself as soon as it changes leaves nothing unsaved behind.
+    const onInput = (e: Event) => {
+      if (!(e.target as HTMLElement).closest("[data-saves-itself]")) dirty.current = true;
+    };
     const onKey = (e: KeyboardEvent) => {
       // A confirmation on top of this dialog deals with its own keys.
       if (document.querySelector("dialog[open]")) return;

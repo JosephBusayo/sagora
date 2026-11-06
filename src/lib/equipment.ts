@@ -52,6 +52,8 @@ export type Asset = {
   brand: string; model: string; year: string; horsepower: string; implements: string;
   /** Service ids this machine is used for. */
   services: string[]; availability: Availability;
+  /** When its photo was last set, or null with no photo. Doubles as a cache-buster in the photo URL. */
+  photoAt: string | null;
   /** Open faults, newest first. A blocking one makes the asset unavailable. */
   openFaults: Fault[];
 };
@@ -74,10 +76,11 @@ const faultFrom = (r: FaultRow): Fault => ({
 
 async function withFaults(r: Row): Promise<Asset> {
   const faults = await db.all("SELECT * FROM equipment_fault WHERE equipment_id=? AND resolved_at IS NULL ORDER BY reported_at DESC", r.id) as FaultRow[];
+  const photo = await db.get("SELECT updated_at FROM equipment_photo WHERE equipment_id=?", r.id) as { updated_at: string } | undefined;
   return {
     id: r.id, businessId: r.business_id, kind: r.kind, name: r.name, identifier: r.identifier,
     ownership: r.ownership, status: r.status, notes: r.notes, retiredReason: r.retired_reason,
-    createdAt: r.created_at, openFaults: faults.map(faultFrom),
+    createdAt: r.created_at, openFaults: faults.map(faultFrom), photoAt: photo?.updated_at ?? null,
     brand: r.brand ?? "", model: r.model ?? "", year: r.year ?? "", horsepower: r.horsepower ?? "", implements: r.implements ?? "",
     services: (r.services ?? "").split(",").filter(Boolean),
     availability: (AVAILABILITY.some((a) => a.id === r.availability) ? r.availability : "available") as Availability,
@@ -156,6 +159,41 @@ export async function restoreAsset(businessId: string, actorId: string, id: stri
   const res = await db.run("UPDATE equipment SET status='active', retired_reason='', updated_at=? WHERE id=? AND business_id=? AND status='retired'", new Date().toISOString(), id, businessId);
   if (res.changes) await audit(actorId, "equipment.restored", id);
   return res.changes > 0;
+}
+
+/* ------------------------------------------------------------------ photos */
+
+/** The largest photo accepted, as base64 text. The browser sends about a tenth of this. */
+const PHOTO_MAX_CHARS = 1_400_000;
+
+/**
+ * Checks a photo sent as a data URL and splits it into type and data. The first bytes must really
+ * be a JPEG, PNG or WebP, whatever the URL claims.
+ */
+export function parsePhoto(dataUrl: string): { mime: string; data: string } | null {
+  const m = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/);
+  if (!m || m[2].length > PHOTO_MAX_CHARS) return null;
+  const head = Buffer.from(m[2].slice(0, 16), "base64");
+  const ok = m[1] === "image/jpeg" ? head[0] === 0xff && head[1] === 0xd8
+    : m[1] === "image/png" ? head.subarray(1, 4).toString("latin1") === "PNG"
+    : head.subarray(0, 4).toString("latin1") === "RIFF";
+  return ok ? { mime: m[1], data: m[2] } : null;
+}
+
+export async function setPhoto(businessId: string, actorId: string, equipmentId: string, photo: { mime: string; data: string }): Promise<boolean> {
+  if (!(await getAsset(businessId, equipmentId))) return false; // never touch another provider's equipment
+  await db.run(`INSERT INTO equipment_photo (equipment_id, mime, data, updated_at) VALUES (?,?,?,?)
+       ON CONFLICT(equipment_id) DO UPDATE SET mime=excluded.mime, data=excluded.data, updated_at=excluded.updated_at`,
+    equipmentId, photo.mime, photo.data, new Date().toISOString());
+  await audit(actorId, "equipment.photo", equipmentId);
+  return true;
+}
+
+/** The photo itself, only for the business that owns the equipment. */
+export async function getPhoto(businessId: string, equipmentId: string): Promise<{ mime: string; data: string } | null> {
+  const r = await db.get(`SELECT p.mime, p.data FROM equipment_photo p JOIN equipment e ON e.id = p.equipment_id
+       WHERE p.equipment_id=? AND e.business_id=?`, equipmentId, businessId) as { mime: string; data: string } | undefined;
+  return r ?? null;
 }
 
 /* ------------------------------------------------------------------ faults */

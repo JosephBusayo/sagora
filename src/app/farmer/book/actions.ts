@@ -116,7 +116,6 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
   });
 
   // The reference is the farmer's way back to this request, so it goes out by email too.
-  // TODO (stage 2): write to an outbox first and retry, so an email outage never loses it.
   await notify({
     kind: "request.created",
     dedupeKey: `request.created:${created.id}`,

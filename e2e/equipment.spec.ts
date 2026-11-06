@@ -123,6 +123,30 @@ test("a machine is validated, then added", async ({ page }) => {
   await expect(page.getByText("AAA-111")).toBeVisible();
 });
 
+test("a photo can be added, shows on the card, and is private to the business", async ({ page, browser }) => {
+  await signIn(page, P.email, P.password);
+  await page.goto("/provider/equipment");
+  const details = await openCard(page, "Massey Ferguson 375");
+  // Any real picture will do: a small screenshot is one. The browser shrinks it to a JPEG before it is sent.
+  const png = await page.screenshot({ clip: { x: 0, y: 0, width: 40, height: 30 } });
+  await details.locator("input[type=file]").setInputFiles({ name: "tractor.png", mimeType: "image/png", buffer: png });
+  await expect(card(page, "Massey Ferguson 375").locator("img.asset__picture")).toHaveAttribute("src", /\/provider\/equipment\/photo\//);
+  // The photo is already saved, so closing does not ask about losing changes.
+  await page.keyboard.press("Escape");
+  await expect(details).toBeHidden();
+  await expect(page.getByText("Close without saving?")).toHaveCount(0);
+
+  const src = await card(page, "Massey Ferguson 375").locator("img.asset__picture").getAttribute("src");
+  const mine = await page.request.get(src!);
+  expect(mine.headers()["content-type"]).toBe("image/jpeg");
+
+  // Knowing the address is not enough.
+  const stranger = await browser.newContext();
+  const theirs = await stranger.request.get(new URL(src!, page.url()).toString(), { maxRedirects: 0 });
+  expect(theirs.headers()["content-type"] ?? "").not.toContain("image");
+  await stranger.close();
+});
+
 test("two identical machines stay distinct", async ({ page }) => {
   await signIn(page, P.email, P.password);
   await page.goto("/provider/equipment");

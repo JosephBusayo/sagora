@@ -103,11 +103,24 @@ export type NewRequest = {
   contactEmail: string;
 };
 
+/** How long an identical request counts as a resubmission of the first, not a new one. */
+const RESUBMIT_WINDOW_MS = 10 * 60_000;
+
 export async function createRequest(farmerId: string | null, input: NewRequest): Promise<ServiceRequest> {
   const now = new Date().toISOString();
   const id = randomUUID();
   // One transaction, so a reference is never allocated without the request it belongs to.
   const reference = await db.tx(async (t) => {
+    // A farmer whose connection dropped and who sends the same form again gets the request they
+    // already made, not a second one with its own reference.
+    if (farmerId && !input.assisted) {
+      const same = await t.get(`SELECT id, reference FROM service_request
+           WHERE farmer_id=? AND service=? AND acres=? AND district=? AND village=? AND preferred_date=?
+             AND COALESCE(direct_to, '')=? AND status='awaiting_quotes' AND created_at >= ?
+           ORDER BY created_at DESC LIMIT 1`, farmerId, input.service, input.acres, input.district, input.village, input.preferredDate,
+        input.directTo ?? "", new Date(Date.now() - RESUBMIT_WINDOW_MS).toISOString()) as { id: string; reference: string } | undefined;
+      if (same) return { existing: same.id, reference: same.reference };
+    }
     const next = await nextReference(t);
     await t.run(`INSERT INTO service_request
         (id, reference, farmer_id, contact_name, contact_phone, contact_email, service, acres,
@@ -118,9 +131,10 @@ export async function createRequest(farmerId: string | null, input: NewRequest):
       input.assisted?.by ?? null, input.assisted?.callerName ?? "", input.assisted?.callerRelation ?? "", input.assisted?.mayAccept ?? "",
       input.preferredDate, input.alternateDate, input.district,
       input.village, input.notes, now, now);
-    return next;
+    return { existing: null, reference: next };
   });
-  await audit(input.assisted?.by ?? farmerId ?? "guest", input.assisted ? "request.assisted" : "request.created", id, reference);
+  if (reference.existing) return (await getById(reference.existing))!;
+  await audit(input.assisted?.by ?? farmerId ?? "guest", input.assisted ? "request.assisted" : "request.created", id, reference.reference);
   return (await getById(id))!;
 }
 

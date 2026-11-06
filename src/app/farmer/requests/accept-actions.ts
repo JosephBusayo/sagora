@@ -19,7 +19,7 @@ export async function acceptQuoteAction(fd: FormData) {
 
   if (!result.ok) redirect(`/farmer/requests/${requestId}?error=${encodeURIComponent(result.reason)}`);
 
-  // Tell the provider their quote was taken. TODO (stage 2): outbox with retries.
+  // Tell the provider their quote was taken.
   const row = await db.get(`SELECT b.email AS email, b.name AS name, r.reference AS reference
        FROM quote q JOIN provider_business b ON b.id = q.business_id
        JOIN service_request r ON r.id = q.request_id WHERE q.id = ?`, quoteId) as { email: string; name: string; reference: string } | undefined;

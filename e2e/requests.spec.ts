@@ -217,6 +217,18 @@ test("the farmer's contact details are never sent to the browse list", async ({ 
   expect(html).not.toContain(FARMER.name);
 });
 
+test("sending the same request again after a dropped connection does not make a second one", async ({ page }) => {
+  await signInFarmer(page);
+  const same = { service: "ploughing", acres: "4", district: "Bombali", village: "Retry Village", days: 31 };
+  await book(page, same);
+  const first = (await page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
+  await book(page, same);
+  const second = (await page.getByText(/Request SG-\d+ sent/).innerText()).match(/SG-\d+/)![0];
+  expect(second).toBe(first);
+  const rows = await testGet(`SELECT COUNT(*) AS n FROM service_request WHERE village='Retry Village'`) as { n: number | string };
+  expect(Number(rows.n)).toBe(1);
+});
+
 test("a farmer can withdraw a request, and it leaves the provider list", async ({ page, browser }) => {
   await signInFarmer(page);
   await book(page, { service: "ploughing", acres: "3", district: "Bombali", village: "Yengema", days: 30 });
