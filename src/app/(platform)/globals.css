@@ -1256,6 +1256,9 @@ form.resend { margin: 0; }
 .auth .auth__head { margin-top: 28px; }
 .auth .auth__subtitle { margin-top: 5px; }
 .auth .auth__form { margin-top: 25px; gap: 16px; }
+/* The sign-in and sign-up screens sit on the page background, which is nearly the field grey:
+   their fields take a darker grey so they stand out. */
+.auth { --color-field: #e7e8e2; }
 .auth .field { gap: 5px; }
 .auth .field__helper { margin: 0; }
 .auth .auth__actions { margin-top: 14px; }
