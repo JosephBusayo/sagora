@@ -214,6 +214,7 @@ textarea.field__input, .staff__note { min-height: 86px; height: auto; padding: 1
 .field__input::placeholder {
   color: var(--color-placeholder);
 }
+.field__icon { flex: none; display: grid; place-items: center; color: #6d6e6b; }
 .field__prefix {
   font: var(--text-input);
   color: var(--color-placeholder);
@@ -1320,3 +1321,77 @@ a.overview__card:hover { background: var(--color-hover); border-color: var(--col
 @media (min-width: 1024px) {
   .equipment-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ---------------------------------------------------------------------------
+   Equipment windows: details, the three-step Add equipment, Edit details, delete.
+--------------------------------------------------------------------------- */
+.modal--asset { max-width: 614px; }
+.modal__head--center { margin-bottom: 28px; }
+.form-step { display: flex; flex-direction: column; gap: 22px; }
+.form-step[hidden] { display: none; }
+/* The design's progress: three short bars, the ones done in brand green. */
+.steps { display: flex; justify-content: center; gap: 2px; margin-top: 8px; }
+.steps__bar { width: 49px; height: 4px; border-radius: 2px; background: #e3e3e3; }
+.steps__bar--on { background: var(--color-brand); }
+/* A chip that is a button rather than a checkbox: the availability chips change it at once. */
+button.chip { border: 0; }
+button.chip:hover:not(:disabled) { background: #ececec; }
+.chips:disabled .chip { cursor: default; }
+.chip__icon--on { background-image: url(/icons/check-on.svg); }
+.chips__row form { display: contents; }
+
+/* A whole machine card opens its details; the button is laid over the card. */
+.asset { position: relative; }
+.asset__open { position: absolute; inset: 0; z-index: 1; width: 100%; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.asset__open:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+.asset__photo--large { width: 100%; height: 306px; border-radius: 18px; margin-bottom: 26px; outline: 0; }
+.asset__photo--large img { width: 88px; height: 68px; }
+.asset__photo--small { width: 96px; height: 84px; border-radius: 14px; outline: 0; }
+.asset__title--detail { margin-bottom: 26px; }
+.asset__title--detail h3 { font-size: 20px; }
+.modal--asset .asset__faults { margin-top: 18px; }
+.asset__report { align-self: flex-start; margin-top: 14px; }
+.modal--asset .form-actions { margin-top: 32px; }
+.modal--asset .form-actions .button { flex: 1; }
+.form-actions__full { display: flex; flex: 1; }
+.form-actions__full .button { flex: 1; }
+
+/* Delete: the request banner in reds, a question, and the machine it is about. */
+.modal--danger .modal__banner { background: #ffc7c7; }
+.modal--danger .banner__outer, .modal--danger .banner__mid { background: rgba(255, 140, 140, 0.35); }
+.modal--danger .banner__inner { background: #ff7b7b; color: #fff; }
+.modal__question { max-width: 330px; margin: 40px auto 24px; color: var(--color-heading); font: 600 19px/24px var(--font-sans); text-align: center; }
+.asset__summary { display: flex; align-items: center; gap: 12px; margin: 0 24px; padding: 8px 14px; border-radius: 22px; background: #f5f5f5; }
+.asset__summary .asset__title h3 { font-size: 19px; line-height: 26px; }
+.asset__summary .asset__title p { font-size: 15px; }
+.modal--danger .form-actions { margin: 34px 24px 12px; }
+.modal--danger .form-actions .button { flex: 1; }
+.button--danger { background: #e02424; }
+.button--danger:hover:not(:disabled) { background: #c81e1e; }
+
+/* -------- filter menus -------- */
+/* The pill opens the same white card the search suggestions use. */
+.filter--menu { position: relative; padding: 0; }
+.filter__button { display: flex; align-items: center; gap: 10px; height: 100%; padding: 0 10px; border: 0; border-radius: inherit;
+  background: transparent; color: inherit; font: 500 15px/31px var(--font-sans); white-space: nowrap; cursor: pointer; }
+.filter__button:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+.filter--menu:hover, .filter--open { background: var(--color-hover); }
+.filter__menu { left: auto; right: 0; min-width: 300px; max-height: min(420px, 60vh); overflow-y: auto; z-index: 20; }
+.filter__menu .suggest__item { width: 100%; border: 0; background: transparent; text-align: left; font: inherit; cursor: pointer; }
+.filter__menu .suggest__item:hover, .filter__menu .suggest__item--active { background: var(--color-hover); }
+.filter__menu .suggest__item--current strong { color: var(--color-brand); }
+.filter__menu .suggest__item { min-height: 62px; }
+@media (max-width: 640px) {
+  .filter__menu { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; min-width: 0; }
+}
+/* The filter row slides sideways only on a phone; wider, it must not clip an open menu. */
+@media (min-width: 641px) {
+  .filters { overflow: visible; }
+}
+/* "View quotes" in a request's details: a pale green pill that leaves for the quotes. */
+.pill--link { gap: 6px; background: #eef6d9; color: var(--color-brand); text-decoration: none; }
+.pill--link:hover { background: #e3f0c4; text-decoration: none; }
+
+/* Reports: no design frame, so it borrows the overview cards and tables. */
+.table__muted { color: var(--color-subtitle); }
+@media (max-width: 480px) { .overview__card { flex-wrap: wrap; } .overview__badge { margin-left: 50px; } }

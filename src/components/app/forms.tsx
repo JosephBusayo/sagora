@@ -19,7 +19,7 @@ export function BusinessForm({ initial }: { initial: { name: string; phone: stri
             <Field name="name" label="Business name" placeholder="Kandeh Farming Services" autoComplete="organization" defaultValue={val("name")} error={e.name} />
             <Field name="phone" label="Phone number" type="tel" inputMode="tel" prefix="+232" placeholder="00 000 000" autoComplete="tel-national" defaultValue={val("phone")} error={e.phone} />
             <Field name="email" label="Email address" type="email" inputMode="email" placeholder="abc@gmail.com" autoComplete="email" defaultValue={val("email")} error={e.email} />
-            <Field name="town" label="Village/town" placeholder="Where your equipment is based" defaultValue={val("town")} error={e.town} />
+            <Field icon="pin" name="town" label="Village/town" placeholder="Where your equipment is based" defaultValue={val("town")} error={e.town} />
             <div className={`field${e.description ? " field--invalid" : ""}`}>
               <label className="field__label" htmlFor="desc">Additional information</label>
               <div className="field__box" style={{ height: "auto", alignItems: "flex-start" }}>

@@ -191,10 +191,14 @@ await step("Provider adds a tractor to the equipment register", p.page, async ()
   await p.page.goto("/provider/equipment");
   await p.page.getByRole("button", { name: "Add equipment" }).click();
   const d = p.page.getByRole("dialog");
-  await d.getByLabel("What is it?").selectOption("tractor");
-  await d.getByLabel("Name", { exact: true }).fill("Blue Massey");
-  await d.getByLabel("Registration or serial number").fill("SM-001");
-  await d.getByRole("button", { name: "Add machine" }).click();
+  await d.getByLabel("Equipment type").selectOption("tractor");
+  await d.getByLabel("Brand").fill("Blue");
+  await d.getByLabel("Model").fill("Massey");
+  await d.getByLabel("Registration or serial number (optional)").fill("SM-001");
+  await d.getByRole("button", { name: "Continue" }).click();
+  await d.getByLabel("Ploughing").check();
+  await d.getByRole("button", { name: "Continue" }).click();
+  await d.getByRole("button", { name: "Add equipment" }).click();
   await p.page.getByRole("dialog").waitFor({ state: "detached", timeout: WAIT });
   await p.page.reload();
   await p.page.getByText("Blue Massey").waitFor();
@@ -442,11 +446,10 @@ await step("Every page fits every screen, from a small phone up", p.page, async 
   console.log(`      ${report.length} page and width checks: ${failing.length} failing, ${small} small tap targets, ${zooms} fields that zoom on iPhone`);
   if (failing.length) throw new Error(`${failing.length} checks failed: ${failing.slice(0, 5).map((r) => `${r.url}@${r.width}`).join(", ")}`);
 });
-await step("Unbuilt sections say so instead of breaking", p.page, async () => {
-  for (const url of ["/provider/reports"]) {
-    await p.page.goto(url);
-    await p.page.getByText("Not built yet.").waitFor({ timeout: WAIT });
-  }
+await step("Reports count the real work", p.page, async () => {
+  await p.page.goto("/provider/reports");
+  await p.page.getByRole("heading", { name: "Work by service" }).waitFor({ timeout: WAIT });
+  await p.page.getByRole("cell", { name: "Blue Massey" }).waitFor({ timeout: WAIT });
 });
 await step("Signing out closes the workspace", p.page, async () => {
   await p.page.goto("/provider/settings");

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { focusFirstError } from "./focus-first-error";
+import { Icon, type IconName } from "@/components/app/Icon";
 
 type Props = {
   name: string;
@@ -16,6 +17,8 @@ type Props = {
   helper?: string;
   /** Fixed text shown inside the box before the input, e.g. the +232 country code. */
   prefix?: string;
+  /** A small grey icon at the start of the box, as the design marks a place with a pin. */
+  icon?: IconName;
   maxLength?: number;
 };
 
@@ -31,6 +34,7 @@ export function Field({
   error,
   helper,
   prefix,
+  icon,
   maxLength,
 }: Props) {
   const id = useId();
@@ -56,6 +60,7 @@ export function Field({
         {!required && !/optional/i.test(label) ? " (optional)" : null}
       </label>
       <div className="field__box">
+        {icon ? <span className="field__icon" aria-hidden="true"><Icon name={icon} size={18} /></span> : null}
         {prefix ? <span className="field__prefix">{prefix}</span> : null}
         <input
           ref={input}

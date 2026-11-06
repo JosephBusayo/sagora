@@ -6,6 +6,10 @@ import { useEffect } from "react";
  * On a phone a table stacks into cards, and each cell needs its column's name beside it. The
  * names are read from the header row, so every table gets this without repeating them. With
  * JavaScript off a table simply scrolls inside its card.
+ *
+ * It sits inside the page (Shell, StaffNav), not the root layout: from there it ran while the page
+ * was still streaming in and labelled cells React had not hydrated yet, which React reports as a
+ * hydration mismatch.
  */
 export function TableLabels() {
   useEffect(() => {

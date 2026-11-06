@@ -1,5 +1,6 @@
 "use client";
 
+import { Icon, type IconName } from "@/components/app/Icon";
 import { today } from "@/components/app/today";
 import { useSafely } from "@/components/app/safely";
 import { useActionState } from "react";
@@ -15,11 +16,12 @@ function Save() {
   return <button type="submit" formNoValidate className="button" disabled={pending} aria-busy={pending}>{pending ? "Saving…" : "Create request"}</button>;
 }
 
-function Select({ name, label, options, placeholder, value, error }: { name: string; label: string; options: readonly Option[]; placeholder: string; value?: string; error?: string }) {
+function Select({ name, label, options, placeholder, value, error, icon }: { name: string; label: string; options: readonly Option[]; placeholder: string; value?: string; error?: string; icon?: IconName }) {
   return (
     <div className={`field${error ? " field--invalid" : ""}`}>
       <label className="field__label" htmlFor={`a-${name}`}>{label}</label>
       <div className="field__box">
+        {icon ? <span className="field__icon" aria-hidden="true"><Icon name={icon} size={18} /></span> : null}
         <select id={`a-${name}`} name={name} className="field__input" defaultValue={value ?? ""}>
           <option value="">{placeholder}</option>
           {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
@@ -49,8 +51,8 @@ export function AssistedForm({ services, districts, access, condition, clearance
       <Select name="landAccess" label="Land access" options={access} placeholder="Select" value={v.landAccess} error={e.landAccess} />
       <Select name="landCondition" label="Land condition (optional)" options={condition} placeholder="Select" value={v.landCondition} error={e.landCondition} />
       <Select name="landClearance" label="Land clearance" options={clearance} placeholder="Select" value={v.landClearance} error={e.landClearance} />
-      <Select name="district" label="District" options={districts.map((d) => ({ id: d, label: d }))} placeholder="Select a district" value={v.district} error={e.district} />
-      <Field name="village" label="Village/town" defaultValue={v.village} error={e.village} />
+      <Select icon="pin" name="district" label="District" options={districts.map((d) => ({ id: d, label: d }))} placeholder="Select a district" value={v.district} error={e.district} />
+      <Field icon="pin" name="village" label="Village/town" defaultValue={v.village} error={e.village} />
       <div className={`field${e.preferredDate ? " field--invalid" : ""}`}>
         <label className="field__label" htmlFor="a-date">Preferred start date</label>
         <div className="field__box"><input id="a-date" name="preferredDate" type="date" min={today()} suppressHydrationWarning className="field__input" defaultValue={v.preferredDate} /></div>

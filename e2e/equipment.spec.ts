@@ -50,17 +50,25 @@ async function signIn(page: Page, email: string, password: string) {
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).not.toHaveURL(/sign-in/);
 }
-async function addMachine(page: Page, opts: { kind: string; name: string; identifier?: string; notes?: string }) {
+async function addMachine(page: Page, opts: { kind: string; name: string; identifier?: string }) {
   await page.getByRole("button", { name: "Add equipment" }).click();
   const d = page.getByRole("dialog");
-  await d.getByLabel("What is it?").selectOption(opts.kind);
-  await d.getByLabel("Name", { exact: true }).fill(opts.name);
-  if (opts.identifier) await d.getByLabel("Registration or serial number").fill(opts.identifier);
-  if (opts.notes) await d.getByLabel("Condition and notes").fill(opts.notes);
-  await d.getByRole("button", { name: "Add machine" }).click();
+  await d.getByLabel("Equipment type").selectOption(opts.kind);
+  await d.getByLabel("Brand").fill(opts.name.split(" ")[0]);
+  await d.getByLabel("Model").fill(opts.name.split(" ").slice(1).join(" "));
+  if (opts.identifier) await d.getByLabel("Registration or serial number (optional)").fill(opts.identifier);
+  await d.getByRole("button", { name: "Continue" }).click();
+  await d.getByLabel("Ploughing").check();
+  await d.getByRole("button", { name: "Continue" }).click();
+  await d.getByRole("button", { name: "Add equipment" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 6000 });
 }
 const card = (page: Page, name: string) => page.locator("article.asset").filter({ hasText: name });
+/** A card opens its details window, where faults, deleting and editing now live. */
+async function openCard(page: Page, name: string, nth = 0) {
+  await page.getByRole("button", { name: `Open ${name}` }).nth(nth).click();
+  return page.getByRole("dialog", { name });
+}
 
 test.describe.configure({ mode: "serial" });
 
@@ -91,15 +99,23 @@ test("a machine is validated, then added", async ({ page }) => {
 
   await page.getByRole("button", { name: "Add equipment" }).click();
   const d = page.getByRole("dialog");
-  await d.getByRole("button", { name: "Add machine" }).click();
+  // Each step is checked before moving on.
+  await d.getByRole("button", { name: "Continue" }).click();
   await expect(d.getByText("Choose what kind of machine this is")).toBeVisible();
-  await expect(d.getByText("Give this machine a name")).toBeVisible();
+  await d.getByLabel("Equipment type").selectOption("tractor");
+  await d.getByRole("button", { name: "Continue" }).click();
+  await expect(d.getByText("Enter the brand")).toBeVisible();
 
-  await d.getByLabel("What is it?").selectOption("tractor");
-  await d.getByLabel("Name", { exact: true }).fill("Massey Ferguson 375");
-  await d.getByLabel("Registration or serial number").fill("AAA-111");
-  await d.getByLabel("Condition and notes").fill("New clutch fitted in June.");
-  await d.getByRole("button", { name: "Add machine" }).click();
+  await d.getByLabel("Brand").fill("Massey");
+  await d.getByLabel("Model").fill("Ferguson 375");
+  await d.getByLabel("Registration or serial number (optional)").fill("AAA-111");
+  await d.getByRole("button", { name: "Continue" }).click();
+  await d.getByRole("button", { name: "Continue" }).click();
+  await expect(d.getByText("Choose what this machine is used for")).toBeVisible();
+  await d.getByLabel("Ploughing").check();
+  await d.getByLabel("Horsepower (HP)").fill("75");
+  await d.getByRole("button", { name: "Continue" }).click();
+  await d.getByRole("button", { name: "Add equipment" }).click();
   await expect(page.getByText("Massey Ferguson 375 added to your equipment.")).toBeVisible();
 
   await page.reload();
@@ -129,9 +145,7 @@ test("a blocking fault takes a machine out of service; a minor one does not", as
   await page.reload();
 
   // Blocking fault on the plough.
-  const plough = card(page, "Three furrow plough");
-  await plough.getByRole("button", { name: /Actions for Three furrow plough/ }).click();
-  await plough.getByRole("menuitem", { name: "Report a fault" }).click();
+  await (await openCard(page, "Three furrow plough")).getByRole("button", { name: "Report a fault" }).click();
   let d = page.getByRole("dialog");
   await d.getByLabel("What is wrong?").fill("Hydraulic leak on the left arm");
   await d.getByRole("button", { name: "Record fault" }).click();
@@ -144,9 +158,7 @@ test("a blocking fault takes a machine out of service; a minor one does not", as
   // Minor fault on a tractor: still available.
   await addMachine(page, { kind: "harvester", name: "Rice harvester" });
   await page.reload();
-  const harvester = card(page, "Rice harvester");
-  await harvester.getByRole("button", { name: /Actions for Rice harvester/ }).click();
-  await harvester.getByRole("menuitem", { name: "Report a fault" }).click();
+  await (await openCard(page, "Rice harvester")).getByRole("button", { name: "Report a fault" }).click();
   d = page.getByRole("dialog");
   await d.getByRole("radio", { name: "Still usable" }).check();
   await d.getByLabel("What is wrong?").fill("Cracked mirror");
@@ -163,7 +175,7 @@ test("fixing a fault returns the machine to service and keeps the record", async
   await page.goto("/provider/equipment");
   const plough = card(page, "Three furrow plough");
   await expect(plough.getByText("Out of service")).toBeVisible();
-  await plough.getByRole("button", { name: "Mark fixed" }).click();
+  await (await openCard(page, "Three furrow plough")).getByRole("button", { name: "Mark fixed" }).click();
   // Wait for the screen to catch up before reloading. Reloading straight after the click races
   // the server action, and against a database on the other end of a network the reload wins:
   // the page comes back built from the row as it was, and never updates again.
@@ -184,10 +196,8 @@ test("fixing a fault returns the machine to service and keeps the record", async
 test("a retired machine stays readable but cannot be chosen", async ({ page }) => {
   await signIn(page, P.email, P.password);
   await page.goto("/provider/equipment");
-  const harvester = card(page, "Rice harvester");
-  await harvester.getByRole("button", { name: /Actions for Rice harvester/ }).click();
-  await harvester.getByRole("menuitem", { name: "Retire" }).click();
-  await page.getByRole("dialog", { name: "Confirm" }).getByRole("button", { name: "Retire machine" }).click();
+  await (await openCard(page, "Rice harvester")).getByRole("button", { name: "Delete equipment" }).click();
+  await page.getByRole("dialog", { name: "Delete equipment" }).getByRole("button", { name: "Delete equipment" }).click();
   await expect(card(page, "Rice harvester").getByText("Retired", { exact: true })).toBeVisible();
   await page.reload();
 
@@ -201,8 +211,7 @@ test("a retired machine stays readable but cannot be chosen", async ({ page }) =
   expect(row.status).toBe("retired");
 
   // And it can come back.
-  await retired.getByRole("button", { name: /Actions for Rice harvester/ }).click();
-  await retired.getByRole("menuitem", { name: "Bring back into service" }).click();
+  await (await openCard(page, "Rice harvester")).getByRole("button", { name: "Bring back into service" }).click();
   await expect(card(page, "Rice harvester").getByText("Available")).toBeVisible();
   await page.reload();
   await expect(card(page, "Rice harvester").getByText("Available")).toBeVisible();
@@ -264,6 +273,8 @@ test("a view-only teammate sees the register but cannot change it", async ({ pag
   await m.page.goto("/provider/equipment");
   await expect(m.page.getByText("Massey Ferguson 375").first()).toBeVisible();   // can read
   await expect(m.page.getByRole("button", { name: "Add equipment" })).toHaveCount(0);
-  await expect(m.page.getByRole("button", { name: /^Actions for/ })).toHaveCount(0);
+  const details = await openCard(m.page, "Massey Ferguson 375");
+  await expect(details.getByRole("button", { name: "Edit" })).toHaveCount(0);
+  await expect(details.getByRole("button", { name: "Report a fault" })).toHaveCount(0);
   await m.ctx.close();
 });

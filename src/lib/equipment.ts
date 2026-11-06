@@ -32,6 +32,14 @@ export const OWNERSHIP = [
 
 export const kindLabel = (id: string) => KINDS.find((k) => k.id === id)?.label ?? id;
 
+/** The provider's own say on whether a machine can be booked, as the design's three chips put it. */
+export const AVAILABILITY = [
+  { id: "available", label: "Available" },
+  { id: "unavailable", label: "Not available" },
+  { id: "maintenance", label: "Under maintenance" },
+] as const;
+export type Availability = (typeof AVAILABILITY)[number]["id"];
+
 export type Fault = {
   id: string; equipmentId: string; severity: "blocking" | "minor"; description: string;
   reportedAt: string; resolvedAt: string | null; resolution: string;
@@ -41,6 +49,9 @@ export type Asset = {
   id: string; businessId: string; kind: string; name: string; identifier: string;
   ownership: "owned" | "leased"; status: "active" | "retired"; notes: string;
   retiredReason: string; createdAt: string;
+  brand: string; model: string; year: string; horsepower: string; implements: string;
+  /** Service ids this machine is used for. */
+  services: string[]; availability: Availability;
   /** Open faults, newest first. A blocking one makes the asset unavailable. */
   openFaults: Fault[];
 };
@@ -49,6 +60,7 @@ type Row = {
   id: string; business_id: string; kind: string; name: string; identifier: string;
   ownership: "owned" | "leased"; status: "active" | "retired"; notes: string;
   retired_reason: string; created_at: string;
+  brand: string; model: string; year: string; horsepower: string; implements: string; services: string; availability: string;
 };
 type FaultRow = {
   id: string; equipment_id: string; severity: "blocking" | "minor"; description: string;
@@ -66,6 +78,9 @@ async function withFaults(r: Row): Promise<Asset> {
     id: r.id, businessId: r.business_id, kind: r.kind, name: r.name, identifier: r.identifier,
     ownership: r.ownership, status: r.status, notes: r.notes, retiredReason: r.retired_reason,
     createdAt: r.created_at, openFaults: faults.map(faultFrom),
+    brand: r.brand ?? "", model: r.model ?? "", year: r.year ?? "", horsepower: r.horsepower ?? "", implements: r.implements ?? "",
+    services: (r.services ?? "").split(",").filter(Boolean),
+    availability: (AVAILABILITY.some((a) => a.id === r.availability) ? r.availability : "available") as Availability,
   };
 }
 
@@ -74,6 +89,8 @@ export function unavailableReason(a: Asset): string | null {
   if (a.status === "retired") return "Retired";
   const blocking = a.openFaults.find((f) => f.severity === "blocking");
   if (blocking) return "Out of service";
+  if (a.availability === "maintenance") return "Under maintenance";
+  if (a.availability === "unavailable") return "Not available";
   return null;
 }
 
@@ -93,7 +110,11 @@ export async function selectableAssets(businessId: string): Promise<Asset[]> {
   return assets.filter((a) => unavailableReason(a) === null);
 }
 
-export type AssetInput = { kind: string; name: string; identifier: string; ownership: "owned" | "leased"; notes: string };
+export type AssetInput = {
+  kind: string; name: string; identifier: string; ownership: "owned" | "leased"; notes: string;
+  /** The Add equipment screens fill these; older callers may leave them out. */
+  brand?: string; model?: string; year?: string; horsepower?: string; implements?: string; services?: string[]; availability?: Availability;
+};
 
 /**
  * Adds one machine. Two machines with the same name are two machines: nothing is merged,
@@ -102,16 +123,25 @@ export type AssetInput = { kind: string; name: string; identifier: string; owner
 export async function addAsset(businessId: string, actorId: string, input: AssetInput): Promise<Asset> {
   const now = new Date().toISOString();
   const id = randomUUID();
-  await db.run(`INSERT INTO equipment (id, business_id, kind, name, identifier, ownership, notes, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?)`, id, businessId, input.kind, input.name, input.identifier, input.ownership, input.notes, now, now);
+  await db.run(`INSERT INTO equipment (id, business_id, kind, name, identifier, ownership, notes, brand, model, year, horsepower, implements, services, availability, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, businessId, input.kind, input.name, input.identifier, input.ownership, input.notes,
+     input.brand ?? "", input.model ?? "", input.year ?? "", input.horsepower ?? "", input.implements ?? "", (input.services ?? []).join(","), input.availability ?? "available", now, now);
   await audit(actorId, "equipment.added", id, `${input.kind} ${input.name}`);
   return (await getAsset(businessId, id))!;
 }
 
 export async function updateAsset(businessId: string, actorId: string, id: string, input: AssetInput): Promise<boolean> {
-  const res = await db.run(`UPDATE equipment SET kind=?, name=?, identifier=?, ownership=?, notes=?, updated_at=?
-       WHERE id=? AND business_id=? AND status='active'`, input.kind, input.name, input.identifier, input.ownership, input.notes, new Date().toISOString(), id, businessId);
+  const res = await db.run(`UPDATE equipment SET kind=?, name=?, identifier=?, ownership=?, notes=?, brand=?, model=?, year=?, horsepower=?, implements=?, services=?, updated_at=?
+       WHERE id=? AND business_id=? AND status='active'`, input.kind, input.name, input.identifier, input.ownership, input.notes,
+       input.brand ?? "", input.model ?? "", input.year ?? "", input.horsepower ?? "", input.implements ?? "", (input.services ?? []).join(","), new Date().toISOString(), id, businessId);
   if (res.changes) await audit(actorId, "equipment.updated", id);
+  return res.changes > 0;
+}
+
+/** Available, not available or under maintenance: the provider's call, separate from faults. */
+export async function setAvailability(businessId: string, actorId: string, id: string, availability: Availability): Promise<boolean> {
+  const res = await db.run("UPDATE equipment SET availability=?, updated_at=? WHERE id=? AND business_id=? AND status='active'", availability, new Date().toISOString(), id, businessId);
+  if (res.changes) await audit(actorId, "equipment.availability", id, availability);
   return res.changes > 0;
 }
 

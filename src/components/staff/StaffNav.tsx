@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TableLabels } from "@/components/app/TableLabels";
 import { waitUntil } from "@vercel/functions";
 import { drain } from "@/lib/outbox";
 import { listForReview } from "@/lib/business";
@@ -18,6 +19,8 @@ export async function StaffNav({ current, role }: { current: "providers" | "requ
     ...(role === "admin" ? [{ id: "team", href: "/staff/team", label: "Staff" }] : []),
   ];
   return (
+    <>
+    <TableLabels />
     <nav className="tabs tabs--page" aria-label="Staff">
       {items.map((i) => (
         <Link key={i.id} href={i.href} className={`tab${i.id === current ? " tab--on" : ""}`} aria-current={i.id === current ? "page" : undefined}>
@@ -25,5 +28,6 @@ export async function StaffNav({ current, role }: { current: "providers" | "requ
         </Link>
       ))}
     </nav>
+    </>
   );
 }

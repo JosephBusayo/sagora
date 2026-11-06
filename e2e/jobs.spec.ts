@@ -111,6 +111,8 @@ let refB = "";
 test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async ({ browser }) => {
+  // Two accounts and two machines through the three-step Add equipment: more than the default 30s.
+  test.setTimeout(120_000);
   // One farmer, one approved provider with two machines.
   const f = await fresh(browser);
   await f.page.goto("/farmer/sign-up");
@@ -142,9 +144,13 @@ test.beforeAll(async ({ browser }) => {
   for (const [kind, name] of [["tractor", "Green Tractor"], ["plough", "Shared Plough"]]) {
     await p.page.getByRole("button", { name: "Add equipment" }).click();
     const d = p.page.getByRole("dialog");
-    await d.getByLabel("What is it?").selectOption(kind);
-    await d.getByLabel("Name", { exact: true }).fill(name);
-    await d.getByRole("button", { name: "Add machine" }).click();
+    await d.getByLabel("Equipment type").selectOption(kind);
+    await d.getByLabel("Brand").fill(name.split(" ")[0]);
+    await d.getByLabel("Model").fill(name.split(" ").slice(1).join(" "));
+    await d.getByRole("button", { name: "Continue" }).click();
+    await d.getByLabel("Ploughing").check();
+    await d.getByRole("button", { name: "Continue" }).click();
+    await d.getByRole("button", { name: "Add equipment" }).click();
     await expect(p.page.getByRole("dialog")).toHaveCount(0, { timeout: 8000 });
   }
   await p.ctx.close();
@@ -212,9 +218,8 @@ test("the same plough cannot be committed to an overlapping job", async ({ page 
 test("a fault flags the job without erasing the commitment", async ({ page }) => {
   await signInProvider(page);
   await page.goto("/provider/equipment");
-  const plough = page.locator("article.asset").filter({ hasText: "Shared Plough" });
-  await plough.getByRole("button", { name: /Actions for Shared Plough/ }).click();
-  await plough.getByRole("menuitem", { name: "Report a fault" }).click();
+  await page.getByRole("button", { name: "Open Shared Plough" }).click();
+  await page.getByRole("dialog", { name: "Shared Plough" }).getByRole("button", { name: "Report a fault" }).click();
   const d = page.getByRole("dialog");
   await d.getByLabel("What is wrong?").fill("Broken shear bolt");
   await d.getByRole("button", { name: "Record fault" }).click();
@@ -228,7 +233,9 @@ test("a fault flags the job without erasing the commitment", async ({ page }) =>
 
   // Clear it again so later steps are not blocked.
   await page.goto("/provider/equipment");
-  await page.locator("article.asset").filter({ hasText: "Shared Plough" }).getByRole("button", { name: "Mark fixed" }).click();
+  await page.getByRole("button", { name: "Open Shared Plough" }).click();
+  await page.getByRole("dialog", { name: "Shared Plough" }).getByRole("button", { name: "Mark fixed" }).click();
+  await expect(page.locator("article.asset").filter({ hasText: "Shared Plough" }).getByText("Available")).toBeVisible();
 });
 
 test("work reported is not delivery: the farmer must confirm", async ({ page, browser }) => {

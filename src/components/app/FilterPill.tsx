@@ -1,4 +1,4 @@
-import { Icon } from "./Icon";
+import { FilterMenu } from "./FilterMenu";
 
 type Option = { value: string; label: string };
 
@@ -6,14 +6,5 @@ type Option = { value: string; label: string };
 export function FilterPill({ name, label, value, icon, options }: {
   name: string; label: string; value?: string; icon: string; options: Option[];
 }) {
-  return (
-    <label className={`filter${value ? " filter--on" : ""}`}>
-      <img src={icon} alt="" width={18} height={18} />
-      <span className="sr-only">{label}</span>
-      <select name={name} defaultValue={value ?? ""}>
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-      <span className="filter__chev" aria-hidden="true"><Icon name="chevron" size={12} /></span>
-    </label>
-  );
+  return <FilterMenu name={name} label={label} value={value} icon={icon} options={options} />;
 }

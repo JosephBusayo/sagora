@@ -2,40 +2,170 @@
 
 import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
-import { useState } from "react";
+import { FilterMenu } from "@/components/app/FilterMenu";
+import { useModal } from "@/components/app/useModal";
+import { useRef, useState } from "react";
 import { Icon } from "@/components/app/Icon";
 import { AssetModal } from "./AssetModal";
 import { FaultModal } from "./FaultModal";
-import { restoreAssetAction, retireAssetAction, resolveFaultAction } from "@/app/provider/(app)/equipment/actions";
+import { restoreAssetAction, retireAssetAction, resolveFaultAction, setAvailabilityAction } from "@/app/provider/(app)/equipment/actions";
 
 export type FaultView = { id: string; severity: "blocking" | "minor"; description: string; reportedAt: string };
 export type AssetView = {
   id: string; kind: string; kindLabel: string; name: string; identifier: string;
   ownership: "owned" | "leased"; status: "active" | "retired"; notes: string; retiredReason: string;
-  unavailable: string | null; faults: FaultView[];
+  brand: string; model: string; year: string; horsepower: string; implements: string; services: string[];
+  availability: string; unavailable: string | null; faults: FaultView[];
 };
 type Option = { id: string; label: string };
 
-export function EquipmentList({ assets, kinds, canEdit }: { assets: AssetView[]; kinds: Option[]; canEdit: boolean }) {
+/** Green when it can be booked, amber while it is being worked on, red when it cannot be used. */
+const pillFor = (a: AssetView) =>
+  !a.unavailable ? "quotes_sent" : a.unavailable === "Under maintenance" ? "in_progress" : "cancelled";
+
+/** The line under a machine's name: what it is, and what it pulls or carries. */
+function Kind({ a }: { a: AssetView }) {
+  return (
+    <p>
+      <span><img src="/icons/plough-grey.svg" alt="" width={20} height={15} />{a.kindLabel}</span>
+      {a.implements || a.identifier ? <span><Icon name="settings" size={18} />{[a.implements, a.identifier].filter(Boolean).join(" · ")}</span> : null}
+    </p>
+  );
+}
+
+function Photo({ size = "card" }: { size?: "card" | "large" | "small" }) {
+  return <span className={`asset__photo asset__photo--${size}`} aria-hidden="true"><img src="/icons/plough.svg" alt="" width={44} height={34} /></span>;
+}
+
+/** One machine, as the design's details window shows it, with its faults and the ways to change it. */
+function DetailsModal({ a, canEdit, availability, onClose, onEdit, onFault, onDelete }: {
+  a: AssetView; canEdit: boolean; availability: Option[];
+  onClose: () => void; onEdit: () => void; onFault: () => void; onDelete: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const close = useModal(ref, onClose);
+  return (
+    <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) close(); }}>
+      <div className="modal modal--asset" role="dialog" aria-modal="true" aria-label={a.name} ref={ref}>
+        <Photo size="large" />
+        <div className="asset__title asset__title--detail">
+          <h3>{a.name}</h3>
+          <Kind a={a} />
+        </div>
+
+        {a.status === "retired" ? (
+          <p className="asset__state"><span className="pill pill--cancelled">Retired</span>{a.retiredReason ? <span className="field__helper">{a.retiredReason}</span> : null}</p>
+        ) : (
+          <fieldset className="chips" disabled={!canEdit}>
+            <legend className="field__label">Availability status</legend>
+            <div className="chips__row">
+              {availability.map((o) => (
+                <form key={o.id} action={setAvailabilityAction}>
+                  <input type="hidden" name="id" value={a.id} />
+                  <input type="hidden" name="availability" value={o.id} />
+                  <button type="submit" className="chip" aria-pressed={a.availability === o.id}>
+                    <span className={`chip__icon${a.availability === o.id ? " chip__icon--on" : ""}`} aria-hidden="true" />
+                    {o.label}
+                  </button>
+                </form>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
+        {a.faults.length > 0 ? (
+          <ul className="asset__faults">
+            {a.faults.map((f) => (
+              <li key={f.id}>
+                <span className={`pill pill--${f.severity === "blocking" ? "cancelled" : "in_progress"}`}>
+                  {f.severity === "blocking" ? "Out of service" : "Needs attention"}
+                </span>
+                <span className="asset__fault-text">{f.description}</span>
+                {canEdit ? (
+                  <form action={resolveFaultAction}>
+                    <input type="hidden" name="faultId" value={f.id} />
+                    <input type="hidden" name="resolution" value="Fixed" />
+                    <PendingButton className="resend__button">Mark fixed</PendingButton>
+                  </form>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {canEdit && a.status === "active" ? (
+          <button type="button" className="resend__button asset__report" onClick={onFault}>Report a fault</button>
+        ) : null}
+
+        {canEdit ? (
+          <div className="form-actions">
+            {a.status === "active" ? (
+              <>
+                <button type="button" className="button button--soft" onClick={onDelete}>Delete equipment</button>
+                <button type="button" className="button" onClick={onEdit}>Edit</button>
+              </>
+            ) : (
+              <form action={restoreAssetAction} className="form-actions__full">
+                <input type="hidden" name="id" value={a.id} />
+                <PendingButton className="button">Bring back into service</PendingButton>
+              </form>
+            )}
+          </div>
+        ) : (
+          <div className="form-actions"><button type="button" className="button" onClick={onClose}>Close</button></div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The design's delete confirmation. Deleting retires the machine: jobs and agreements still point
+ * at it, so it stays on record, marked Retired, and can no longer be put on a job.
+ */
+function DeleteModal({ a, onClose }: { a: AssetView; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const close = useModal(ref, onClose);
+  return (
+    <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) close(); }}>
+      <div className="modal modal--request modal--danger" role="dialog" aria-modal="true" aria-label="Delete equipment" ref={ref}>
+        <div className="modal__banner" aria-hidden="true">
+          <span className="banner__ring banner__outer" />
+          <span className="banner__ring banner__mid" />
+          <span className="banner__ring banner__inner"><Icon name="trash" size={34} /></span>
+        </div>
+        <h2 className="modal__question">Are you sure you want to delete this equipment?</h2>
+        <div className="asset__summary">
+          <Photo size="small" />
+          <div className="asset__title"><h3>{a.name}</h3><Kind a={a} /></div>
+        </div>
+        <form action={retireAssetAction} className="form-actions" onSubmit={() => setTimeout(onClose, 0)}>
+          <input type="hidden" name="id" value={a.id} />
+          <input type="hidden" name="reason" value="Deleted from the register" />
+          <button type="button" className="button button--soft" onClick={onClose}>Cancel</button>
+          <PendingButton className="button button--danger">Delete equipment</PendingButton>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export function EquipmentList({ assets, kinds, services, availability, canEdit }: {
+  assets: AssetView[]; kinds: Option[]; services: Option[]; availability: Option[]; canEdit: boolean;
+}) {
   const [editing, setEditing] = useState<AssetView | null | "new">(null);
   const [faulting, setFaulting] = useState<AssetView | null>(null);
-  const [menu, setMenu] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<AssetView | null>(null);
   const [show, setShow] = useState("");
   const shown = assets.filter((a) => !show || (show === "available") === !a.unavailable);
+  const open = assets.find((a) => a.id === openId) ?? null;
 
   return (
     <>
       <div className="equipment__top">
-        <label className="filter">
-          <img src="/icons/funnel.svg" alt="" width={18} height={18} />
-          <span className="sr-only">Availability</span>
-          <select value={show} onChange={(e) => setShow(e.target.value)}>
-            <option value="">Filter</option>
-            <option value="available">Available</option>
-            <option value="unavailable">Not available</option>
-          </select>
-          <span className="filter__chev" aria-hidden="true"><Icon name="chevron" size={12} /></span>
-        </label>
+        <FilterMenu name="show" label="Availability" icon="/icons/funnel.svg" value={show} onChange={setShow}
+          options={[{ value: "", label: "Filter" }, { value: "available", label: "Available" }, { value: "unavailable", label: "Not available" }]} />
         {canEdit ? (
           <button type="button" className="button button--inline" onClick={() => setEditing("new")}>
             <Icon name="plus" size={18} />
@@ -50,82 +180,34 @@ export function EquipmentList({ assets, kinds, canEdit }: { assets: AssetView[];
         <div className="equipment-grid">
           {shown.map((a) => (
             <article key={a.id} className={`asset${a.status === "retired" ? " asset--retired" : ""}`}>
+              <button type="button" className="asset__open" onClick={() => setOpenId(a.id)} aria-label={`Open ${a.name}`} />
               <div className="asset__head">
-                <span className="asset__photo" aria-hidden="true"><img src="/icons/plough.svg" alt="" width={44} height={34} /></span>
+                <Photo />
                 <div className="asset__title">
                   <h3>{a.name}</h3>
-                  <p>
-                    <span><img src="/icons/plough-grey.svg" alt="" width={20} height={15} />{a.kindLabel}</span>
-                    <span><Icon name="settings" size={18} />{a.ownership === "owned" ? "Owned" : "Leased"}{a.identifier ? ` · ${a.identifier}` : ""}</span>
-                  </p>
+                  <Kind a={a} />
                 </div>
-                {a.unavailable ? (
-                  <span className="pill pill--cancelled">{a.unavailable}</span>
-                ) : (
-                  <span className="pill pill--quotes_sent">Available</span>
-                )}
-                {canEdit ? (
-                  <div className="rowmenu">
-                    <button type="button" className="icon-button" aria-haspopup="menu" aria-expanded={menu === a.id}
-                      aria-label={`Actions for ${a.name}`} onClick={() => setMenu(menu === a.id ? null : a.id)}>
-                      <Icon name="dots" size={18} />
-                    </button>
-                    {menu === a.id ? (
-                      <div className="rowmenu__pop" role="menu">
-                        {a.status === "active" ? (
-                          <>
-                            <button type="button" role="menuitem" onClick={() => { setMenu(null); setEditing(a); }}>Edit details</button>
-                            <button type="button" role="menuitem" onClick={() => { setMenu(null); setFaulting(a); }}>Report a fault</button>
-                            <form action={retireAssetAction}>
-                              <input type="hidden" name="id" value={a.id} />
-                              <input type="hidden" name="reason" value="Taken off the register" />
-                              <PendingButton confirm="Retire this machine?" confirmBody="It stays on record but can no longer be used." confirmAction="Retire machine" role="menuitem" className="rowmenu__danger">Retire</PendingButton>
-                            </form>
-                          </>
-                        ) : (
-                          <form action={restoreAssetAction}>
-                            <input type="hidden" name="id" value={a.id} />
-                            <PendingButton role="menuitem">Bring back into service</PendingButton>
-                          </form>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
+                <span className={`pill pill--${a.status === "retired" ? "cancelled" : pillFor(a)}`}>
+                  {a.status === "retired" ? "Retired" : a.unavailable ?? "Available"}
+                </span>
               </div>
-
-              {a.status === "retired" && a.retiredReason ? <p className="asset__state"><span className="field__helper">{a.retiredReason}</span></p> : null}
-
-              {a.notes ? <p className="asset__notes">{a.notes}</p> : null}
-
-              {a.faults.length > 0 ? (
-                <ul className="asset__faults">
-                  {a.faults.map((f) => (
-                    <li key={f.id}>
-                      <span className={`pill pill--${f.severity === "blocking" ? "cancelled" : "in_progress"}`}>
-                        {f.severity === "blocking" ? "Stops work" : "Needs attention"}
-                      </span>
-                      <span className="asset__fault-text">{f.description}</span>
-                      {canEdit ? (
-                        <form action={resolveFaultAction}>
-                          <input type="hidden" name="faultId" value={f.id} />
-                          <input type="hidden" name="resolution" value="Fixed" />
-                          <PendingButton className="resend__button">Mark fixed</PendingButton>
-                        </form>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
+              {a.faults.some((f) => f.severity === "minor") && a.status === "active" ? (
+                <p className="asset__state"><span className="pill pill--in_progress">Needs attention</span></p>
               ) : null}
             </article>
           ))}
         </div>
       )}
 
+      {open && !editing && !faulting && !deleting ? (
+        <DetailsModal a={open} canEdit={canEdit} availability={availability} onClose={() => setOpenId(null)}
+          onEdit={() => setEditing(open)} onFault={() => setFaulting(open)} onDelete={() => setDeleting(open)} />
+      ) : null}
       {editing ? (
-        <AssetModal asset={editing === "new" ? null : editing} kinds={kinds} onClose={() => setEditing(null)} />
+        <AssetModal asset={editing === "new" ? null : editing} kinds={kinds} services={services} availability={availability} onClose={() => setEditing(null)} />
       ) : null}
       {faulting ? <FaultModal asset={faulting} onClose={() => setFaulting(null)} /> : null}
+      {deleting ? <DeleteModal a={deleting} onClose={() => { setDeleting(null); setOpenId(null); }} /> : null}
     </>
   );
 }

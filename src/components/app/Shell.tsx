@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Sidebar } from "./Sidebar";
 import { SearchBox } from "./SearchBox";
+import { TableLabels } from "./TableLabels";
 import { Icon, type IconName } from "./Icon";
 import type { Audience } from "./nav";
 import { signOut } from "@/app/provider/actions";
@@ -66,7 +67,7 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, search, 
         </header>
         {/* Washes out the page while the search box is in use, as the design shows it. */}
         <div className="app__dim" aria-hidden="true" />
-        <main id="main" className="app__content">{children}</main>
+        <main id="main" className="app__content">{children}<TableLabels /></main>
       </div>
     </div>
   );

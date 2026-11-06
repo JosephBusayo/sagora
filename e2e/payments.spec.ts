@@ -176,9 +176,13 @@ test.beforeAll(async ({ browser }) => {
   await p.page.goto("/provider/equipment");
   await p.page.getByRole("button", { name: "Add equipment" }).click();
   const d = p.page.getByRole("dialog");
-  await d.getByLabel("What is it?").selectOption("tractor");
-  await d.getByLabel("Name", { exact: true }).fill("Green Tractor");
-  await d.getByRole("button", { name: "Add machine" }).click();
+  await d.getByLabel("Equipment type").selectOption("tractor");
+  await d.getByLabel("Brand").fill("Green Tractor".split(" ")[0]);
+  await d.getByLabel("Model").fill("Green Tractor".split(" ").slice(1).join(" "));
+  await d.getByRole("button", { name: "Continue" }).click();
+  await d.getByLabel("Ploughing").check();
+  await d.getByRole("button", { name: "Continue" }).click();
+  await d.getByRole("button", { name: "Add equipment" }).click();
   await expect(p.page.getByRole("dialog")).toHaveCount(0, { timeout: 8000 });
   await p.ctx.close();
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { Icon, type IconName } from "@/components/app/Icon";
 import { today } from "@/components/app/today";
 import { useSafely } from "@/components/app/safely";
 import { useActionState } from "react";
@@ -21,13 +22,14 @@ function Submit({ label }: { label: string }) {
   );
 }
 
-function Select({ name, label, options, placeholder, error, initial = "" }: {
-  name: string; label: string; options: readonly Option[]; placeholder: string; error?: string; initial?: string;
+function Select({ name, label, options, placeholder, error, initial = "", icon }: {
+  name: string; label: string; options: readonly Option[]; placeholder: string; error?: string; initial?: string; icon?: IconName;
 }) {
   return (
     <div className={`field${error ? " field--invalid" : ""}`}>
       <label className="field__label" htmlFor={`f-${name}`}>{label}</label>
       <div className="field__box">
+        {icon ? <span className="field__icon" aria-hidden="true"><Icon name={icon} size={18} /></span> : null}
         <select id={`f-${name}`} name={name} className="field__input" defaultValue={initial}>
           <option value="">{placeholder}</option>
           {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
@@ -43,6 +45,7 @@ function DateField({ name, label, defaultValue, error }: { name: string; label: 
     <div className={`field${error ? " field--invalid" : ""}`}>
       <label className="field__label" htmlFor={`f-${name}`}>{label}</label>
       <div className="field__box">
+        <span className="field__icon" aria-hidden="true"><Icon name="calendar" size={18} /></span>
         <input id={`f-${name}`} name={name} type="date" min={today()} suppressHydrationWarning className="field__input" defaultValue={defaultValue} />
       </div>
       {error ? <p className="field__error">{error}</p> : null}
@@ -145,8 +148,8 @@ export function BookForm({ services, districts, service = "", requestId, initial
           {(["service", "acres", "landAccess", "landCondition", "landClearance", "crop"] as const).map((k) => (
             <input key={k} type="hidden" name={k} value={v[k] ?? ""} />
           ))}
-          <Select name="district" label="District" options={districts.map((d) => ({ id: d, label: d }))} placeholder="Select a district" error={e.district} initial={v.district} />
-          <Field name="village" label="Village/town" placeholder="Where the farm is" defaultValue={v.village} error={e.village} />
+          <Select icon="pin" name="district" label="District" options={districts.map((d) => ({ id: d, label: d }))} placeholder="Select a district" error={e.district} initial={v.district} />
+          <Field icon="pin" name="village" label="Village/town" placeholder="Where the farm is" defaultValue={v.village} error={e.village} />
           <DateField name="preferredDate" label="Preferred start date" defaultValue={v.preferredDate} error={e.preferredDate} />
           <DateField name="alternateDate" label="Latest start date" defaultValue={v.alternateDate} error={e.alternateDate} />
           <Notes value={v.notes} error={e.notes} />

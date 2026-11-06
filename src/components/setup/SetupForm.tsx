@@ -54,7 +54,7 @@ export function SetupForm({ initial, districts, services }: Props) {
         {e.district ? <p className="field__error">{e.district}</p> : null}
       </div>
 
-      <Field name="town" label="Town or village" placeholder="Where your equipment is based" defaultValue={val("town")} error={e.town} />
+      <Field icon="pin" name="town" label="Town or village" placeholder="Where your equipment is based" defaultValue={val("town")} error={e.town} />
 
       <fieldset className={`field setup__services${e.services ? " field--invalid" : ""}`}>
         <legend className="field__label">Services you offer</legend>
