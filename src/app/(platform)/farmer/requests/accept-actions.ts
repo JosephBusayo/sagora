@@ -3,7 +3,7 @@
 import { flash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { acceptQuote, declineQuote } from "@/lib/quotes";
-import { requireFarmer } from "@/lib/session";
+import { requesterFor } from "@/lib/requester";
 import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
 
@@ -12,12 +12,12 @@ import { db } from "@/lib/db";
  * — a brief requirement for farmer screens.
  */
 export async function acceptQuoteAction(fd: FormData) {
-  const farmer = await requireFarmer();
   const quoteId = String(fd.get("quoteId") ?? "");
   const requestId = String(fd.get("requestId") ?? "");
-  const result = await acceptQuote(quoteId, farmer.id);
+  const who = await requesterFor(requestId);
+  const result = await acceptQuote(quoteId, who.actor);
 
-  if (!result.ok) redirect(`/farmer/requests/${requestId}?error=${encodeURIComponent(result.reason)}`);
+  if (!result.ok) redirect(`${who.page}?error=${encodeURIComponent(result.reason)}`);
 
   // Tell the provider their quote was taken.
   const row = await db.get(`SELECT b.email AS email, b.name AS name, r.reference AS reference
@@ -35,14 +35,14 @@ export async function acceptQuoteAction(fd: FormData) {
         `itself are arranged separately.`,
     });
   }
-  redirect(`/farmer/requests/${requestId}?accepted=1`);
+  redirect(`${who.page}?accepted=1`);
 }
 
 export async function declineQuoteAction(fd: FormData) {
-  const farmer = await requireFarmer();
   const quoteId = String(fd.get("quoteId") ?? "");
   const requestId = String(fd.get("requestId") ?? "");
-  if (await declineQuote(quoteId, farmer.id)) {
+  const who = await requesterFor(requestId);
+  if (await declineQuote(quoteId, who.actor)) {
     const row = await db.get(`SELECT b.email AS email, r.reference AS reference
          FROM quote q JOIN provider_business b ON b.id = q.business_id
          JOIN service_request r ON r.id = q.request_id WHERE q.id = ?`, quoteId) as { email: string; reference: string } | undefined;
@@ -57,5 +57,5 @@ export async function declineQuoteAction(fd: FormData) {
     }
   }
   await flash("Quote declined.");
-  redirect(`/farmer/requests/${requestId}`);
+  redirect(who.page);
 }

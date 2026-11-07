@@ -1636,3 +1636,7 @@ button {
     animation: none !important;
   }
 }
+
+/* Under the main button: the way back for a farmer who sent a request without an account. */
+.hero__find { margin: 16px 0 0; font-size: 15px; }
+.hero__find a { display: inline-block; padding: 12px 4px; margin: -12px -4px; color: inherit; font-weight: 500; text-decoration: underline; }

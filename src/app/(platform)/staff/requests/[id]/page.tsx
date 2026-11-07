@@ -14,7 +14,8 @@ import { STATUS_LABEL, contactsFor, getById, serviceLabel } from "@/lib/requests
 import { requireStaff } from "@/lib/session";
 import { StaffShell } from "@/components/staff/StaffShell";
 import { PageHead } from "@/components/app/Shell";
-import { acceptOnBehalfAction, confirmOnBehalfAction, logContactAction } from "../../assisted-actions";
+import { acceptOnBehalfAction, confirmOnBehalfAction, logContactAction, newTrackingCodeAction } from "../../assisted-actions";
+import { newCodeFor } from "@/lib/guest";
 import { landSize } from "@/lib/land-size";
 
 export const metadata: Metadata = { title: "Assisted request" };
@@ -27,7 +28,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const { id } = await params;
   const { error } = await searchParams;
   const r = await getById(id);
-  if (!r || !r.assistedBy) notFound();
+  // Requests with no account behind them: taken on a call, or sent from the website.
+  if (!r || r.farmerId) notFound();
+  const newCode = await newCodeFor(r.id);
 
   const quotes = await listForRequest(id);
   const agreement = await agreementFor(id);
@@ -45,8 +48,16 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <dl className="setup__summary">
           <dt>Status</dt><dd>{STATUS_LABEL[r.status]}</dd>
           <dt>Farmer</dt><dd>{r.contactName}</dd>
-          <dt>Called by</dt><dd>{r.callerName} ({r.callerRelation}) · {r.contactPhone}</dd>
-          <dt>May accept</dt><dd>{r.mayAccept}</dd>
+          {r.assistedBy ? (
+            <>
+              <dt>Called by</dt><dd>{r.callerName} ({r.callerRelation}) · {r.contactPhone}</dd>
+              <dt>May accept</dt><dd>{r.mayAccept}</dd>
+            </>
+          ) : (
+            <>
+              <dt>Sent</dt><dd>From the website, without an account · {r.contactPhone}{r.contactEmail ? ` · ${r.contactEmail}` : ""}</dd>
+            </>
+          )}
           <dt>Work</dt><dd>{serviceLabel(r.service)}{r.crop ? `, ${r.crop}` : ""}, {landSize(r.acres)}</dd>
           <dt>Where</dt><dd>{placeLine(r.village, r.chiefdom, districtLabel(r.district))}</dd>
           <dt>Land</dt><dd>{landLabel(LAND_ACCESS, r.landAccess)} · {landLabel(LAND_CONDITION, r.landCondition)} · {landLabel(LAND_CLEARANCE, r.landClearance)}</dd>
@@ -61,7 +72,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               {quotes.map((q) => (
                 <li key={q.id}>
                   <span className="asset__fault-text">{names.get(q.businessId)} · {formatAmount(q.amountMinor)} · {q.includes}</span>
-                  {q.status === "sent" && !agreement && !isExpired(q) ? (
+                  {r.assistedBy && q.status === "sent" && !agreement && !isExpired(q) ? (
                     <form action={acceptOnBehalfAction} className="accept-on-call">
                       <input type="hidden" name="quoteId" value={q.id} />
                       <input type="hidden" name="requestId" value={r.id} />
@@ -79,7 +90,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <section className="staff__item">
             <h2>The work</h2>
             <p className="field__helper">{JOB_STATUS_LABEL[job.status as JobStatus]}</p>
-            {job.status === "work_reported" ? (
+            {r.assistedBy && job.status === "work_reported" ? (
               <form action={confirmOnBehalfAction}>
                 <input type="hidden" name="requestId" value={r.id} />
                 <PendingButton className="button button--inline">Farmer confirmed the work</PendingButton>
@@ -87,6 +98,25 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             ) : null}
           </section>
         ) : null}
+
+        <section className="staff__item">
+          <h2>Tracking code</h2>
+          {newCode ? (
+            <>
+              <p className="tracking-code__value" data-testid="staff-tracking-code">{newCode}</p>
+              <p className="field__helper">Read this to {r.contactName}. The old code no longer works.</p>
+            </>
+          ) : null}
+          <p className="field__helper">
+            The farmer opens this request on the website with a tracking code and {r.contactPhone}. Codes are stored
+            scrambled, so a lost one cannot be read back: make a new one.
+          </p>
+          <form action={newTrackingCodeAction}>
+            <input type="hidden" name="requestId" value={r.id} />
+            <PendingButton className="button button--soft button--inline" confirm="Make a new tracking code?"
+              confirmBody="The old code stops working at once, on every phone." confirmAction="Make a new code">New tracking code</PendingButton>
+          </form>
+        </section>
 
         <section className="staff__item">
           <h2>Calls</h2>

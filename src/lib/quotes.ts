@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { db } from "./db";
 import { audit } from "./business";
-import { getById as getRequest } from "./requests";
+import { getById as getRequest, ownedBy } from "./requests";
 import { ensureJobForAgreement } from "./jobs";
 
 /**
@@ -122,7 +122,7 @@ export async function acceptQuote(quoteId: string, farmerId: string, onBehalf = 
 
   const request = await getRequest(quote.requestId);
   // A coordinator can accept only on a request they took for a farmer with no account.
-  const allowed = onBehalf ? Boolean(request?.assistedBy) : request?.farmerId === farmerId;
+  const allowed = onBehalf ? Boolean(request?.assistedBy) : Boolean(request && ownedBy(request, farmerId));
   if (!request || !allowed) return { ok: false, reason: "That quote is not on your request." };
   if (request.status === "cancelled") return { ok: false, reason: "You withdrew this request." };
   if (quote.status !== "sent") return { ok: false, reason: "That quote is no longer open." };
@@ -157,7 +157,7 @@ export async function declineQuote(quoteId: string, farmerId: string): Promise<b
   const quote = await getQuote(quoteId);
   if (!quote) return false;
   const request = await getRequest(quote.requestId);
-  if (!request || request.farmerId !== farmerId) return false;
+  if (!request || !ownedBy(request, farmerId)) return false;
   const res = await db.run("UPDATE quote SET status='not_selected', declined_at=? WHERE id=? AND status='sent'", new Date().toISOString(), quoteId);
   if (res.changes) await audit(farmerId, "quote.declined", quoteId);
   return res.changes > 0;

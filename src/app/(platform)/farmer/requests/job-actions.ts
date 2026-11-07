@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { confirmDelivery, raiseConcern } from "@/lib/jobs";
-import { requireFarmer } from "@/lib/session";
+import { requesterFor } from "@/lib/requester";
 import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
 
@@ -15,10 +15,10 @@ async function providerEmail(requestId: string) {
 }
 
 export async function confirmDeliveryAction(fd: FormData) {
-  const farmer = await requireFarmer();
   const requestId = str(fd, "requestId");
-  const result = await confirmDelivery(farmer.id, requestId);
-  if (!result.ok) redirect(`/farmer/requests/${requestId}?error=${encodeURIComponent(result.reason)}`);
+  const who = await requesterFor(requestId);
+  const result = await confirmDelivery(who.actor, requestId);
+  if (!result.ok) redirect(`${who.page}?error=${encodeURIComponent(result.reason)}`);
 
   const row = await providerEmail(requestId);
   if (row?.email) {
@@ -30,14 +30,14 @@ export async function confirmDeliveryAction(fd: FormData) {
       text: `The farmer has confirmed the work on ${row.reference}. Settlement is arranged separately.`,
     });
   }
-  redirect(`/farmer/requests/${requestId}?confirmed=1`);
+  redirect(`${who.page}?confirmed=1`);
 }
 
 export async function raiseConcernAction(fd: FormData) {
-  const farmer = await requireFarmer();
   const requestId = str(fd, "requestId");
-  const result = await raiseConcern(farmer.id, requestId, str(fd, "concern"));
-  if (!result.ok) redirect(`/farmer/requests/${requestId}?error=${encodeURIComponent(result.reason)}`);
+  const who = await requesterFor(requestId);
+  const result = await raiseConcern(who.actor, requestId, str(fd, "concern"));
+  if (!result.ok) redirect(`${who.page}?error=${encodeURIComponent(result.reason)}`);
 
   const row = await providerEmail(requestId);
   if (row?.email) {
@@ -49,5 +49,5 @@ export async function raiseConcernAction(fd: FormData) {
       text: `The farmer has raised a concern about the work on ${row.reference}:\n\n${str(fd, "concern")}\n\nSagora will follow up.`,
     });
   }
-  redirect(`/farmer/requests/${requestId}?concern=1`);
+  redirect(`${who.page}?concern=1`);
 }

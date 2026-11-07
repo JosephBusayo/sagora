@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db, type Queries } from "./db";
 import { audit } from "./business";
 import { getAsset, unavailableReason } from "./equipment";
-import { getById as getRequest, nextReference } from "./requests";
+import { OWNED_BY, getById as getRequest, nextReference } from "./requests";
 
 /**
  * A job is the work itself: an accepted agreement, scheduled, with specific machines and a
@@ -322,7 +322,7 @@ export async function confirmOnBehalf(staffId: string, requestId: string): Promi
 /** Silence is not consent: only the farmer's explicit confirmation completes a job. */
 export async function confirmDelivery(farmerId: string, requestId: string): Promise<FarmerDecision> {
   const row = await db.get(`SELECT j.id FROM job j JOIN service_request r ON r.id = j.request_id
-       WHERE j.request_id=? AND r.farmer_id=? AND j.status='work_reported'`, requestId, farmerId) as { id: string } | undefined;
+       WHERE j.request_id=? AND ${OWNED_BY("r.")} AND j.status='work_reported'`, requestId, farmerId, farmerId) as { id: string } | undefined;
   if (!row) return { ok: false, reason: "There is nothing to confirm on this request yet." };
   await db.run("UPDATE job SET status='completed', confirmed_at=?, updated_at=? WHERE id=?", new Date().toISOString(), new Date().toISOString(), row.id);
   await db.run("UPDATE service_request SET status='completed', updated_at=? WHERE id=?", new Date().toISOString(), requestId);
@@ -332,7 +332,7 @@ export async function confirmDelivery(farmerId: string, requestId: string): Prom
 
 export async function raiseConcern(farmerId: string, requestId: string, concern: string): Promise<FarmerDecision> {
   const row = await db.get(`SELECT j.id FROM job j JOIN service_request r ON r.id = j.request_id
-       WHERE j.request_id=? AND r.farmer_id=? AND j.status='work_reported'`, requestId, farmerId) as { id: string } | undefined;
+       WHERE j.request_id=? AND ${OWNED_BY("r.")} AND j.status='work_reported'`, requestId, farmerId, farmerId) as { id: string } | undefined;
   if (!row) return { ok: false, reason: "There is nothing to raise a concern about yet." };
   if (concern.trim().length < 4) return { ok: false, reason: "Say what the problem is." };
   await db.run("UPDATE job SET status='disputed', concern=?, updated_at=? WHERE id=?", concern.trim(), new Date().toISOString(), row.id);

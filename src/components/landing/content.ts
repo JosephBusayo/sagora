@@ -108,7 +108,7 @@ export const FAQS: { q: string; answer: string }[] = [
   {
     q: 'Do I need an account to request a service?',
     answer:
-      'Yes. Create a Sagora account with your email address, so your requests, quotes and bookings stay together in one place and you can follow your job from request to delivery.',
+      'No. Send your request and write down the tracking code you are given: with your phone number, it brings you back to your request. You can also create a Sagora account, so your requests, quotes and bookings stay together in one place.',
   },
   {
     q: 'When is my booking confirmed?',
@@ -129,7 +129,8 @@ export const FAQS: { q: string; answer: string }[] = [
 
 /** Where the page's buttons lead in the Sagora app. */
 export const LINKS = {
-  findService: '/farmer/book',
+  findService: '/request',
+  findRequest: '/request/find',
   joinProvider: '/provider/sign-up',
   workspace: '/provider/dashboard',
   farmerSignIn: '/farmer/sign-in',

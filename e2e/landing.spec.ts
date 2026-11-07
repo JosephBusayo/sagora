@@ -8,7 +8,8 @@ test("the home page is the landing page, and its buttons lead into the app", asy
   await expect(page).toHaveTitle(/Agricultural services in Sierra Leone/);
 
   const hero = page.locator(".hero");
-  await expect(hero.getByRole("link", { name: "Find a service provider" })).toHaveAttribute("href", "/farmer/book");
+  await expect(hero.getByRole("link", { name: "Find a service provider" })).toHaveAttribute("href", "/request");
+  await expect(hero.getByRole("link", { name: "Find it here" })).toHaveAttribute("href", "/request/find");
   const footer = page.locator("footer");
   await expect(footer.getByRole("link", { name: "Join as a provider" })).toHaveAttribute("href", "/provider/sign-up");
   await expect(footer.getByRole("link", { name: "Provider workspace" })).toHaveAttribute("href", "/provider/dashboard");
@@ -16,9 +17,10 @@ test("the home page is the landing page, and its buttons lead into the app", asy
   await expect(footer.getByText("Contact us")).toHaveCount(0);
   await expect(footer.getByText("Legal")).toHaveCount(0);
 
-  // A signed-out visitor asking for a service is sent to sign in as a farmer.
+  // A signed-out visitor can ask for a service without an account.
   await hero.getByRole("link", { name: "Find a service provider" }).click();
-  await page.waitForURL(/\/farmer\/sign-in/);
+  await page.waitForURL(/\/request$/);
+  await expect(page.getByLabel("What work do you need?")).toBeVisible();
 });
 
 test("Sign in asks whether you are a farmer or a service provider", async ({ page }) => {

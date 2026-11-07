@@ -37,6 +37,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             initial={{
               service: request.service, ...asTyped(request.acres), landAccess: request.landAccess,
               landCondition: request.landCondition, landClearance: request.landClearance, crop: request.crop, notes: request.notes,
+              landType: request.landType, cropVariety: request.cropVariety, plantedOn: request.plantedOn, cropReadiness: request.cropReadiness,
               district: request.district, chiefdom: request.chiefdom, village: request.village, preferredDate: request.preferredDate,
               alternateDate: request.alternateDate ?? "",
             }}

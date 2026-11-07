@@ -33,8 +33,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
             <ul className="search-results" aria-label="Open requests from this number">
               {found.map((r) => (
                 <li key={r.id}>
-                  {r.assistedBy ? <Link href={`/staff/requests/${r.id}`}>{r.reference}</Link> : <span>{r.reference}</span>}
-                  <span>{r.contactName} · {serviceLabel(r.service)} · {r.village}, {districtLabel(r.district)}{r.assistedBy ? "" : " · has an account"}</span>
+                  {r.farmerId ? <span>{r.reference}</span> : <Link href={`/staff/requests/${r.id}`}>{r.reference}</Link>}
+                  <span>{r.contactName} · {serviceLabel(r.service)} · {r.village}, {districtLabel(r.district)}{r.farmerId ? " · has an account" : r.assistedBy ? "" : " · sent from the website"}</span>
                   <span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span>
                 </li>
               ))}

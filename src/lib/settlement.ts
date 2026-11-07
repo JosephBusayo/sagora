@@ -200,7 +200,9 @@ export async function prepareRefund(preparerId: string, requestId: string, amoun
   if (amountMinor > held) {
     return { ok: false, reason: "That is more than the money still held against this job." };
   }
-  const farmer = await db.get(`SELECT u.name AS name, u.email AS email FROM service_request r JOIN "user" u ON u.id = r.farmer_id WHERE r.id=?`, requestId) as { name: string; email: string } | undefined;
+  // A farmer without an account is refunded by the name and number they gave with the request.
+  const farmer = await db.get(`SELECT COALESCE(u.name, r.contact_name) AS name, COALESCE(u.email, NULLIF(r.contact_email, ''), r.contact_phone) AS email
+       FROM service_request r LEFT JOIN "user" u ON u.id = r.farmer_id WHERE r.id=?`, requestId) as { name: string; email: string } | undefined;
 
   const id = randomUUID();
   try {

@@ -1501,3 +1501,23 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .queue__head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .queue__form { display: grid; gap: 10px; margin-top: 10px; max-width: 520px; }
 .queue__item summary { cursor: pointer; font-size: 14px; }
+
+/* Requests sent without an account: the public pages and the tracking code. */
+.guest { min-height: var(--screen-h, 100vh); padding: 20px 16px 48px; background: var(--color-bg); }
+.guest__bar { max-width: 614px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.guest__signin { font-size: 15px; color: var(--color-brand); }
+.guest__main { max-width: 614px; margin: 0 auto; }
+.guest__panel { max-height: none; margin: 0 auto; }
+.guest__note, .guest__leave { margin: 20px auto 0; text-align: center; }
+.guest__leave { display: grid; justify-items: center; gap: 8px; }
+.guest__notice { margin: 0 0 16px; }
+.guest__help { max-width: 614px; margin: 24px auto 0; display: flex; justify-content: center; }
+.tracking-code { margin: 0 0 20px; padding: 24px; border: 2px solid var(--color-brand); border-radius: 24px; background: var(--color-surface); text-align: center; display: grid; gap: 10px; }
+.tracking-code__title { margin: 0; font-size: 18px; font-weight: 500; }
+.tracking-code__value { margin: 0; font: 600 36px/1.2 var(--font-sans); letter-spacing: 0.08em; color: var(--color-brand); overflow-wrap: anywhere; }
+.tracking-code__hint { margin: 0; color: var(--color-subtitle); }
+@media (max-width: 560px) {
+  .guest { padding: 16px 12px 40px; }
+  .tracking-code { padding: 18px 14px; }
+  .tracking-code__value { font-size: 30px; }
+}

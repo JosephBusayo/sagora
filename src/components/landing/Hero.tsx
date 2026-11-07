@@ -136,6 +136,9 @@ export function Hero({ intro }: { intro: boolean }) {
             Find a service provider
             <img className="btn__icon" src="/img/arrow-up-right.svg" alt="" width={24} height={24} />
           </ButtonLink>
+          <p className="hero__find">
+            Already sent a request? <a href={LINKS.findRequest}>Find it here</a>
+          </p>
         </motion.div>
       </div>
 

@@ -6,7 +6,7 @@ import { useSafely } from "@/components/app/safely";
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { bookService, type BookState } from "@/app/(platform)/farmer/book/actions";
+import { bookAsGuest, bookService, type BookState } from "@/app/(platform)/farmer/book/actions";
 import { Field } from "@/components/auth/Field";
 import { CROP_READINESS, LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, LAND_TYPE, asksHarvestDetails, extraDetails, landLabel, needsCrop } from "@/lib/land";
 import { chiefdomsOf } from "@/lib/chiefdoms";
@@ -46,6 +46,8 @@ function Select({ name, label, options, placeholder, error, initial = "", icon, 
 
 /** Every answer, carried to the next submit. */
 const FIELDS = ["service", "acres", "unit", "landAccess", "landCondition", "landClearance", "crop", "landType", "cropVariety", "plantedOn", "cropReadiness", "district", "chiefdom", "village", "preferredDate", "alternateDate", "notes"] as const;
+/** Asked only of someone without an account: who the request is from, and how to reach them. */
+const CONTACT = ["contactName", "contactPhone", "contactEmail"] as const;
 
 const longDate = (iso: string) =>
   new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
@@ -55,7 +57,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 /** Step three: what will be sent, to check before it goes. Nothing is saved until then. */
-function Summary({ v, serviceName }: { v: Record<string, string>; serviceName: string }) {
+function Summary({ v, serviceName, guest }: { v: Record<string, string>; serviceName: string; guest?: boolean }) {
   return (
     <div className="detail-list book__summary">
       <Row label="Service" value={serviceName} />
@@ -72,6 +74,13 @@ function Summary({ v, serviceName }: { v: Record<string, string>; serviceName: s
       <Row label="Preferred start date" value={longDate(v.preferredDate)} />
       {v.alternateDate ? <Row label="Latest start date" value={longDate(v.alternateDate)} /> : null}
       {v.notes ? <Row label="Additional notes" value={v.notes} /> : null}
+      {guest ? (
+        <>
+          <Row label="Your name" value={v.contactName} />
+          <Row label="Your phone number" value={v.contactPhone} />
+          {v.contactEmail ? <Row label="Email" value={v.contactEmail} /> : null}
+        </>
+      ) : null}
     </div>
   );
 }
@@ -127,7 +136,7 @@ function Notes({ value, error, service }: { value?: string; error?: string; serv
  * Two steps, as the design draws them (465:11158, 465:11454). Each step is a real submit and the
  * first step's answers travel as hidden fields, so the flow works with JavaScript off.
  */
-export function BookForm({ services, districts, service = "", requestId, initial, direct, submissionKey }: {
+export function BookForm({ services, districts, service = "", requestId, initial, direct, submissionKey, guest = false, cancelHref }: {
   services: readonly Option[]; districts: readonly string[];
   /** Pre-chosen from the home screen's "Book ploughing" / "Book harvesting" tiles. */
   service?: string;
@@ -139,8 +148,11 @@ export function BookForm({ services, districts, service = "", requestId, initial
   direct?: { id: string; name: string };
   /** Made once when the page is drawn and sent on every step, so a repeated send finds the first request. */
   submissionKey?: string;
+  /** Sent without an account: asks for a name and number, and answers with a tracking code. */
+  guest?: boolean;
+  cancelHref?: string;
 }) {
-  const [state, action] = useActionState(useSafely(bookService), {} as BookState);
+  const [state, action] = useActionState(useSafely(guest ? bookAsGuest : bookService), {} as BookState);
   const e = state.fieldErrors ?? {};
   // Step one posts the second step's fields as blanks, which must not wipe the saved answers.
   const typed = Object.entries(state.values ?? {}).filter(([, value]) => value !== "");
@@ -184,7 +196,7 @@ export function BookForm({ services, districts, service = "", requestId, initial
 
       {step === 1 ? (
         <>
-          {(["district", "chiefdom", "village", "preferredDate", "alternateDate"] as const).map((k) => (
+          {(["district", "chiefdom", "village", "preferredDate", "alternateDate", ...(guest ? CONTACT : [])] as const).map((k) => (
             <input key={k} type="hidden" name={k} value={v[k] ?? ""} />
           ))}
           {label ? <input type="hidden" name="service" value={chosen} /> : (
@@ -219,11 +231,18 @@ export function BookForm({ services, districts, service = "", requestId, initial
           <DateField name="preferredDate" label="Preferred start date" defaultValue={v.preferredDate} error={e.preferredDate} />
           <DateField name="alternateDate" label="Latest start date" defaultValue={v.alternateDate} error={e.alternateDate} />
           <Notes value={v.notes} error={e.notes} service={work} />
+          {guest ? (
+            <>
+              <Field name="contactName" label="Your name" placeholder="First and last name" autoComplete="name" maxLength={80} defaultValue={v.contactName} error={e.contactName} />
+              <Field name="contactPhone" label="Your phone number" type="tel" inputMode="tel" prefix="+232" placeholder="00 000 000" autoComplete="tel-national" defaultValue={v.contactPhone} error={e.contactPhone} />
+              <Field name="contactEmail" label="Email" type="email" required={false} placeholder="To get quotes by email" autoComplete="email" defaultValue={v.contactEmail} error={e.contactEmail} />
+            </>
+          ) : null}
         </>
       ) : (
         <>
-          {FIELDS.map((k) => <input key={k} type="hidden" name={k} value={v[k] ?? ""} />)}
-          <Summary v={v} serviceName={label ?? ""} />
+          {[...FIELDS, ...(guest ? CONTACT : [])].map((k) => <input key={k} type="hidden" name={k} value={v[k] ?? ""} />)}
+          <Summary v={v} serviceName={label ?? ""} guest={guest} />
         </>
       )}
 
@@ -232,7 +251,7 @@ export function BookForm({ services, districts, service = "", requestId, initial
         {step === 3 ? (
           <button type="submit" name="back" value="1" formNoValidate className="button button--soft">Edit details</button>
         ) : (
-          <Link href={requestId ? `/farmer/requests/${requestId}` : "/farmer/home"} className="button button--soft">Cancel</Link>
+          <Link href={cancelHref ?? (requestId ? `/farmer/requests/${requestId}` : "/farmer/home")} className="button button--soft">Cancel</Link>
         )}
         <Submit label={step === 3 ? (requestId ? "Save changes" : "Send request") : requestId ? "Next" : "Continue"} />
       </div>

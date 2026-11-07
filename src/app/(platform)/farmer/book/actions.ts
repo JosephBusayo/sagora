@@ -6,7 +6,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { DISTRICTS, SERVICES, districtLabel, getApprovedBusiness } from "@/lib/business";
 import { coversWork, createRequest, providersCovering, serviceLabel, updateRequest } from "@/lib/requests";
-import { requireFarmer } from "@/lib/session";
+import { requireFarmer, type SessionUser } from "@/lib/session";
+import { guestRequestId, issueTrackingCode, rememberGuest, showCodeOnce } from "@/lib/guest";
+import { db } from "@/lib/db";
+import { siteUrl } from "@/lib/site";
+import { guestActor } from "@/lib/requests";
 import { notify } from "@/lib/outbox";
 import { CROP_READINESS, LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, LAND_TYPE, asksHarvestDetails, cropMissing, needsCrop } from "@/lib/land";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
@@ -46,8 +50,27 @@ const schema = land.extend({
 /** 1: the land, 2: where and when, 3: the summary to check before it is sent. */
 export type BookState = FormState & { step?: 1 | 2 | 3 };
 
+const emailOk = z.email();
+
+/** A signed-in farmer, or someone sending a request without an account. */
+type Who = { farmer: SessionUser } | { guest: true };
+
 export async function bookService(_prev: BookState, fd: FormData): Promise<BookState> {
-  const farmer = await requireFarmer();
+  return book(fd, { farmer: await requireFarmer() });
+}
+
+/** The same form for someone with no account. They also give a name and number, and get a tracking code. */
+export async function bookAsGuest(_prev: BookState, fd: FormData): Promise<BookState> {
+  return book(fd, { guest: true });
+}
+
+async function book(fd: FormData, who: Who): Promise<BookState> {
+  const farmer = "farmer" in who ? who.farmer : null;
+  const contact: Record<string, string> = farmer ? {} : {
+    contactName: str(fd, "contactName"),
+    contactPhone: str(fd, "contactPhone"),
+    contactEmail: str(fd, "contactEmail").toLowerCase(),
+  };
   const raw = {
     service: str(fd, "service"),
     acres: str(fd, "acres"),
@@ -67,7 +90,7 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     village: str(fd, "village"),
     notes: str(fd, "notes"),
   };
-  const values = { ...raw };
+  const values: Record<string, string> = { ...raw, ...contact };
   // "Edit details" on the summary goes back to the start with every answer kept.
   if (str(fd, "back") === "1") return { step: 1, values };
 
@@ -93,6 +116,12 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     fieldErrors.alternateDate = "The latest start date must be on or after the preferred start date";
   }
   if (!fieldErrors.district && !chiefdomFits(raw.district, raw.chiefdom)) fieldErrors.chiefdom = "Choose your chiefdom";
+  if (!farmer) {
+    if ((contact.contactName ?? "").length < 2) fieldErrors.contactName = "Enter your name";
+    else if ((contact.contactName ?? "").length > 80) fieldErrors.contactName = "Use 80 characters or fewer";
+    if (!normaliseSierraLeonePhone(contact.contactPhone ?? "")) fieldErrors.contactPhone = "Enter a valid Sierra Leone number, for example 76 123 456";
+    if (contact.contactEmail && !emailOk.safeParse(contact.contactEmail).success) fieldErrors.contactEmail = "Enter a valid email address, or leave it empty";
+  }
   if (!parsed.success || Object.keys(fieldErrors).length) return { step: 2, fieldErrors, values };
 
   // A direct request stays with the chosen provider, so one that cannot do the work is refused,
@@ -126,34 +155,53 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     notes: d.notes,
   };
 
+  const phone = farmer ? normaliseSierraLeonePhone(farmer.phone ?? "") ?? (farmer.phone ?? "") : normaliseSierraLeonePhone(contact.contactPhone ?? "")!;
   const requestId = str(fd, "requestId");
   if (requestId) {
-    const saved = await updateRequest(farmer.id, requestId, details);
+    // A guest can only ever edit the one request their tracking code let them into.
+    if (!farmer && (await guestRequestId()) !== requestId) return { step: 2, values, error: "Find your request with its tracking code first." };
+    const saved = await updateRequest(farmer ? farmer.id : guestActor(requestId), requestId, details);
     if (!saved) return { step: 2, values, error: "This request can no longer be edited: a provider has quoted it." };
-    redirect(`/farmer/requests/${requestId}`);
+    if (!farmer) {
+      await db.run("UPDATE service_request SET contact_name=?, contact_phone=?, contact_email=? WHERE id=? AND farmer_id IS NULL",
+        contact.contactName, phone, contact.contactEmail, requestId);
+    }
+    redirect(farmer ? `/farmer/requests/${requestId}` : "/request/track?saved=1");
   }
 
-  const created = await createRequest(farmer.id, {
+  const created = await createRequest(farmer?.id ?? null, {
     ...details,
     directTo: chosen?.id ?? null,
-    contactName: farmer.name,
-    contactPhone: normaliseSierraLeonePhone(farmer.phone ?? "") ?? (farmer.phone ?? ""),
-    contactEmail: farmer.email,
+    contactName: farmer ? farmer.name : contact.contactName!,
+    contactPhone: phone,
+    contactEmail: farmer ? farmer.email : contact.contactEmail!,
     submissionKey: str(fd, "submissionKey"),
   });
 
+  // Without an account, the tracking code and the phone number are the way back.
+  const code = farmer ? null : await issueTrackingCode(created.id, guestActor(created.id));
+  if (code) {
+    await rememberGuest(created.id);
+    await showCodeOnce(created.id, code);
+  }
+
   // The reference is the farmer's way back to this request, so it goes out by email too.
-  await notify({
-    kind: "request.created",
-    dedupeKey: `request.created:${created.id}`,
-    to: farmer.email,
-    subject: `Your Sagora request ${created.reference}`,
-    text:
-      `We have your request for ${d.service} on ${landSize(details.acres)} in ${placeLine(d.village, raw.chiefdom, d.district)}.\n\n` +
-      `Your reference is ${created.reference}. Keep it: it is how you find this request again.\n\n` +
-      `A request is not a booking. Providers will send you quotes, and nothing is confirmed ` +
-      `until you accept one and pay.`,
-  });
+  const email = farmer ? farmer.email : contact.contactEmail;
+  if (email) {
+    await notify({
+      kind: "request.created",
+      dedupeKey: `request.created:${created.id}`,
+      to: email,
+      subject: `Your Sagora request ${created.reference}`,
+      text:
+        `We have your request for ${d.service} on ${landSize(details.acres)} in ${placeLine(d.village, raw.chiefdom, d.district)}.\n\n` +
+        (code
+          ? `Your tracking code is ${code}. With your phone number, it opens this request at ${siteUrl()}/request/find\n\n`
+          : `Your reference is ${created.reference}. Keep it: it is how you find this request again.\n\n`) +
+        `A request is not a booking. Providers will send you quotes, and nothing is confirmed ` +
+        `until you accept one and pay.`,
+    });
+  }
 
   // Only the work itself: a provider gets no farmer's name or number from this.
   const covering = await providersCovering(d);
@@ -168,13 +216,15 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
   }
 
   (await cookies()).delete("sagora_direct");
-  redirect(`/farmer/requests?new=${created.reference}`);
+  redirect(farmer ? `/farmer/requests?new=${created.reference}` : "/request/track");
 }
 
 export async function cancelRequest(fd: FormData) {
-  const farmer = await requireFarmer();
+  const id = String(fd.get("id") ?? "");
+  const { requesterFor } = await import("@/lib/requester");
+  const who = await requesterFor(id);
   const { cancel } = await import("@/lib/requests");
-  await cancel(farmer.id, String(fd.get("id") ?? ""));
+  await cancel(who.actor, id);
   await flash("Request withdrawn.");
-  redirect("/farmer/requests");
+  redirect(who.guest ? who.page : "/farmer/requests");
 }

@@ -15,6 +15,7 @@ import { createRequest, getById, logContact, openRequestsForPhone, providersCove
 import { requireStaff } from "@/lib/session";
 import { db } from "@/lib/db";
 import { landSize, landUnit, toAcres } from "@/lib/land-size";
+import { issueTrackingCode, showCodeOnce } from "@/lib/guest";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const today = () => new Date().toISOString().slice(0, 10);
@@ -83,11 +84,25 @@ export async function createAssistedAction(_prev: FormState, fd: FormData): Prom
   redirect(`/staff/requests/${created.id}`);
 }
 
+/**
+ * A farmer without an account lost their tracking code. Codes are stored scrambled, so a new one
+ * is made and read out to them; the old one stops working at once.
+ */
+export async function newTrackingCodeAction(fd: FormData) {
+  const staff = await requireStaff();
+  const requestId = str(fd, "requestId");
+  const r = await getById(requestId);
+  if (!r || r.farmerId) redirect("/staff/requests");
+  const code = await issueTrackingCode(requestId, staff.id);
+  await showCodeOnce(requestId, code);
+  redirect(`/staff/requests/${requestId}`);
+}
+
 export async function logContactAction(fd: FormData) {
   const staff = await requireStaff();
   const requestId = str(fd, "requestId");
   const outcome = str(fd, "outcome").slice(0, 400);
-  if (outcome.length >= 2 && (await getById(requestId))?.assistedBy) await logContact(staff.id, requestId, outcome);
+  if (outcome.length >= 2 && (await getById(requestId))?.farmerId === null) await logContact(staff.id, requestId, outcome);
   await flash("Call saved.");
   revalidatePath(`/staff/requests/${requestId}`);
 }

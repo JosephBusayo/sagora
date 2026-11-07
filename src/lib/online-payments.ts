@@ -7,7 +7,7 @@ import { bookingFor, fundsFor, recordPayment } from "./payments";
 import { jobForRequest } from "./jobs";
 import { tellBooked } from "./payment-notices";
 import { agreementFor } from "./quotes";
-import { getById, serviceLabel } from "./requests";
+import { getById, ownedBy, serviceLabel } from "./requests";
 import { siteUrl } from "./site";
 
 /**
@@ -30,9 +30,9 @@ const REUSE_MS = 20 * 60_000;
 
 export type Started = { ok: true; redirectUrl: string } | { ok: false; reason: string };
 
-export async function startCheckout(farmerId: string, requestId: string): Promise<Started> {
+export async function startCheckout(farmerId: string, requestId: string, back = `/farmer/requests/${requestId}/paid`): Promise<Started> {
   const request = await getById(requestId);
-  if (!request || request.farmerId !== farmerId) return { ok: false, reason: "That request was not found." };
+  if (!request || !ownedBy(request, farmerId)) return { ok: false, reason: "That request was not found." };
   const agreement = await agreementFor(requestId);
   if (!agreement) return { ok: false, reason: "Accept a quote before paying." };
   if (await bookingFor(requestId)) return { ok: false, reason: "This job is already paid and booked." };
@@ -64,8 +64,8 @@ export async function startCheckout(farmerId: string, requestId: string): Promis
       reference: request.reference,
       itemName: `${serviceLabel(request.service)} for ${request.reference}`,
       amountMinor: due,
-      successUrl: `${site}/farmer/requests/${requestId}/paid?checkout=${id}`,
-      cancelUrl: `${site}/farmer/requests/${requestId}/paid?checkout=${id}`,
+      successUrl: `${site}${back}?checkout=${id}`,
+      cancelUrl: `${site}${back}?checkout=${id}`,
       metadata: { requestId, checkoutId: id },
     });
   } catch (err) {
@@ -114,7 +114,8 @@ async function settle(row: Row): Promise<Settled> {
 export async function settleCheckout(checkoutId: string, farmerId?: string): Promise<Settled> {
   const row = await db.get("SELECT c.* FROM monime_checkout c WHERE c.id=?", checkoutId) as Row | undefined;
   if (!row) return "unknown";
-  if (farmerId && (await getById(row.request_id))?.farmerId !== farmerId) return "unknown";
+  const request = farmerId ? await getById(row.request_id) : null;
+  if (farmerId && (!request || !ownedBy(request, farmerId))) return "unknown";
   return settle(row);
 }
 

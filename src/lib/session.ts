@@ -17,6 +17,13 @@ export async function requireProvider(): Promise<SessionUser> {
   return u;
 }
 
+/** The signed-in farmer, or null: for public pages that send a farmer with an account elsewhere. */
+export async function signedInFarmer(): Promise<SessionUser | null> {
+  const s = await auth.api.getSession({ headers: await headers() });
+  const u = s?.user as SessionUser | undefined;
+  return u && u.emailVerified && u.role === "farmer" ? u : null;
+}
+
 /** Verified farmer, or redirect to the farmer sign-in. */
 export async function requireFarmer(): Promise<SessionUser> {
   const s = await auth.api.getSession({ headers: await headers() });

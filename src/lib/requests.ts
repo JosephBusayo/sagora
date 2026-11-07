@@ -182,10 +182,10 @@ export async function updateRequest(
   const res = await db.run(`UPDATE service_request SET service=?, acres=?, land_access=?, land_condition=?, land_clearance=?, crop=?,
        preferred_date=?, alternate_date=?, district=?, chiefdom=?, village=?, notes=?, updated_at=?,
        land_type=?, crop_variety=?, planted_on=?, crop_readiness=?
-       WHERE id=? AND farmer_id=? AND status='awaiting_quotes'`,
+       WHERE id=? AND ${OWNED_BY()} AND status='awaiting_quotes'`,
     d.service, d.acres, d.landAccess, d.landCondition, d.landClearance, d.crop ?? "", d.preferredDate, d.alternateDate,
     d.district, d.chiefdom ?? "", d.village, d.notes, new Date().toISOString(),
-    d.landType ?? "", d.cropVariety ?? "", d.plantedOn ?? "", d.cropReadiness ?? "", id, farmerId);
+    d.landType ?? "", d.cropVariety ?? "", d.plantedOn ?? "", d.cropReadiness ?? "", id, farmerId, farmerId);
   if (res.changes) await audit(farmerId, "request.edited", id);
   return res.changes > 0;
 }
@@ -304,10 +304,23 @@ export async function providersCovering(r: { district: string; service: string }
   return rows.filter((b) => (JSON.parse(b.services) as string[]).includes(r.service)).map((b) => ({ businessId: b.id, email: b.email }));
 }
 
+/**
+ * Who may act on a request as its farmer: the farmer's own account id, or, for a request sent
+ * without an account, "guest:<request id>", which only lib/guest.ts hands out, and only to a browser
+ * that came in with the request's tracking code and phone number.
+ */
+export const guestActor = (requestId: string) => `guest:${requestId}`;
+
+/** SQL for "this actor owns the request row"; binds the actor twice. `a` is the table alias with its dot. */
+export const OWNED_BY = (a = "") => `(${a}farmer_id = ? OR (${a}farmer_id IS NULL AND ? = 'guest:' || ${a}id))`;
+
+export const ownedBy = (r: { id: string; farmerId: string | null }, actor: string) =>
+  r.farmerId ? r.farmerId === actor : actor === guestActor(r.id);
+
 /** A farmer can withdraw their own request while nobody has started work. */
 export async function cancel(farmerId: string, id: string): Promise<boolean> {
   const res = await db.run(`UPDATE service_request SET status='cancelled', updated_at=?
-       WHERE id=? AND farmer_id=? AND status IN ('awaiting_quotes','quotes_sent')`, new Date().toISOString(), id, farmerId);
+       WHERE id=? AND ${OWNED_BY()} AND status IN ('awaiting_quotes','quotes_sent')`, new Date().toISOString(), id, farmerId, farmerId);
   if (res.changes) await audit(farmerId, "request.cancelled", id);
   return res.changes > 0;
 }
@@ -315,7 +328,7 @@ export async function cancel(farmerId: string, id: string): Promise<boolean> {
 /* ---------------------------------------------------------- assisted requests */
 
 /** The local part of a number, so 076 123 456, +23276123456 and 23276123456 match. */
-const phoneKey = (p: string) => p.replace(/\D/g, "").slice(-8);
+export const phoneKey = (p: string) => p.replace(/\D/g, "").slice(-8);
 
 /**
  * Open requests already made from this number (UC07): a second call about the same job is added

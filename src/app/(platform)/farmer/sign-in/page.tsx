@@ -21,6 +21,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
       footer={
         <>
           New to Sagora? <Link href="/farmer/sign-up">Create an account</Link>
+          <br />
+          Sent a request without an account? <Link href="/request/find">Find it here</Link>
         </>
       }
     >
