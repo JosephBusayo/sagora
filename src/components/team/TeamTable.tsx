@@ -11,6 +11,7 @@ export type Row = {
   id: string; name: string; phone: string; email: string;
   role: string; roleLabel: string; permission: string; permissionLabel: string;
   status: "invited" | "active" | "removed";
+  skills?: string; awayFrom?: string; awayTo?: string;
 };
 type Option = { id: string; label: string };
 
@@ -37,7 +38,7 @@ export function TeamTable({ rows, roles, permissions }: { rows: Row[]; roles: Op
                 <td>
                   <span className="table__person">
                     <span className="table__avatar" aria-hidden="true"><Icon name="user" size={22} /></span>
-                    <span>{m.name}</span>
+                    <span>{m.name}{m.skills ? <span className="table__tag">{m.skills}</span> : null}{m.awayFrom ? <span className="table__tag">Away {m.awayFrom} to {m.awayTo}</span> : null}</span>
                   </span>
                 </td>
                 <td>{m.roleLabel}</td>

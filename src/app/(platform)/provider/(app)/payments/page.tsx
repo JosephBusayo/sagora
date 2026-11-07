@@ -10,7 +10,7 @@ import { formatAmount } from "@/lib/money";
 import { serviceLabel } from "@/lib/requests";
 import { JOB_STATUS_LABEL, type JobStatus } from "@/lib/jobs";
 import {
-  RELEASE_STATUS_LABEL, destinationFor, earningsFor, getPayoutRequest, openPayoutRequest, walletBalance,
+  FEE_POLICY, RELEASE_STATUS_LABEL, destinationFor, earningsFor, feeFor, paidJobCount, getPayoutRequest, openPayoutRequest, walletBalance,
 } from "@/lib/settlement";
 import { requestPayoutAction } from "./actions";
 import { DestinationForm } from "@/components/payments/DestinationForm";
@@ -37,6 +37,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
   const submitted = sp.submitted ? await getPayoutRequest(business.id, sp.submitted) : null;
   const rows = await earningsFor(business.id);
   const destination = await destinationFor(business.id);
+  // UC10: what Sagora takes is shown, not left to be worked out from a smaller payout.
+  const paidJobs = await paidJobCount(business.id);
+  const freeLeft = Math.max(0, FEE_POLICY.freeJobs - paidJobs);
 
   return (
     <Shell crumb={{ label: "Payments", icon: "payments" }} user={{ name: user.name }}>
@@ -103,6 +106,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
           <EmptyState icon="payments" title="You have not received any payments yet" body="Set up a payout wallet to start receiving payments for your services" href="/provider/payments?payout=1" action="Set up your payout wallet" />
         </div>
       ) : (
+        <>
+        <p className="field__helper fee-note">
+          {!FEE_POLICY.approved
+            ? "Sagora takes no fee at the moment."
+            : freeLeft > 0
+              ? `Sagora's fee is ${FEE_POLICY.pilotPercent}% of each job's agreed price, after your first ${FEE_POLICY.freeJobs} paid jobs. You have ${freeLeft} fee-free ${freeLeft === 1 ? "job" : "jobs"} left.`
+              : `Sagora's fee is ${FEE_POLICY.pilotPercent}% of each job's agreed price. It is taken from the payment before it is sent to you.`}
+        </p>
         <div className="table-card">
           <table className="table">
             <thead>
@@ -121,7 +132,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
                   <td>{r.reference}</td>
                   <td>{serviceLabel(r.service)}</td>
                   <td>{formatAmount(r.amountMinor)}</td>
-                  <td>
+                  <td><span>
                     {formatAmount(r.receivedMinor)}
                     {r.receivedMinor > 0 && r.receivedMinor < r.amountMinor ? (
                       <>
@@ -129,16 +140,20 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
                         <span className="field__helper">{formatAmount(r.amountMinor - r.receivedMinor)} still to come</span>
                       </>
                     ) : null}
-                  </td>
+                  </span></td>
                   <td>
                     <span className={`pill pill--${r.jobStatus === "completed" ? "completed" : r.jobStatus === "disputed" ? "cancelled" : "awaiting_quotes"}`}>
                       {JOB_STATUS_LABEL[r.jobStatus as JobStatus] ?? r.jobStatus}
                     </span>
                   </td>
-                  <td>
+                  <td><span>
                     {r.release ? (
                       <>
                         {formatAmount(r.release.netMinor)}
+                        <br />
+                        <span className="field__helper">
+                          {r.release.feeMinor > 0 ? `${formatAmount(r.release.grossMinor)} less Sagora fee ${formatAmount(r.release.feeMinor)}` : "No Sagora fee on this job"}
+                        </span>
                         <br />
                         <span className="field__helper">
                           {RELEASE_STATUS_LABEL[r.release.status]}
@@ -148,14 +163,19 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
                     ) : (
                       <span className="field__helper">
                         {r.jobStatus === "completed" ? "Being prepared" : "After the farmer confirms the work"}
+                        <br />
+                        {feeFor(r.amountMinor, paidJobs) > 0
+                          ? `About ${formatAmount(r.amountMinor - feeFor(r.amountMinor, paidJobs))} after Sagora's fee of ${formatAmount(feeFor(r.amountMinor, paidJobs))}`
+                          : `${formatAmount(r.amountMinor)}, no Sagora fee`}
                       </span>
                     )}
-                  </td>
+                  </span></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {sp.payout ? (

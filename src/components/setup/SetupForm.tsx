@@ -12,8 +12,26 @@ import { Field } from "@/components/auth/Field";
 type Initial = {
   name: string; phone: string; email: string; district: string; town: string;
   services: string[]; description: string;
+  businessType: string; authorisedName: string; authorisedRole: string; pricingBasis: string;
+  includedCosts: string; depositTerms: string; cancellationTerms: string;
 };
-type Props = { initial: Initial; districts: readonly string[]; services: readonly { id: string; label: string }[] };
+type Option = { id: string; label: string };
+type Props = { initial: Initial; districts: readonly string[]; services: readonly Option[]; businessTypes: readonly Option[]; pricingBases: readonly Option[] };
+
+function Choice({ name, label, options, value, error }: { name: string; label: string; options: readonly Option[]; value: string; error?: string }) {
+  return (
+    <div className={`field${error ? " field--invalid" : ""}`}>
+      <label className="field__label" htmlFor={`s-${name}`}>{label}</label>
+      <div className="field__box">
+        <select id={`s-${name}`} name={name} className="field__input" defaultValue={value} aria-invalid={error ? true : undefined}>
+          <option value="">Select</option>
+          {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select>
+      </div>
+      {error ? <p className="field__error">{error}</p> : null}
+    </div>
+  );
+}
 
 function Buttons() {
   const { pending } = useFormStatus();
@@ -22,14 +40,14 @@ function Buttons() {
       <button type="submit" name="intent" value="draft" className="button button--ghost" disabled={pending} formNoValidate data-check-skip>
         Save for later
       </button>
-      <button type="submit" name="intent" value="submit" className="button" disabled={pending} aria-busy={pending}>
+      <button type="submit" name="intent" value="submit" className="button" disabled={pending} aria-busy={pending} formNoValidate>
         {pending ? "Please wait…" : "Submit for review"}
       </button>
     </div>
   );
 }
 
-export function SetupForm({ initial, districts, services }: Props) {
+export function SetupForm({ initial, districts, services, businessTypes, pricingBases }: Props) {
   const [state, action] = useActionState(useSafely(saveSetup), {} as FormState);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
@@ -44,6 +62,9 @@ export function SetupForm({ initial, districts, services }: Props) {
       <Field name="name" label="Business name" placeholder="Enter your business name" autoComplete="organization" defaultValue={val("name")} error={e.name} />
       <Field name="phone" label="Business phone number" type="tel" inputMode="tel" prefix="+232" placeholder="00 000 000" autoComplete="tel-national" defaultValue={val("phone").replace(/^\+232/, "")} error={e.phone} />
       <Field name="email" label="Business email" type="email" inputMode="email" placeholder="abc@gmail.com" autoComplete="email" defaultValue={val("email")} error={e.email} />
+      <Choice name="businessType" label="What kind of business is this?" options={businessTypes} value={val("businessType")} error={e.businessType} />
+      <Field name="authorisedName" label="Person who can offer and allocate your equipment" placeholder="Full name" defaultValue={val("authorisedName")} error={e.authorisedName} />
+      <Field name="authorisedRole" label="Their role" placeholder="For example, owner or manager" defaultValue={val("authorisedRole")} error={e.authorisedRole} />
 
       <div className={`field${e.district ? " field--invalid" : ""}`}>
         <label className="field__label" htmlFor={districtId}>District</label>
@@ -70,6 +91,12 @@ export function SetupForm({ initial, districts, services }: Props) {
         </div>
         {e.services ? <p className="field__error">{e.services}</p> : null}
       </fieldset>
+
+      <Choice name="pricingBasis" label="How do you price work?" options={pricingBases} value={val("pricingBasis")} error={e.pricingBasis} />
+      <Field name="includedCosts" label="What your price includes" placeholder="For example, operator and fuel, not transport" maxLength={300} defaultValue={val("includedCosts")} error={e.includedCosts} />
+      <Field name="depositTerms" label="Deposit you ask for" placeholder="For example, half before we travel, or No deposit" maxLength={300} defaultValue={val("depositTerms")} error={e.depositTerms} />
+      <Field name="cancellationTerms" label="If the work is cancelled" placeholder="For example, full refund up to 2 days before" maxLength={300} defaultValue={val("cancellationTerms")} error={e.cancellationTerms} />
+      {e.documents ? <p className="notice notice--error" role="alert">{e.documents}</p> : null}
 
       <div className={`field${e.description ? " field--invalid" : ""}`}>
         <label className="field__label" htmlFor={descId}>About your business <span className="setup__optional">(optional)</span></label>

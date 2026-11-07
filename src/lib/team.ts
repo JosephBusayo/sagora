@@ -23,15 +23,19 @@ export type MemberStatus = "invited" | "active" | "removed";
 export type Member = {
   id: string; businessId: string; userId: string | null; name: string; phone: string; email: string;
   role: string; permission: string; status: MemberStatus; inviteExpiresAt: string | null;
+  /** UC05: what this person can run, and dates they are away. */
+  skills: string; awayFrom: string; awayTo: string;
 };
 
 type Row = {
   id: string; business_id: string; user_id: string | null; name: string; phone: string; email: string;
   role: string; permission: string; status: MemberStatus; invite_expires_at: string | null;
+  skills?: string; away_from?: string; away_to?: string;
 };
 const fromRow = (r: Row): Member => ({
   id: r.id, businessId: r.business_id, userId: r.user_id, name: r.name, phone: r.phone, email: r.email,
   role: r.role, permission: r.permission, status: r.status, inviteExpiresAt: r.invite_expires_at,
+  skills: r.skills ?? "", awayFrom: r.away_from ?? "", awayTo: r.away_to ?? "",
 });
 
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -82,6 +86,18 @@ export async function updateMember(businessId: string, actorId: string, id: stri
   if (res.changes) await audit(actorId, "team.updated", businessId, `${id} ${input.role}/${input.permission}`);
   return res.changes > 0;
 }
+
+/** Skills and time away. Kept apart from the invite fields, which the owner row never changes. */
+export async function updateOperatorDetails(businessId: string, actorId: string, id: string, input: { skills: string; awayFrom: string; awayTo: string }): Promise<boolean> {
+  const res = await db.run("UPDATE team_member SET skills=?, away_from=?, away_to=?, updated_at=? WHERE id=? AND business_id=? AND status<>'removed'",
+    input.skills, input.awayFrom, input.awayTo, new Date().toISOString(), id, businessId);
+  if (res.changes) await audit(actorId, "team.operator_details", id, input.awayFrom ? `away ${input.awayFrom} to ${input.awayTo}` : "");
+  return res.changes > 0;
+}
+
+/** Whether a person's recorded time away overlaps these dates. */
+export const awayDuring = (m: Pick<Member, "awayFrom" | "awayTo">, start: string, end: string) =>
+  Boolean(m.awayFrom && m.awayTo && m.awayFrom <= end && m.awayTo >= start);
 
 export async function removeMember(businessId: string, actorId: string, id: string): Promise<boolean> {
   const m = await getMember(businessId, id);

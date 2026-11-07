@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 import { Icon, ServiceIcon, type IconName } from "@/components/app/Icon";
 import { ScheduleModal } from "./ScheduleModal";
 import { ReportModal } from "./ReportModal";
-import { noReplacementAction, startWorkAction } from "@/app/(platform)/provider/(app)/jobs/actions";
+import { mobiliseAction, noReplacementAction, readinessAction, startWorkAction } from "@/app/(platform)/provider/(app)/jobs/actions";
 import { landSize } from "@/lib/land-size";
 
 export type Option = { id: string; label: string };
@@ -18,6 +18,8 @@ export type JobView = {
   reportedAcres: number | null; workNote: string; concern: string;
   privateCustomer: string | null; changes: string[];
   schedule: { startDate: string; endDate: string; operatorId: string; assetIds: string[] };
+  checks: { id: string; label: string; done: boolean }[];
+  mobilisedAt: string | null; startedAt: string | null;
 };
 
 const PILL: Record<string, string> = {
@@ -144,6 +146,25 @@ function JobModal({ job: j, canEdit, onClose, onSchedule, onReport }: {
           ) : null}
           {j.changes.length > 0 ? <p className="field__helper">Changes: {j.changes.join(" · ")}</p> : null}
 
+          {j.status === "scheduled" && !j.mobilisedAt ? (
+            <form action={readinessAction} className="readiness">
+              <input type="hidden" name="jobId" value={j.id} />
+              <p className={`notice ${j.checks.every((c) => c.done) ? "notice--success" : "notice--warn"}`} role="status">
+                {j.checks.every((c) => c.done) ? "Ready for dispatch." : "Not ready for dispatch. Tick each item once it is true."}
+              </p>
+              <fieldset disabled={!canEdit}>
+                <legend className="field__label">Before the equipment leaves</legend>
+                {j.checks.map((c) => (
+                  <label key={c.id} className="readiness__item">
+                    <input type="checkbox" name="check" value={c.id} defaultChecked={c.done} /> {c.label}
+                  </label>
+                ))}
+              </fieldset>
+              {canEdit ? <PendingButton className="button button--soft">Save readiness</PendingButton> : null}
+            </form>
+          ) : null}
+          {j.mobilisedAt ? <p className="field__helper">Equipment on the way since {j.mobilisedAt}.{j.startedAt ? ` Work started ${j.startedAt}.` : ""}</p> : null}
+
           {j.status === "work_reported" ? (
             <p className="field__helper">
               You reported {landSize(j.reportedAcres)}. Waiting for the farmer to confirm.
@@ -163,7 +184,13 @@ function JobModal({ job: j, canEdit, onClose, onSchedule, onReport }: {
                   {j.status === "unscheduled" ? "Schedule" : "Change plan"}
                 </button>
               ) : null}
-              {j.status === "scheduled" ? (
+              {j.status === "scheduled" && !j.mobilisedAt && j.checks.every((c) => c.done) ? (
+                <form action={mobiliseAction}>
+                  <input type="hidden" name="jobId" value={j.id} />
+                  <PendingButton className="button button--ghost">Equipment on the way</PendingButton>
+                </form>
+              ) : null}
+              {j.status === "scheduled" && j.mobilisedAt ? (
                 <form action={startWorkAction}>
                   <input type="hidden" name="jobId" value={j.id} />
                   <PendingButton className="button button--ghost">Start work</PendingButton>

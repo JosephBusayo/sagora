@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { confirmChecks } from "./checks";
+import { confirmChecks, completeApplication } from "./checks";
 import { testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -103,6 +103,10 @@ test("submitting an incomplete form is refused with clear messages", async ({ pa
   await page.getByRole("button", { name: "Submit for review" }).click();
   await expect(page.getByText("Choose your district")).toBeVisible();
   await expect(page.getByText("Choose at least one service")).toBeVisible();
+  // Every missing part is named, documents included, and nothing reaches review.
+  await expect(page.getByText(/Still needed in: .*Documents/)).toBeVisible();
+  await expect(page.getByText("Add: ID of the person in charge")).toBeVisible();
+  await expect(page.getByText("Name the person who can offer and allocate your equipment")).toBeVisible();
 });
 
 test("provider submits, sees a specific waiting state, and can no longer edit", async ({ page }) => {
@@ -112,6 +116,7 @@ test("provider submits, sees a specific waiting state, and can no longer edit", 
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByLabel("District").selectOption("Bombali");
   await page.getByLabel("Ploughing").check();
+  await completeApplication(page);
   await page.getByRole("button", { name: "Submit for review" }).click();
   await expect(page.getByRole("heading", { name: "Waiting for Sagora to review your business" })).toBeVisible();
   await expect(page.getByLabel("Business name")).toHaveCount(0);
@@ -167,6 +172,7 @@ test("staff asks for changes, provider fixes and resubmits, staff approves", asy
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Please add your village name.")).toBeVisible();
   await page.getByLabel("Town or village").fill("Makeni, Bombali");
+  await completeApplication(page);
   await page.getByRole("button", { name: "Submit for review" }).click();
   await expect(page.getByRole("heading", { name: "Waiting for Sagora to review your business" })).toBeVisible();
 

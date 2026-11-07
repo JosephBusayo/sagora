@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { confirmChecks } from "./checks";
+import { confirmChecks, completeApplication } from "./checks";
 import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -140,6 +140,7 @@ test.beforeAll(async ({ browser }) => {
   await p.page.getByLabel("District").selectOption("Bombali");
   await p.page.getByLabel("Ploughing").check();
   await p.page.getByLabel("Town or village").fill("Makeni");
+  await completeApplication(p.page);
   await p.page.getByRole("button", { name: "Submit for review" }).click();
   const u = await testGet(`SELECT id FROM "user" WHERE email=?`, PROV.email) as { id: string };
   const now = new Date().toISOString();
@@ -267,7 +268,17 @@ test("a fault flags the job without erasing the commitment", async ({ page }) =>
 test("work reported is not delivery: the farmer must confirm", async ({ page, browser }) => {
   await signInProvider(page);
   await page.goto("/provider/jobs");
-  await (await openJob(page, refA)).getByRole("button", { name: "Start work" }).click();
+  // A planned date is not a dispatch: the checklist, then the equipment leaving, then the start.
+  const card = await openJob(page, refA);
+  await expect(card.getByText("Not ready for dispatch")).toBeVisible();
+  await expect(card.getByRole("button", { name: "Start work" })).toHaveCount(0);
+  await expect(card.getByRole("button", { name: "Equipment on the way" })).toHaveCount(0);
+  for (const box of await card.getByRole("checkbox").all()) await box.check();
+  await card.getByRole("button", { name: "Save readiness" }).click();
+  await expect(card.getByText("Ready for dispatch.")).toBeVisible();
+  await card.getByRole("button", { name: "Equipment on the way" }).click();
+  await expect(card.getByText(/Equipment on the way since/)).toBeVisible();
+  await card.getByRole("button", { name: "Start work" }).click();
   // Let the action land before reloading: a reload fired straight after the click races it, and
   // against a remote database the reload wins and renders the job as it was.
   await expect(jobCard(page, refA).getByText("Work started")).toBeVisible();

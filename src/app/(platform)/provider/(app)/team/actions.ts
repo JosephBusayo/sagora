@@ -7,7 +7,7 @@ import { z } from "zod";
 import { requireWorkspace } from "@/lib/guard";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
 import { notify } from "@/lib/outbox";
-import { PERMISSIONS, ROLES, createInvite, removeMember, updateMember } from "@/lib/team";
+import { PERMISSIONS, ROLES, createInvite, removeMember, updateMember, updateOperatorDetails } from "@/lib/team";
 import type { FormState } from "@/app/(platform)/provider/actions";
 
 const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String(fd.get(k)).trim() : "");
@@ -73,9 +73,17 @@ export async function editMember(_prev: FormState, fd: FormData): Promise<FormSt
   const { fieldErrors, values, input } = parse(fd);
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
+  const skills = str(fd, "skills").slice(0, 200);
+  const awayFrom = str(fd, "awayFrom");
+  const awayTo = str(fd, "awayTo");
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  if ((awayFrom || awayTo) && (!iso.test(awayFrom) || !iso.test(awayTo))) return { fieldErrors: { awayTo: "Give both the first and last day away" }, values: { ...values, skills, awayFrom, awayTo } };
+  if (awayFrom && awayTo < awayFrom) return { fieldErrors: { awayTo: "The last day must be on or after the first" }, values: { ...values, skills, awayFrom, awayTo } };
+
   if (!await updateMember(business.id, user.id, id, input)) {
     return { error: "We couldn't save those changes.", values };
   }
+  await updateOperatorDetails(business.id, user.id, id, { skills, awayFrom, awayTo });
   revalidatePath("/provider/team");
   return { notice: "Team member updated." };
 }

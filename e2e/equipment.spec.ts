@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { confirmChecks } from "./checks";
+import { confirmChecks, completeApplication } from "./checks";
 import { testAll, testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -87,6 +87,7 @@ test.beforeAll(async ({ browser }) => {
   await page.getByLabel("District").selectOption("Bombali");
   await page.getByLabel("Ploughing").check();
   await page.getByLabel("Town or village").fill("Makeni");
+  await completeApplication(page);
   await page.getByRole("button", { name: "Submit for review" }).click();
   const u = await testGet(`SELECT id FROM "user" WHERE email=?`, P.email) as { id: string };
   const now = new Date().toISOString();
@@ -258,6 +259,7 @@ test("one provider cannot see or touch another provider's machines", async ({ br
   await o.page.getByLabel("District").selectOption("Kono");
   await o.page.getByLabel("Ploughing").check();
   await o.page.getByLabel("Town or village").fill("Koidu");
+  await completeApplication(o.page);
   await o.page.getByRole("button", { name: "Submit for review" }).click();
   const u = await testGet(`SELECT id FROM "user" WHERE email=?`, other.email) as { id: string };
   const now = new Date().toISOString();

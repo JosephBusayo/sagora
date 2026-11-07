@@ -1,4 +1,5 @@
-import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, landLabel } from "@/lib/land";
+import { inspectionFor } from "@/lib/inspections";
+import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, extraDetails, landLabel, missingDetails } from "@/lib/land";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/guard";
@@ -59,6 +60,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
     landCondition: landLabel(LAND_CONDITION, r.landCondition),
     landClearance: landLabel(LAND_CLEARANCE, r.landClearance),
     crop: r.crop,
+    extras: extraDetails(r),
+    missing: missingDetails(r),
     direct: Boolean(r.directTo),
     preferredDate: fmt(r.preferredDate),
     alternateDate: r.alternateDate ? fmtLong(r.alternateDate) : null,
@@ -67,6 +70,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
     village: r.village,
     notes: r.notes,
     submittedOn: fmt(r.createdAt.slice(0, 10)),
+    inspection: await (async () => {
+      const i = await inspectionFor(r.id, business.id);
+      return i ? { status: i.status, scheduledFor: i.scheduledFor, findings: i.findings, openQuestions: i.openQuestions } : null;
+    })(),
     activity: (await activityFor(r.id, business.id, r.createdAt)).map((a) => ({ when: fmt(a.at.slice(0, 10)), text: a.text })),
     status: r.status,
     statusLabel: STATUS_LABEL[r.status as RequestStatus],

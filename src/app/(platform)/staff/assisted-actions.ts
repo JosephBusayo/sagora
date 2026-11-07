@@ -11,7 +11,7 @@ import { chiefdomFits } from "@/lib/chiefdoms";
 import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, cropMissing, needsCrop } from "@/lib/land";
 import { notify } from "@/lib/outbox";
 import { acceptQuote, getQuote } from "@/lib/quotes";
-import { createRequest, getById, logContact, providersCovering } from "@/lib/requests";
+import { createRequest, getById, logContact, openRequestsForPhone, providersCovering, serviceLabel } from "@/lib/requests";
 import { requireStaff } from "@/lib/session";
 import { db } from "@/lib/db";
 import { landSize, landUnit, toAcres } from "@/lib/land-size";
@@ -50,6 +50,18 @@ export async function createAssistedAction(_prev: FormState, fd: FormData): Prom
   if (!parsed.success || Object.keys(fieldErrors).length) return { fieldErrors, values: { ...values, unit: str(fd, "unit") } };
 
   const d = parsed.data;
+  // A second call about the same work joins the first record (UC07). Only a coordinator who has
+  // checked, and says it is a different job, makes another.
+  if (str(fd, "differentJob") !== "1") {
+    const open = await openRequestsForPhone(d.callerPhone);
+    if (open.length) {
+      const list = open.slice(0, 3).map((r) => `${r.reference} (${serviceLabel(r.service).toLowerCase()} in ${r.district})`).join(", ");
+      return {
+        values: { ...values, unit: str(fd, "unit") },
+        error: `This number already has an open request: ${list}. Open it from the list above and add this call there. If this is a different job, tick "This is a different job" and save again.`,
+      };
+    }
+  }
   const acres = toAcres(d.acres, landUnit(str(fd, "unit")));
   const created = await createRequest(null, {
     service: d.service, acres, landAccess: d.landAccess, landCondition: d.landCondition, landClearance: d.landClearance,
@@ -84,9 +96,14 @@ export async function acceptOnBehalfAction(fd: FormData) {
   const staff = await requireStaff();
   const quoteId = str(fd, "quoteId");
   const requestId = str(fd, "requestId");
+  const before = await getById(requestId);
+  // Staff never accept on their own judgement: only what the named person said on the call.
+  if (str(fd, "agreed") !== "1") {
+    redirect(`/staff/requests/${requestId}?error=${encodeURIComponent(`Tick that ${before?.mayAccept || "the person who may accept"} agreed to this price on the call.`)}`);
+  }
   const result = await acceptQuote(quoteId, staff.id, true);
   if (!result.ok) redirect(`/staff/requests/${requestId}?error=${encodeURIComponent(result.reason)}`);
-  await logContact(staff.id, requestId, "Quote accepted on the farmer's behalf");
+  await logContact(staff.id, requestId, `Quote accepted on the call by ${before?.mayAccept || "the farmer"}`);
   const quote = await getQuote(quoteId);
   const row = await db.get("SELECT email FROM provider_business WHERE id=?", quote?.businessId ?? "") as { email: string } | undefined;
   const request = await getById(requestId);

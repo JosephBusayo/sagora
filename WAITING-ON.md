@@ -3,6 +3,27 @@
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
 each one is a swap, not a rewrite. Updated 30 Oct 2026.
 
+## 6 Nov 2026: Karim's use cases, the code-only parts
+
+Built: the "Speak to us on WhatsApp" button (landing, farmer sign-in and sign-up, Help, provider
+setup status), harvest details with "Not sure" flagged to the provider (UC06), farm inspections
+that block a quote until recorded (UC08), readiness, equipment on the way and actual start kept
+apart (UC12), repeat callers linked to their open request and approval by phone recorded against
+the named person (UC07), operator skills and time away (UC05), business type, person in charge,
+terms and private ID/registration documents in setup (UC02), the fee shown on provider Payments
+(UC10), an offline notice (UC16), and staff Follow-ups and the Sagora report (UC14).
+Migrations 013-018.
+
+Still needed from someone:
+- **Sagora's WhatsApp number** (Karim). Set `SAGORA_WHATSAPP` in Vercel, e.g. `+232 …`. The
+  button stays hidden until then.
+- **Document retention policy** (Karim, UC02): how long ID and registration files are kept.
+  Today they stay until the provider removes them while preparing the application.
+- **Hold length, deposit rule, partial-service refund rules, who pays Monime's fees** (Karim,
+  UC09-UC13). Not built: they are policy, not code.
+- **Operating districts** (UC04) and a fresh review when coverage changes (UC03) were not in
+  this round.
+
 ## Where this is, 30 Oct 2026
 
 Written for whoever picks this up next, including a fresh session.

@@ -2,6 +2,7 @@ import { sessionExpired } from "@/lib/session";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { WhatsAppButton } from "@/components/contact/WhatsAppButton";
 import { SignInForm } from "@/components/auth/forms";
 import { readNotice } from "@/lib/pending";
 import { signInFarmer } from "../actions";
@@ -35,6 +36,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
         </p>
       ) : null}
       <SignInForm action={signInFarmer} forgotHref="/farmer/forgot-password" />
+      <WhatsAppButton />
     </AuthShell>
   );
 }

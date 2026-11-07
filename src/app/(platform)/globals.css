@@ -1450,3 +1450,54 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .staff-page .pagehead { margin: 0; }
 .staff-page__lead { margin: -8px 0 0; }
 .staff-page .settings-row h2 .pill { margin-left: 8px; vertical-align: middle; }
+
+/* Talk to someone: the WhatsApp contact under Help, hidden until the number is set. */
+.help-contact { margin-top: 32px; display: grid; gap: 10px; justify-items: start; }
+.help-contact h2 { font-size: 18px; font-weight: 600; margin: 0; }
+.help-contact p { margin: 0; color: #636361; }
+.help-contact:not(:has(a)) { display: none; }
+.setup__help { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
+.setup__help:not(:has(a)) { display: none; }
+
+/* Something to check before acting on it: details the farmer could not give, unresolved readiness. */
+.notice--warn { color: #6b4e00; background: #fdf3d7; }
+.request-missing { margin-top: 12px; }
+
+/* UC08: the provider's farm inspection, above the quote form. */
+.inspection { margin: 16px 0; border: 1px solid #eef0e2; border-radius: var(--radius-field); background: #fff; }
+.inspection > summary { cursor: pointer; padding: 12px 14px; font-weight: 500; }
+.inspection__form { padding: 0 14px 14px; display: grid; gap: 14px; }
+.field__box--area { height: auto; align-items: flex-start; }
+.field__box--area textarea { resize: vertical; padding-block: 10px; }
+
+/* UC12: the checklist before equipment leaves for the farm. */
+.readiness { display: grid; gap: 10px; margin: 14px 0; }
+.readiness fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+.readiness__item { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; }
+.readiness__item input { margin-top: 3px; width: 18px; height: 18px; accent-color: #567621; }
+
+/* UC02: application documents on the setup screen and the staff review. */
+.setup__docs { display: grid; gap: 12px; margin: 8px 0 24px; padding: 16px; border: 1px solid #eef0e2; border-radius: var(--radius-field); background: #fff; }
+.setup__docs h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.doc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.doc-list li { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.doc-upload { display: grid; gap: 12px; }
+.doc-upload__pick { position: relative; justify-self: start; cursor: pointer; }
+.fee-note { margin: 0 0 12px; }
+
+/* UC16: the connection notice, pinned to the top of the screen while it matters. */
+.connection { position: fixed; top: 0; left: 0; right: 0; z-index: 90; margin: 0; padding: 10px 16px; text-align: center; font-size: 15px; }
+.connection--offline { background: #fdf3d7; color: #6b4e00; }
+.connection--back { background: #eef6cd; color: #3c5216; }
+
+/* UC14: the coordinator's queues and the Sagora report. */
+.queue-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.queue-nav a { padding: 6px 12px; border-radius: 999px; background: #fff; border: 1px solid #eef0e2; text-decoration: none; color: inherit; font-size: 14px; }
+.queue-nav a[aria-current="page"] { background: #567621; color: #fff; border-color: #567621; }
+.queue-nav__n { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: 999px; background: #eef6cd; font-size: 13px; text-align: center; }
+.queue__list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.queue__item { padding: 12px 14px; border: 1px solid #eef0e2; border-radius: var(--radius-field); background: #fff; display: grid; gap: 6px; }
+.queue__item--late { border-color: #f0c9c4; }
+.queue__head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.queue__form { display: grid; gap: 10px; margin-top: 10px; max-width: 520px; }
+.queue__item summary { cursor: pointer; font-size: 14px; }

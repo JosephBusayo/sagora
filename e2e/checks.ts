@@ -24,3 +24,23 @@ export async function confirmChecks(page: Page): Promise<Page> {
   await page.addInitScript(AUTO_CONFIRM);
   return page;
 }
+
+/**
+ * The parts of a provider application every submission needs (UC02): an ID document and the
+ * business's terms. Safe to run twice: a second run adds no second document.
+ */
+export async function completeApplication(page: Page): Promise<void> {
+  if ((await page.locator(".doc-list a").count()) === 0) {
+    await page.locator(".doc-upload input[type=file]").setInputFiles({
+      name: "id.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"),
+    });
+    await page.getByRole("link", { name: "ID of the person in charge: id.pdf" }).waitFor();
+  }
+  await page.getByLabel("What kind of business is this?").selectOption("individual");
+  await page.getByLabel("Person who can offer and allocate your equipment").fill("Test Owner");
+  await page.getByLabel("Their role").fill("Owner");
+  await page.getByLabel("How do you price work?").selectOption("per_acre");
+  await page.getByLabel("What your price includes").fill("Operator and fuel");
+  await page.getByLabel("Deposit you ask for").fill("No deposit");
+  await page.getByLabel("If the work is cancelled").fill("Full refund up to 2 days before");
+}

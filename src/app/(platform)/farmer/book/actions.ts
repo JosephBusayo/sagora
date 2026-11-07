@@ -8,7 +8,7 @@ import { DISTRICTS, SERVICES, districtLabel, getApprovedBusiness } from "@/lib/b
 import { coversWork, createRequest, providersCovering, serviceLabel, updateRequest } from "@/lib/requests";
 import { requireFarmer } from "@/lib/session";
 import { notify } from "@/lib/outbox";
-import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, cropMissing, needsCrop } from "@/lib/land";
+import { CROP_READINESS, LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, LAND_TYPE, asksHarvestDetails, cropMissing, needsCrop } from "@/lib/land";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
 import { chiefdomFits, placeLine } from "@/lib/chiefdoms";
 import type { FormState } from "@/lib/auth-flows";
@@ -29,6 +29,10 @@ const land = z.object({
   landCondition: z.string().refine((v) => !v || ids(LAND_CONDITION).includes(v), "Choose the land condition"),
   landClearance: z.string().refine((v) => ids(LAND_CLEARANCE).includes(v), "Choose the land clearance"),
   crop: z.string().max(60, "Use 60 characters or fewer"),
+  landType: z.string().refine((v) => !v || ids(LAND_TYPE).includes(v), "Choose upland, lowland or Not sure"),
+  cropVariety: z.string().max(60, "Use 60 characters or fewer"),
+  plantedOn: z.string().refine((v) => !v || (/^\d{4}-\d{2}-\d{2}$/.test(v) && v <= today()), "The planting date cannot be in the future"),
+  cropReadiness: z.string().refine((v) => !v || ids(CROP_READINESS).includes(v), "Choose how ready the crop is"),
   notes: z.string().max(500, "Use 500 characters or fewer"),
 });
 
@@ -52,6 +56,10 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     landCondition: str(fd, "landCondition"),
     landClearance: str(fd, "landClearance"),
     crop: str(fd, "crop"),
+    landType: str(fd, "landType"),
+    cropVariety: str(fd, "cropVariety"),
+    plantedOn: str(fd, "plantedOn"),
+    cropReadiness: str(fd, "cropReadiness"),
     preferredDate: str(fd, "preferredDate"),
     alternateDate: str(fd, "alternateDate"),
     district: str(fd, "district"),
@@ -72,6 +80,9 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
   }
   if (needsCrop(raw.service) && raw.crop.length < 2) {
     return { step: 1, fieldErrors: { crop: cropMissing(raw.service) }, values };
+  }
+  if (asksHarvestDetails(raw.service) && !raw.cropReadiness) {
+    return { step: 1, fieldErrors: { cropReadiness: "Say how ready the crop is, or choose Not sure" }, values };
   }
   if (str(fd, "step") === "1" || !str(fd, "step")) return { step: 2, values };
 
@@ -103,6 +114,10 @@ export async function bookService(_prev: BookState, fd: FormData): Promise<BookS
     landCondition: d.landCondition,
     landClearance: d.landClearance,
     crop: needsCrop(d.service) ? d.crop : "",
+    landType: d.landType,
+    cropVariety: asksHarvestDetails(d.service) ? d.cropVariety : "",
+    plantedOn: asksHarvestDetails(d.service) ? d.plantedOn : "",
+    cropReadiness: asksHarvestDetails(d.service) ? d.cropReadiness : "",
     preferredDate: d.preferredDate,
     alternateDate: d.alternateDate || null,
     district: d.district,

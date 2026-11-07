@@ -10,7 +10,7 @@ import { districtLabel } from "@/lib/business";
 import { serviceLabel } from "@/lib/requests";
 import { getAsset, selectableAssets } from "@/lib/equipment";
 import { listMembers } from "@/lib/team";
-import { JOB_STATUS_LABEL, atRiskAssets, listJobs, machineChanges, type JobStatus } from "@/lib/jobs";
+import { JOB_STATUS_LABEL, READY_CHECKS, atRiskAssets, listJobs, machineChanges, type JobStatus } from "@/lib/jobs";
 import { JobsList, type JobView } from "@/components/jobs/JobsList";
 
 export const metadata: Metadata = { title: "Jobs" };
@@ -20,6 +20,9 @@ type Filters = { page?: string; service?: string; district?: string; status?: st
 
 const fmt = (iso: string | null) =>
   iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : null;
+
+const stamp = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Freetown" }) : null;
 
 export default async function Page({ searchParams }: { searchParams: Promise<Filters> }) {
   const { user, business, permission } = await requireWorkspace();
@@ -58,6 +61,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Fil
       privateCustomer: j.privateCustomer,
       changes: (await machineChanges(j.id)).map((c) => `${fmt(c.at.slice(0, 10))}: ${c.detail}`),
       reportedAcres: j.reportedAcres,
+      checks: READY_CHECKS.map((c) => ({ id: c.id, label: c.label, done: j.readyChecks.includes(c.id) })),
+      mobilisedAt: stamp(j.mobilisedAt),
+      startedAt: stamp(j.startedAt),
       workNote: j.workNote,
       concern: j.concern,
       schedule: {
@@ -108,7 +114,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Fil
       <JobsList
         jobs={jobs}
         assets={assetOptions}
-        operators={members.map((m) => ({ id: m.id, label: m.name }))}
+        operators={members.map((m) => ({ id: m.id, label: [m.name, m.skills, m.awayFrom ? `away ${m.awayFrom} to ${m.awayTo}` : ""].filter(Boolean).join(" · ") }))}
         canEdit={permission !== "view_jobs"}
         initialOpen={sp.open}
       />

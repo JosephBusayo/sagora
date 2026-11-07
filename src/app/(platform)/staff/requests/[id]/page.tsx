@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { placeLine } from "@/lib/chiefdoms";
 import Link from "next/link";
 import { PendingButton } from "@/components/app/PendingButton";
@@ -6,7 +7,7 @@ import { notFound } from "next/navigation";
 import { districtLabel } from "@/lib/business";
 import { db } from "@/lib/db";
 import { JOB_STATUS_LABEL, jobForRequest, type JobStatus } from "@/lib/jobs";
-import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, landLabel } from "@/lib/land";
+import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, extraDetails, landLabel, missingDetails } from "@/lib/land";
 import { formatAmount } from "@/lib/money";
 import { agreementFor, isExpired, listForRequest } from "@/lib/quotes";
 import { STATUS_LABEL, contactsFor, getById, serviceLabel } from "@/lib/requests";
@@ -49,6 +50,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <dt>Work</dt><dd>{serviceLabel(r.service)}{r.crop ? `, ${r.crop}` : ""}, {landSize(r.acres)}</dd>
           <dt>Where</dt><dd>{placeLine(r.village, r.chiefdom, districtLabel(r.district))}</dd>
           <dt>Land</dt><dd>{landLabel(LAND_ACCESS, r.landAccess)} · {landLabel(LAND_CONDITION, r.landCondition)} · {landLabel(LAND_CLEARANCE, r.landClearance)}</dd>
+          {extraDetails(r).map((x) => <Fragment key={x.label}><dt>{x.label}</dt><dd>{x.value}</dd></Fragment>)}
+          {missingDetails(r).length ? <><dt>To follow up</dt><dd>{missingDetails(r).join(", ")}</dd></> : null}
         </dl>
 
         <section className="staff__item">
@@ -59,9 +62,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                 <li key={q.id}>
                   <span className="asset__fault-text">{names.get(q.businessId)} · {formatAmount(q.amountMinor)} · {q.includes}</span>
                   {q.status === "sent" && !agreement && !isExpired(q) ? (
-                    <form action={acceptOnBehalfAction}>
+                    <form action={acceptOnBehalfAction} className="accept-on-call">
                       <input type="hidden" name="quoteId" value={q.id} />
                       <input type="hidden" name="requestId" value={r.id} />
+                      <label className="readiness__item"><input type="checkbox" name="agreed" value="1" required /> I read this price to {r.mayAccept} and they agreed to it</label>
                       <PendingButton className="resend__button">Accept for {r.mayAccept}</PendingButton>
                     </form>
                   ) : <span className="field__helper">{q.status === "accepted" ? "Accepted" : ""}</span>}

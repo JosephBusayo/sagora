@@ -77,6 +77,12 @@ export function AssistedForm({ services, districts, access, condition, clearance
         {e.preferredDate ? <p className="field__error">{e.preferredDate}</p> : null}
       </div>
       <Field name="notes" label="Additional notes" required={false} maxLength={500} defaultValue={v.notes} error={e.notes} />
+      {state.error ? (
+        <>
+          <p className="notice notice--error" role="alert">{state.error}</p>
+          <label className="readiness__item"><input type="checkbox" name="differentJob" value="1" /> This is a different job</label>
+        </>
+      ) : null}
       <Save />
     </form>
   );

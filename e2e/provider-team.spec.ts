@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { confirmChecks } from "./checks";
+import { confirmChecks, completeApplication } from "./checks";
 import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -84,6 +84,7 @@ test("once approved, the workspace opens on the designed screens", async ({ page
   await page.getByLabel("District").selectOption("Bombali");
   await page.getByLabel("Ploughing").check();
   await page.getByLabel("Town or village").fill("Makeni");
+  await completeApplication(page);
   await page.getByRole("button", { name: "Submit for review" }).click();
   await approve(OWNER.email);
 

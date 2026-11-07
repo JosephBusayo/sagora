@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { confirmChecks } from "./checks";
+import { confirmChecks, completeApplication } from "./checks";
 import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -82,6 +82,7 @@ test.beforeAll(async ({ browser }) => {
   await p.page.getByLabel("District").selectOption("Kenema");
   await p.page.getByLabel("Ploughing").check();
   await p.page.getByLabel("Town or village").fill("Kenema Town");
+  await completeApplication(p.page);
   await p.page.getByRole("button", { name: "Submit for review" }).click();
   const u = await testGet(`SELECT id FROM "user" WHERE email=?`, PROV.email) as { id: string };
   const now = new Date().toISOString();

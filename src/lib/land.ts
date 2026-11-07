@@ -38,3 +38,49 @@ export const cropMissing = (service: string) =>
 /** Requests made before these questions existed hold an empty string. */
 export const landLabel = (options: readonly Option[], id: string) =>
   options.find((o) => o.id === id)?.label ?? "Not given";
+
+/** Upland or lowland is its own question, apart from slope and wetness (UC06). */
+export const LAND_TYPE = [
+  { id: "upland", label: "Upland" },
+  { id: "lowland", label: "Lowland" },
+  { id: "not_sure", label: "Not sure" },
+] as const;
+
+/** Harvesting only: whether the crop can be cut yet. */
+export const CROP_READINESS = [
+  { id: "ready_now", label: "Ready now" },
+  { id: "ready_soon", label: "Ready in the next 2 weeks" },
+  { id: "not_ready", label: "Not ready yet" },
+  { id: "not_sure", label: "Not sure" },
+] as const;
+
+export const asksHarvestDetails = (service: string) => service === "harvesting";
+
+type Harvest = { service: string; landType: string; cropVariety: string; plantedOn: string; cropReadiness: string };
+
+const shortDate = (iso: string) =>
+  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+/** The answers beyond the designed three, as rows any screen can list. Unasked ones are left out. */
+export function extraDetails(r: Harvest): { label: string; value: string }[] {
+  const rows: { label: string; value: string }[] = [];
+  if (r.landType) rows.push({ label: "Upland or lowland", value: landLabel(LAND_TYPE, r.landType) });
+  if (asksHarvestDetails(r.service) && r.cropReadiness) {
+    rows.push({ label: "Variety", value: r.cropVariety || "Not sure" });
+    rows.push({ label: "Planted on", value: r.plantedOn ? shortDate(r.plantedOn) : "Not sure" });
+    rows.push({ label: "Crop readiness", value: landLabel(CROP_READINESS, r.cropReadiness) });
+  }
+  return rows;
+}
+
+/** What the farmer could not say, for the provider or a coordinator to follow up before pricing. */
+export function missingDetails(r: Harvest): string[] {
+  const out: string[] = [];
+  if (r.landType === "not_sure") out.push("Upland or lowland");
+  if (asksHarvestDetails(r.service) && r.cropReadiness) {
+    if (!r.cropVariety) out.push("Variety");
+    if (!r.plantedOn) out.push("Planting date");
+    if (r.cropReadiness === "not_sure") out.push("Crop readiness");
+  }
+  return out;
+}

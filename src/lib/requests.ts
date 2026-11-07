@@ -35,6 +35,11 @@ export type ServiceRequest = {
   landCondition: string;
   landClearance: string;
   crop: string;
+  /** UC06: upland or lowland, and for harvesting the variety, planting date and readiness. */
+  landType: string;
+  cropVariety: string;
+  plantedOn: string;
+  cropReadiness: string;
   /** The one business this stays with. Never converted into a general request. */
   directTo: string | null;
   /** The coordinator who took it, when the farmer has no account. */
@@ -56,7 +61,7 @@ export type ServiceRequest = {
 type Row = {
   id: string; reference: string; farmer_id: string | null; contact_name: string; contact_phone: string;
   contact_email: string; service: string; acres: number; land_access: string; land_condition: string;
-  land_clearance: string; crop: string; direct_to: string | null; assisted_by: string | null;
+  land_clearance: string; crop: string; land_type?: string; crop_variety?: string; planted_on?: string; crop_readiness?: string; direct_to: string | null; assisted_by: string | null;
   caller_name: string; caller_relation: string; may_accept: string; preferred_date: string; alternate_date: string | null;
   district: string; chiefdom: string | null; village: string; notes: string; status: RequestStatus; created_at: string;
 };
@@ -65,7 +70,8 @@ const fromRow = (r: Row): ServiceRequest => ({
   id: r.id, reference: r.reference, farmerId: r.farmer_id, contactName: r.contact_name,
   contactPhone: r.contact_phone, contactEmail: r.contact_email, service: r.service, acres: r.acres,
   landAccess: r.land_access, landCondition: r.land_condition, landClearance: r.land_clearance,
-  crop: r.crop, directTo: r.direct_to, assistedBy: r.assisted_by, callerName: r.caller_name,
+  crop: r.crop, landType: r.land_type ?? "", cropVariety: r.crop_variety ?? "", plantedOn: r.planted_on ?? "", cropReadiness: r.crop_readiness ?? "",
+  directTo: r.direct_to, assistedBy: r.assisted_by, callerName: r.caller_name,
   callerRelation: r.caller_relation, mayAccept: r.may_accept,
   preferredDate: r.preferred_date, alternateDate: r.alternate_date, district: r.district,
   chiefdom: r.chiefdom ?? "", village: r.village, notes: r.notes, status: r.status, createdAt: r.created_at,
@@ -93,6 +99,10 @@ export type NewRequest = {
   landCondition: string;
   landClearance: string;
   crop?: string;
+  landType?: string;
+  cropVariety?: string;
+  plantedOn?: string;
+  cropReadiness?: string;
   directTo?: string | null;
   assisted?: Assisted;
   preferredDate: string;
@@ -144,12 +154,14 @@ export async function createRequest(farmerId: string | null, input: NewRequest):
     const inserted = await t.run(`INSERT INTO service_request
         (id, reference, farmer_id, contact_name, contact_phone, contact_email, service, acres,
          land_access, land_condition, land_clearance, crop, direct_to, assisted_by, caller_name, caller_relation, may_accept,
-         preferred_date, alternate_date, district, chiefdom, village, notes, submission_key, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`, id, next, farmerId, input.contactName, input.contactPhone, input.contactEmail,
+         preferred_date, alternate_date, district, chiefdom, village, notes, submission_key, created_at, updated_at,
+         land_type, crop_variety, planted_on, crop_readiness)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`, id, next, farmerId, input.contactName, input.contactPhone, input.contactEmail,
       input.service, input.acres, input.landAccess, input.landCondition, input.landClearance, input.crop ?? "", input.directTo ?? null,
       input.assisted?.by ?? null, input.assisted?.callerName ?? "", input.assisted?.callerRelation ?? "", input.assisted?.mayAccept ?? "",
       input.preferredDate, input.alternateDate, input.district, input.chiefdom ?? "",
-      input.village, input.notes, key, now, now);
+      input.village, input.notes, key, now, now,
+      input.landType ?? "", input.cropVariety ?? "", input.plantedOn ?? "", input.cropReadiness ?? "");
     if (!inserted.changes) {
       // Both sends arrived together and the other one saved first.
       const other = await sentBefore();
@@ -168,10 +180,12 @@ export async function updateRequest(
   d: Omit<NewRequest, "contactName" | "contactPhone" | "contactEmail" | "directTo" | "assisted">,
 ): Promise<boolean> {
   const res = await db.run(`UPDATE service_request SET service=?, acres=?, land_access=?, land_condition=?, land_clearance=?, crop=?,
-       preferred_date=?, alternate_date=?, district=?, chiefdom=?, village=?, notes=?, updated_at=?
+       preferred_date=?, alternate_date=?, district=?, chiefdom=?, village=?, notes=?, updated_at=?,
+       land_type=?, crop_variety=?, planted_on=?, crop_readiness=?
        WHERE id=? AND farmer_id=? AND status='awaiting_quotes'`,
     d.service, d.acres, d.landAccess, d.landCondition, d.landClearance, d.crop ?? "", d.preferredDate, d.alternateDate,
-    d.district, d.chiefdom ?? "", d.village, d.notes, new Date().toISOString(), id, farmerId);
+    d.district, d.chiefdom ?? "", d.village, d.notes, new Date().toISOString(),
+    d.landType ?? "", d.cropVariety ?? "", d.plantedOn ?? "", d.cropReadiness ?? "", id, farmerId);
   if (res.changes) await audit(farmerId, "request.edited", id);
   return res.changes > 0;
 }
@@ -299,6 +313,22 @@ export async function cancel(farmerId: string, id: string): Promise<boolean> {
 }
 
 /* ---------------------------------------------------------- assisted requests */
+
+/** The local part of a number, so 076 123 456, +23276123456 and 23276123456 match. */
+const phoneKey = (p: string) => p.replace(/\D/g, "").slice(-8);
+
+/**
+ * Open requests already made from this number (UC07): a second call about the same job is added
+ * to the first record rather than making another booking. Matching is done here rather than in
+ * SQL because numbers were typed in many shapes.
+ */
+export async function openRequestsForPhone(phone: string): Promise<ServiceRequest[]> {
+  const want = phoneKey(phone);
+  if (want.length < 6) return [];
+  const rows = await db.all(`SELECT * FROM service_request WHERE status NOT IN ('cancelled','completed') AND private_to IS NULL
+       ORDER BY created_at DESC LIMIT 2000`) as Row[];
+  return rows.map(fromRow).filter((r) => phoneKey(r.contactPhone) === want);
+}
 
 export type ContactEntry = { id: string; outcome: string; createdAt: string };
 

@@ -86,6 +86,23 @@ export function MemberModal({ mode, member, roles, permissions, onClose }: Props
             <Select name="role" label="Role" options={roles} placeholder="Select role" defaultValue={val("role", member?.role ?? "")} error={e.role} />
             <Select name="permission" label="Permissions" options={permissions} placeholder="Select permissions" defaultValue={val("permission", member?.permission ?? "")} error={e.permission} />
           </div>
+          {mode === "edit" ? (
+            <>
+              <Field name="skills" label="Equipment they can run (optional)" required={false} placeholder="Tractor, combine harvester" maxLength={200}
+                defaultValue={val("skills", member?.skills ?? "")} error={e.skills} />
+              <div className="form-row">
+                <div className={`field${e.awayTo ? " field--invalid" : ""}`}>
+                  <label className="field__label" htmlFor="m-away-from">Away from (optional)</label>
+                  <div className="field__box"><input id="m-away-from" name="awayFrom" type="date" className="field__input" defaultValue={val("awayFrom", member?.awayFrom ?? "")} /></div>
+                </div>
+                <div className={`field${e.awayTo ? " field--invalid" : ""}`}>
+                  <label className="field__label" htmlFor="m-away-to">Away until</label>
+                  <div className="field__box"><input id="m-away-to" name="awayTo" type="date" className="field__input" defaultValue={val("awayTo", member?.awayTo ?? "")} /></div>
+                  {e.awayTo ? <p className="field__error">{e.awayTo}</p> : null}
+                </div>
+              </div>
+            </>
+          ) : null}
           {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
           <FormNotice state={state} />
           <Buttons label={mode === "invite" ? "Send invitation" : "Save changes"} onClose={onClose} />

@@ -1,0 +1,24 @@
+.button {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 22px 0 18px;
+  border-radius: 999px;
+  background: #567621;
+  color: #fff;
+  font: 500 16px/1.2 inherit;
+  font-family: inherit;
+  text-decoration: none;
+  box-shadow: 0 6px 20px rgba(30, 40, 10, 0.22);
+}
+.button:hover { background: #45601a; }
+.button:focus-visible { outline: 3px solid #d1e898; outline-offset: 3px; }
+.inline { position: static; box-shadow: none; }
+@media (max-width: 480px) {
+  .button:not(.inline) { right: 16px; bottom: 16px; padding: 0 18px 0 14px; font-size: 15px; }
+}

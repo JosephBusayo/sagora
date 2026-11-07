@@ -35,6 +35,20 @@ export const JOB_STATUS_LABEL: Record<JobStatus, string> = {
   cancelled: "Cancelled",
 };
 
+/**
+ * What must be true before equipment leaves for the farm (UC12). Every item is ticked by a person;
+ * none is assumed from an empty calendar or an old inspection.
+ */
+export const READY_CHECKS = [
+  { id: "field", label: "The field and crop are ready for the work" },
+  { id: "access", label: "Access to the farm is confirmed" },
+  { id: "transport", label: "Transport for the equipment is arranged" },
+  { id: "operator", label: "The operator is confirmed for these dates" },
+  { id: "farmer", label: "The farmer knows the date and arrangements" },
+] as const;
+
+export type ReadyCheck = (typeof READY_CHECKS)[number]["id"];
+
 /** The states where a machine is still spoken for, so a second job may not take it. */
 const HOLDING: JobStatus[] = ["scheduled", "in_progress", "work_reported"];
 
@@ -43,6 +57,7 @@ export type Job = {
   startDate: string | null; endDate: string | null; operatorId: string | null;
   workNote: string; reportedAcres: number | null; reportedAt: string | null;
   confirmedAt: string | null; concern: string; assetIds: string[];
+  readyChecks: ReadyCheck[]; readyAt: string | null; mobilisedAt: string | null; startedAt: string | null;
 };
 
 type Row = {
@@ -50,6 +65,7 @@ type Row = {
   start_date: string | null; end_date: string | null; operator_id: string | null;
   work_note: string; reported_acres: number | null; reported_at: string | null;
   confirmed_at: string | null; concern: string;
+  ready_checks?: string; ready_at?: string | null; mobilised_at?: string | null; started_at?: string | null;
 };
 
 async function fromRow(r: Row): Promise<Job> {
@@ -59,6 +75,8 @@ async function fromRow(r: Row): Promise<Job> {
     startDate: r.start_date, endDate: r.end_date, operatorId: r.operator_id,
     workNote: r.work_note, reportedAcres: r.reported_acres, reportedAt: r.reported_at,
     confirmedAt: r.confirmed_at, concern: r.concern, assetIds: ids.map((i) => i.equipment_id),
+    readyChecks: (r.ready_checks ?? "").split(",").filter((c): c is ReadyCheck => READY_CHECKS.some((x) => x.id === c)),
+    readyAt: r.ready_at ?? null, mobilisedAt: r.mobilised_at ?? null, startedAt: r.started_at ?? null,
   };
 }
 
@@ -147,6 +165,15 @@ export async function scheduleJob(businessId: string, actorId: string, jobId: st
     kinds.add(asset.kind);
   }
 
+  // The operator has to be there: recorded time away blocks them like another job does.
+  if (input.operatorId) {
+    const person = await db.get("SELECT name, away_from, away_to FROM team_member WHERE id=? AND business_id=?", input.operatorId, businessId) as
+      { name: string; away_from: string | null; away_to: string | null } | undefined;
+    if (person?.away_from && person.away_to && person.away_from <= input.endDate && person.away_to >= input.startDate) {
+      return { ok: false, reason: `${person.name} is away from ${person.away_from} to ${person.away_to}. Choose another operator or other dates.` };
+    }
+  }
+
   // The equipment has to suit the work: a harvest cannot run without a harvester.
   const request = await getRequest(job.requestId);
   if (request?.service === "harvesting" && !kinds.has("harvester")) {
@@ -185,8 +212,34 @@ export async function scheduleJob(businessId: string, actorId: string, jobId: st
   return { ok: true };
 }
 
+/** What is still missing before dispatch. Empty means the job is ready to go. */
+export const notReady = (job: Pick<Job, "readyChecks">) => READY_CHECKS.filter((c) => !job.readyChecks.includes(c.id));
+
+/** Ticks the readiness checklist. Only before the equipment has left: after that it is history. */
+export async function saveReadiness(businessId: string, actorId: string, jobId: string, checks: string[]): Promise<boolean> {
+  const ticked = READY_CHECKS.filter((c) => checks.includes(c.id)).map((c) => c.id);
+  const now = new Date().toISOString();
+  const res = await db.run(`UPDATE job SET ready_checks=?, ready_at=?, updated_at=?
+       WHERE id=? AND business_id=? AND status='scheduled' AND mobilised_at IS NULL`,
+    ticked.join(","), ticked.length === READY_CHECKS.length ? now : null, now, jobId, businessId);
+  if (res.changes) await audit(actorId, "job.readiness", jobId, `${ticked.length}/${READY_CHECKS.length}`);
+  return res.changes > 0;
+}
+
+/** The equipment has left for the farm. Needs every readiness check: a planned date is not a dispatch. */
+export async function markMobilised(businessId: string, actorId: string, jobId: string): Promise<boolean> {
+  const now = new Date().toISOString();
+  const res = await db.run(`UPDATE job SET mobilised_at=?, mobilised_by=?, updated_at=?
+       WHERE id=? AND business_id=? AND status='scheduled' AND ready_at IS NOT NULL AND mobilised_at IS NULL`, now, actorId, now, jobId, businessId);
+  if (res.changes) await audit(actorId, "job.mobilised", jobId);
+  return res.changes > 0;
+}
+
+/** Work has actually begun on the field: only once the equipment is there. */
 export async function startWork(businessId: string, actorId: string, jobId: string): Promise<boolean> {
-  const res = await db.run("UPDATE job SET status='in_progress', updated_at=? WHERE id=? AND business_id=? AND status='scheduled'", new Date().toISOString(), jobId, businessId);
+  const now = new Date().toISOString();
+  const res = await db.run(`UPDATE job SET status='in_progress', started_at=?, started_by=?, updated_at=?
+       WHERE id=? AND business_id=? AND status='scheduled' AND mobilised_at IS NOT NULL`, now, actorId, now, jobId, businessId);
   if (res.changes) await audit(actorId, "job.started", jobId);
   return res.changes > 0;
 }

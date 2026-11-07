@@ -4,6 +4,7 @@ import { useModal } from "@/components/app/useModal";
 import { useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/app/Icon";
 import { QuoteForm, type MyQuote } from "./QuoteForm";
+import { InspectionForm, type MyInspection } from "./InspectionForm";
 import { landSize } from "@/lib/land-size";
 
 export type RequestDetail = {
@@ -15,6 +16,8 @@ export type RequestDetail = {
   landCondition: string;
   landClearance: string;
   crop: string;
+  extras: { label: string; value: string }[];
+  missing: string[];
   direct: boolean;
   preferredDate: string;
   alternateDate: string | null;
@@ -25,6 +28,7 @@ export type RequestDetail = {
   submittedOn: string;
   service: string;
   activity: { when: string; text: string }[];
+  inspection: MyInspection;
 };
 
 function Row({ icon, label, value }: { icon: IconName; label: string; value: string }) {
@@ -45,6 +49,12 @@ function LandRows({ request }: { request: RequestDetail }) {
       <Row icon="info" label="Land access" value={request.landAccess} />
       <Row icon="info" label="Land condition" value={request.landCondition} />
       <Row icon="info" label="Land clearance" value={request.landClearance} />
+      {request.extras.map((x) => <Row key={x.label} icon="info" label={x.label} value={x.value} />)}
+      {request.missing.length ? (
+        <p className="notice notice--warn request-missing" role="note">
+          <strong>Ask the farmer before pricing:</strong> {request.missing.join(", ")}. The farmer did not know these.
+        </p>
+      ) : null}
     </>
   );
 }
@@ -92,6 +102,9 @@ export function RequestModal({ request, myQuote, onClose }: { request: RequestDe
         ) : tab === "quote" ? (
           <>
             <div className="detail-list"><LandRows request={request} /></div>
+            {!myQuote || myQuote.status === "sent" || myQuote.status === "superseded" ? (
+              <InspectionForm requestId={request.id} existing={request.inspection} />
+            ) : null}
             <QuoteForm requestId={request.id} service={request.service} existing={myQuote} onDone={onClose} />
           </>
         ) : (

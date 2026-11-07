@@ -1,10 +1,11 @@
+import { inspectionsForRequest } from "@/lib/inspections";
 import { ModalShell } from "@/components/app/ModalShell";
 import { FarmerRequestsList } from "@/components/requests/FarmerRequestsList";
 import { placeLine } from "@/lib/chiefdoms";
 import { pageOf } from "@/components/app/Pager";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
-import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, landLabel } from "@/lib/land";
+import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, extraDetails, landLabel } from "@/lib/land";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -59,6 +60,7 @@ export default async function Page({ params, searchParams }: {
   const quotes = await listForRequest(id);
   const agreement = await agreementFor(id);
   const job = await jobForRequest(id);
+  const inspections = await inspectionsForRequest(id);
   const booking = await bookingFor(id);
   const payments = await paymentsFor(id);
   const received = payments.reduce((n, p) => n + p.amountMinor, 0);
@@ -111,6 +113,11 @@ export default async function Page({ params, searchParams }: {
               <Detail label="Land access" value={landLabel(LAND_ACCESS, request.landAccess)} />
               <Detail label="Land condition" value={landLabel(LAND_CONDITION, request.landCondition)} />
               <Detail label="Land clearance" value={landLabel(LAND_CLEARANCE, request.landClearance)} />
+              {extraDetails(request).map((x) => <Detail key={x.label} label={x.label} value={x.value} />)}
+              {inspections.map((i) => (
+                <Detail key={i.id} label="Farm inspection"
+                  value={i.status === "completed" ? `Done${i.findings ? `: ${i.findings}` : ""}` : i.status === "scheduled" ? `Booked for ${fmt(i.scheduledFor)}` : "The provider needs to see the farm before pricing"} />
+              ))}
               <div className="request-row">
                 <dt>Status</dt>
                 <dd>

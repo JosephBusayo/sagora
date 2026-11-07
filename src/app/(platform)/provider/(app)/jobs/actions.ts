@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireWorkspace } from "@/lib/guard";
-import { createPrivateJob, getJob, reportNoReplacement, reportWork, scheduleJob, startWork } from "@/lib/jobs";
+import { createPrivateJob, getJob, markMobilised, reportNoReplacement, reportWork, saveReadiness, scheduleJob, startWork } from "@/lib/jobs";
 import { getAsset } from "@/lib/equipment";
 import { audit, DISTRICTS, SERVICES } from "@/lib/business";
 import { notify } from "@/lib/outbox";
@@ -60,11 +60,28 @@ export async function scheduleJobAction(_prev: FormState, fd: FormData): Promise
   return { notice: "Work scheduled. The equipment is committed for those dates." };
 }
 
+export async function readinessAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return;
+  const checks = fd.getAll("check").map(String);
+  await saveReadiness(business.id, user.id, str(fd, "jobId"), checks);
+  await flash("Readiness saved.");
+  revalidatePath("/provider/jobs");
+}
+
+export async function mobiliseAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return;
+  const ok = await markMobilised(business.id, user.id, str(fd, "jobId"));
+  await flash(ok ? "Recorded: the equipment is on the way." : "Finish the readiness checks first.");
+  revalidatePath("/provider/jobs");
+}
+
 export async function startWorkAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
-  await startWork(business.id, user.id, str(fd, "jobId"));
-  await flash("Work started.");
+  const ok = await startWork(business.id, user.id, str(fd, "jobId"));
+  await flash(ok ? "Work started." : "Record that the equipment is on the way first.");
   revalidatePath("/provider/jobs");
 }
 

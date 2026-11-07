@@ -1,3 +1,4 @@
+import { WhatsAppButton } from "@/components/contact/WhatsAppButton";
 import type { Metadata } from "next";
 import { requireFarmer } from "@/lib/session";
 import { Shell, PageHead } from "@/components/app/Shell";
@@ -12,6 +13,11 @@ export default async function Page() {
     <Shell crumb={{ label: "Help & support", icon: "help" }} user={{ name: farmer.name }} audience="farmer" unread={await unreadCount(farmer)}>
       <PageHead title="Help & support" subtitle="Answers to common questions" />
       <HelpContent audience="farmer" />
+      <section className="help-contact">
+        <h2>Talk to someone</h2>
+        <p>Text or call Sagora on WhatsApp and a person will help you.</p>
+        <WhatsAppButton inline />
+      </section>
     </Shell>
   );
 }

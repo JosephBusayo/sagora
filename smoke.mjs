@@ -155,6 +155,18 @@ await step("Provider completes setup and submits for review", p.page, async () =
   await p.page.getByLabel("District").selectOption("Bombali");
   await p.page.getByLabel("Ploughing").check();
   await p.page.getByLabel("Town or village").fill("Makeni");
+  // UC02: an ID document and the business's terms.
+  await p.page.locator(".doc-upload input[type=file]").setInputFiles({
+    name: "id.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 1 0 obj<<>>endobj trailer<<>> %%EOF"),
+  });
+  await p.page.getByRole("link", { name: "ID of the person in charge: id.pdf" }).waitFor();
+  await p.page.getByLabel("What kind of business is this?").selectOption("individual");
+  await p.page.getByLabel("Person who can offer and allocate your equipment").fill("Smoke Owner");
+  await p.page.getByLabel("Their role").fill("Owner");
+  await p.page.getByLabel("How do you price work?").selectOption("per_acre");
+  await p.page.getByLabel("What your price includes").fill("Operator and fuel");
+  await p.page.getByLabel("Deposit you ask for").fill("No deposit");
+  await p.page.getByLabel("If the work is cancelled").fill("Full refund up to 2 days before");
   await p.page.getByRole("button", { name: "Submit for review" }).click();
   await p.page.getByRole("heading", { name: "Waiting for Sagora to review your business" }).waitFor();
   await p.page.screenshot({ path: path.join(OUT, "02-provider-waiting.png"), fullPage: true });
@@ -327,8 +339,6 @@ await step("No payout before the farmer confirms the work", s.page, async () => 
 await step("Provider reports the work and the farmer confirms it", p.page, async () => {
   await p.page.goto("/provider/jobs");
   await p.page.getByRole("button", { name: `Open job ${reference}` }).click();
-  await p.page.getByRole("dialog", { name: `Job ${reference}` }).getByRole("button", { name: "Start work" }).click();
-  await p.page.waitForTimeout(500);
   await p.page.getByRole("dialog", { name: `Job ${reference}` }).getByRole("button", { name: "Report work done" }).click();
   const d = p.page.getByRole("dialog");
   await d.getByLabel("How much was done (acres)").fill("6");

@@ -150,7 +150,7 @@ export async function pendingReleases(): Promise<(Release & { reference: string 
 export type Outcome<T = undefined> = { ok: true; value?: T } | { ok: false; reason: string };
 
 /** How many jobs this provider has already been paid out for — the fee waiver counts these. */
-const paidJobCount = async (businessId: string): Promise<number> => {
+export const paidJobCount = async (businessId: string): Promise<number> => {
   const row = (await db.get("SELECT COUNT(*) AS n FROM release WHERE kind='payout' AND status='paid' AND beneficiary=?", businessId)) as { n: number };
   return Number(row.n);
 };

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { WhatsAppButton } from "@/components/contact/WhatsAppButton";
 import { SignUpForm } from "@/components/auth/forms";
 import { signUpFarmer } from "../actions";
 
@@ -24,6 +25,7 @@ export default function Page() {
         action={signUpFarmer}
         nameField={{ name: "name", label: "First and last name", placeholder: "Enter your name", autoComplete: "name" }}
       />
+      <WhatsAppButton />
     </AuthShell>
   );
 }

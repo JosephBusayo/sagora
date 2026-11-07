@@ -1,8 +1,11 @@
+import { WhatsAppButton } from "@/components/contact/WhatsAppButton";
 import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { DISTRICTS, SERVICES, ensureBusiness, getBusinessForUser, type BusinessStatus } from "@/lib/business";
+import { BUSINESS_TYPES, DISTRICTS, PRICING_BASES, SERVICES, ensureBusiness, getBusinessForUser, optionLabel, type BusinessStatus } from "@/lib/business";
+import { documentKindLabel, listDocuments } from "@/lib/business-documents";
+import { DocumentsSection } from "@/components/setup/DocumentsSection";
 import { requireProvider } from "@/lib/session";
 import { endSessions, membershipFor, removedFrom } from "@/lib/team";
 import { SetupForm } from "@/components/setup/SetupForm";
@@ -43,6 +46,7 @@ export default async function Page() {
   if (b.status === "approved") redirect("/provider/dashboard");
   const editable = b.status === "draft" || b.status === "changes_requested";
   const info = b.status === "draft" ? null : STATUS[b.status];
+  const docs = await listDocuments(b.id);
 
   return (
     <main className="setup">
@@ -58,15 +62,23 @@ export default async function Page() {
             <h2>{info.title}</h2>
             <p>{info.body}</p>
             {b.reviewNote ? <p className="setup__note"><strong>Note from Sagora:</strong> {b.reviewNote}</p> : null}
+            <p className="setup__help">Questions about your application? <WhatsAppButton inline /></p>
           </section>
         ) : null}
 
         {editable ? (
+          <>
+          <DocumentsSection docs={docs.map((d) => ({ id: d.id, kind: d.kind, kindLabel: documentKindLabel(d.kind), fileName: d.fileName }))} />
           <SetupForm
-            initial={{ name: b.name, phone: b.phone, email: b.email, district: b.district, town: b.town, services: b.services, description: b.description }}
+            initial={{ name: b.name, phone: b.phone, email: b.email, district: b.district, town: b.town, services: b.services, description: b.description,
+              businessType: b.businessType, authorisedName: b.authorisedName, authorisedRole: b.authorisedRole, pricingBasis: b.pricingBasis,
+              includedCosts: b.includedCosts, depositTerms: b.depositTerms, cancellationTerms: b.cancellationTerms }}
             districts={DISTRICTS}
             services={SERVICES}
+            businessTypes={BUSINESS_TYPES}
+            pricingBases={PRICING_BASES}
           />
+          </>
         ) : (
           <dl className="setup__summary">
             <dt>Phone</dt><dd>{b.phone}</dd>
@@ -74,6 +86,12 @@ export default async function Page() {
             <dt>Location</dt><dd>{b.town}, {b.district}</dd>
             <dt>Services</dt><dd>{b.services.map((s) => SERVICES.find((x) => x.id === s)?.label ?? s).join(", ")}</dd>
             {b.description ? (<><dt>About</dt><dd>{b.description}</dd></>) : null}
+            {b.businessType ? (<><dt>Kind of business</dt><dd>{optionLabel(BUSINESS_TYPES, b.businessType)}</dd></>) : null}
+            {b.authorisedName ? (<><dt>Person in charge</dt><dd>{b.authorisedName}, {b.authorisedRole}</dd></>) : null}
+            {b.pricingBasis ? (<><dt>Prices</dt><dd>{optionLabel(PRICING_BASES, b.pricingBasis)}. Includes: {b.includedCosts}</dd></>) : null}
+            {b.depositTerms ? (<><dt>Deposit</dt><dd>{b.depositTerms}</dd></>) : null}
+            {b.cancellationTerms ? (<><dt>Cancellation</dt><dd>{b.cancellationTerms}</dd></>) : null}
+            {docs.length ? (<><dt>Documents</dt><dd>{docs.map((d) => documentKindLabel(d.kind)).join(", ")}</dd></>) : null}
           </dl>
         )}
 

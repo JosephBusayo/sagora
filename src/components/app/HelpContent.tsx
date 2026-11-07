@@ -1,6 +1,6 @@
 const FARMER = [
   ["Is my request a booking?", "No. A request asks providers for quotes. The work is booked once you accept a quote and your payment is in."],
-  ["How do I pay?", "Pay the way agreed with Sagora and keep your receipt. The Sagora team records it, and your request shows what has arrived."],
+  ["How do I pay?", "Once the provider has scheduled the work, open your request and choose Pay now to pay online through Monime. You can also pay the way agreed with Sagora and keep your receipt; the Sagora team records it. Your request shows what has arrived."],
   ["Can I change my request?", "Yes, until a provider sends a quote. Open the request and choose Edit request."],
   ["What if the work is not done properly?", "When the provider reports the work, you can confirm it or raise a concern. Nothing is settled until you confirm."],
 ];
@@ -8,7 +8,7 @@ const FARMER = [
 const PROVIDER = [
   ["How do I get requests?", "Once Sagora approves your business, requests appear under Requests. Send a quote from the request itself."],
   ["Can the same equipment go on two jobs?", "No. Equipment already committed for those dates is refused when you schedule a job."],
-  ["When am I paid?", "After the farmer confirms the work. A reported job is not a confirmed one. Approved money shows in your wallet."],
+  ["When am I paid?", "After the farmer confirms the work. A reported job is not a confirmed one. Sagora's fee is 10% of the agreed price after your first 20 paid jobs, and Payments shows it for every job. Approved money shows in your wallet."],
   ["What if equipment breaks down?", "Report a fault on the equipment. A blocking fault flags its jobs as at risk and keeps the commitment on record."],
 ];
 

@@ -123,6 +123,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
               {open.amountMinor > 0 ? <Row label="Amount">{formatAmount(open.amountMinor)}</Row> : null}
               {open.assetNames.length > 0 ? <Row label="Equipment">{open.assetNames.join(", ")}</Row> : null}
               <Row label="Payment"><span className={`pill pill--${paid ? "quotes_sent" : "awaiting_quotes"}`}>{paid ? "Paid" : "Not paid"}</span></Row>
+              {open.status === "scheduled" ? (
+                <Row label="Progress">{open.mobilisedAt ? `The equipment is on the way (since ${new Date(open.mobilisedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Freetown" })}).` : open.readyAt ? "Ready. The equipment has not left yet." : "The provider is getting ready. Work has not started."}</Row>
+              ) : null}
+              {open.startedAt ? <Row label="Work started">{new Date(open.startedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Freetown" })}</Row> : null}
               <Row label="Status"><span className={`pill pill--${PILL_FARMER[open.status]}`}>{JOB_STATUS_LABEL[open.status as JobStatus]}</span></Row>
             </div>
             {open.status === "work_reported" ? (

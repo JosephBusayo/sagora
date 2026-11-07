@@ -17,6 +17,23 @@ export const SERVICES = [
 /** The design writes "Bombali District". The two Western Area names already read as places. */
 export const districtLabel = (d: string) => (d.startsWith("Western Area") ? d : `${d} District`);
 
+/** UC02: who the provider is in law, which decides the papers Sagora asks for. */
+export const BUSINESS_TYPES = [
+  { id: "individual", label: "Individual owner" },
+  { id: "cooperative", label: "Cooperative or farmer group" },
+  { id: "company", label: "Registered company" },
+] as const;
+
+/** How the provider prices work. The quote itself is still a total; this tells farmers and reviewers how it is worked out. */
+export const PRICING_BASES = [
+  { id: "per_acre", label: "Per acre" },
+  { id: "per_hectare", label: "Per hectare" },
+  { id: "per_day", label: "Per day" },
+  { id: "per_job", label: "Per job" },
+] as const;
+
+export const optionLabel = (options: readonly { id: string; label: string }[], id: string) => options.find((o) => o.id === id)?.label ?? "Not given";
+
 export type BusinessStatus = "draft" | "submitted" | "changes_requested" | "approved" | "rejected";
 
 export type Business = {
@@ -29,6 +46,13 @@ export type Business = {
   town: string;
   services: string[];
   description: string;
+  businessType: string;
+  authorisedName: string;
+  authorisedRole: string;
+  pricingBasis: string;
+  includedCosts: string;
+  depositTerms: string;
+  cancellationTerms: string;
   status: BusinessStatus;
   reviewNote: string;
   submittedAt: string | null;
@@ -38,6 +62,8 @@ export type Business = {
 type Row = {
   id: string; user_id: string; name: string; phone: string; email: string; district: string; town: string;
   services: string; description: string; status: BusinessStatus; review_note: string;
+  business_type?: string; authorised_name?: string; authorised_role?: string; pricing_basis?: string;
+  included_costs?: string; deposit_terms?: string; cancellation_terms?: string;
   submitted_at: string | null; reviewed_at: string | null;
 };
 
@@ -45,6 +71,9 @@ function fromRow(r: Row): Business {
   return {
     id: r.id, userId: r.user_id, name: r.name, phone: r.phone, email: r.email, district: r.district, town: r.town,
     services: JSON.parse(r.services) as string[], description: r.description, status: r.status,
+    businessType: r.business_type ?? "", authorisedName: r.authorised_name ?? "", authorisedRole: r.authorised_role ?? "",
+    pricingBasis: r.pricing_basis ?? "", includedCosts: r.included_costs ?? "", depositTerms: r.deposit_terms ?? "",
+    cancellationTerms: r.cancellation_terms ?? "",
     reviewNote: r.review_note, submittedAt: r.submitted_at, reviewedAt: r.reviewed_at,
   };
 }
@@ -77,17 +106,20 @@ export async function ensureBusiness(user: { id: string; name: string; email: st
   return (await getBusinessForUser(user.id))!;
 }
 
-export type BusinessInput = Pick<Business, "name" | "phone" | "email" | "district" | "town" | "services" | "description">;
+export type BusinessInput = Pick<Business, "name" | "phone" | "email" | "district" | "town" | "services" | "description"
+  | "businessType" | "authorisedName" | "authorisedRole" | "pricingBasis" | "includedCosts" | "depositTerms" | "cancellationTerms">;
 
 /** Only a draft or a "changes requested" business can be edited. Returns false if it is locked. */
 export async function saveBusiness(userId: string, input: BusinessInput, submit: boolean): Promise<boolean> {
   const now = new Date().toISOString();
   const res = await db.run(`UPDATE provider_business
          SET name=?, phone=?, email=?, district=?, town=?, services=?, description=?, updated_at=?,
+             business_type=?, authorised_name=?, authorised_role=?, pricing_basis=?, included_costs=?, deposit_terms=?, cancellation_terms=?,
              status = CASE WHEN ? = 1 THEN 'submitted' ELSE status END,
              submitted_at = CASE WHEN ? = 1 THEN ? ELSE submitted_at END,
              review_note = CASE WHEN ? = 1 THEN '' ELSE review_note END
        WHERE user_id=? AND status IN ('draft','changes_requested')`, input.name, input.phone, input.email, input.district, input.town, JSON.stringify(input.services), input.description, now,
+      input.businessType, input.authorisedName, input.authorisedRole, input.pricingBasis, input.includedCosts, input.depositTerms, input.cancellationTerms,
       submit ? 1 : 0, submit ? 1 : 0, now, submit ? 1 : 0, userId,);
   if (res.changes === 0) return false;
   const b = (await getBusinessForUser(userId))!;

@@ -1,6 +1,7 @@
 import { PageProgress } from "@/components/app/PageProgress";
 import { ConfirmHost } from "@/components/app/ConfirmHost";
 import { Toaster } from "@/components/app/Toaster";
+import { ConnectionBanner } from "@/components/app/ConnectionBanner";
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import localFont from "next/font/local";
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <PageProgress />
         <Toaster />
+        <ConnectionBanner />
         <ConfirmHost />
       </body>
     </html>

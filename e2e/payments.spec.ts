@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { confirmChecks } from "./checks";
+import { confirmChecks, completeApplication } from "./checks";
 import { testGet, testRun } from "./testdb";
 import { STUB_PORT, startMonimeStub } from "./monime-stub";
 import fs from "node:fs";
@@ -175,6 +175,7 @@ test.beforeAll(async ({ browser }) => {
   await p.page.getByLabel("District").selectOption("Bombali");
   await p.page.getByLabel("Ploughing").check();
   await p.page.getByLabel("Town or village").fill("Makeni");
+  await completeApplication(p.page);
   await p.page.getByRole("button", { name: "Submit for review" }).click();
   const u = await testGet(`SELECT id FROM "user" WHERE email=?`, PROV.email) as { id: string };
   const now = new Date().toISOString();
@@ -348,7 +349,6 @@ test("a payout waits for the farmer's confirmation, not the provider's word", as
   await p.page.goto("/provider/jobs");
   await p.page.getByRole("button", { name: `Open job ${refA}` }).click();
   const card = p.page.getByRole("dialog", { name: `Job ${refA}` });
-  await card.getByRole("button", { name: "Start work" }).click();
   await card.getByRole("button", { name: "Report work done" }).click();
   const d = p.page.getByRole("dialog");
   await d.getByLabel("How much was done (acres)").fill("4");

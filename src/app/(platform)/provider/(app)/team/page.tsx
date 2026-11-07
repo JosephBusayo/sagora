@@ -17,6 +17,7 @@ export default async function Page() {
     role: m.role, roleLabel: roleLabel(m.role),
     permission: m.permission, permissionLabel: permissionLabel(m.permission),
     status: m.status,
+    skills: m.skills, awayFrom: m.awayFrom, awayTo: m.awayTo,
   }));
   const roles = ROLES.filter((r) => r.id !== "owner").map((r) => ({ ...r }));
   const permissions = PERMISSIONS.map((p) => ({ ...p }));

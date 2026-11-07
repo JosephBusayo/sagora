@@ -8,6 +8,7 @@ import { sendQuote, withdrawQuote } from "@/lib/quotes";
 import { covers, getById } from "@/lib/requests";
 import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
+import { inspectionBlocksQuote, saveInspection, type InspectionInput } from "@/lib/inspections";
 import type { FormState } from "@/lib/auth-flows";
 
 const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String(fd.get(k)).trim() : "");
@@ -46,6 +47,9 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   const target = await getById(requestId);
   if (!target || !covers(business, target)) return { error: "This request is outside your district or services.", values };
 
+  const blocked = await inspectionBlocksQuote(requestId, business.id);
+  if (blocked) return { error: blocked, values };
+
   const result = await sendQuote(requestId, business.id, user.id, {
     amountMinor: amountMinor!,
     includes: raw.includes,
@@ -75,6 +79,35 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   revalidatePath("/provider/requests");
   revalidatePath("/provider/quotes");
   return { notice: result.quote.version > 1 ? `Quote updated (version ${result.quote.version}).` : "Quote sent to the farmer." };
+}
+
+/** UC08: the provider's inspection of one farm, kept on the request. */
+export async function saveInspectionAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return { error: "You do not have permission to change this request." };
+  const requestId = str(fd, "requestId");
+  const target = await getById(requestId);
+  if (!target || !covers(business, target)) return { error: "This request is outside your district or services." };
+  const status = str(fd, "status");
+  if (!["none", "required", "scheduled", "completed"].includes(status)) return { error: "Choose whether an inspection is needed." };
+  const input: InspectionInput = {
+    status: status as InspectionInput["status"],
+    scheduledFor: status === "scheduled" || status === "completed" ? str(fd, "scheduledFor") : "",
+    findings: status === "completed" ? str(fd, "findings") : "",
+    openQuestions: status === "completed" ? str(fd, "openQuestions") : "",
+  };
+  const values = { status, scheduledFor: input.scheduledFor, findings: input.findings, openQuestions: input.openQuestions };
+  const fieldErrors: Record<string, string> = {};
+  if ((status === "scheduled" || status === "completed") && !/^\d{4}-\d{2}-\d{2}$/.test(input.scheduledFor)) {
+    fieldErrors.scheduledFor = status === "completed" ? "Say when you inspected the farm" : "Choose the inspection date";
+  } else if (status === "scheduled" && input.scheduledFor < today()) fieldErrors.scheduledFor = "Choose a date in the future";
+  else if (status === "completed" && input.scheduledFor > today()) fieldErrors.scheduledFor = "An inspection that is done cannot be in the future";
+  if (status === "completed" && input.findings.length < 3) fieldErrors.findings = "Say what you found";
+  if (input.findings.length > 500 || input.openQuestions.length > 500) fieldErrors.findings ??= "Use 500 characters or fewer";
+  if (Object.keys(fieldErrors).length) return { fieldErrors, values };
+  await saveInspection(requestId, business.id, user.id, input);
+  revalidatePath("/provider/requests");
+  return { notice: status === "none" ? "No inspection needed." : "Inspection saved.", values };
 }
 
 export async function withdrawQuoteAction(fd: FormData) {

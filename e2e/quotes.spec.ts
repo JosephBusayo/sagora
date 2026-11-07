@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { confirmChecks } from "./checks";
+import { confirmChecks, completeApplication } from "./checks";
 import { testAll, testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -59,6 +59,7 @@ async function makeProvider(browser: Browser, p: typeof A) {
   await page.getByLabel("District").selectOption("Bombali");
   await page.getByLabel("Ploughing").check();
   await page.getByLabel("Town or village").fill("Makeni");
+  await completeApplication(page);
   await page.getByRole("button", { name: "Submit for review" }).click();
   const u = await testGet(`SELECT id FROM "user" WHERE email=?`, p.email) as { id: string };
   const now = new Date().toISOString();

@@ -8,7 +8,7 @@ import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { bookService, type BookState } from "@/app/(platform)/farmer/book/actions";
 import { Field } from "@/components/auth/Field";
-import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, landLabel, needsCrop } from "@/lib/land";
+import { CROP_READINESS, LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, LAND_TYPE, asksHarvestDetails, extraDetails, landLabel, needsCrop } from "@/lib/land";
 import { chiefdomsOf } from "@/lib/chiefdoms";
 import { landSize, landUnit, toAcres } from "@/lib/land-size";
 import { LandSizeField } from "./LandSizeField";
@@ -45,7 +45,7 @@ function Select({ name, label, options, placeholder, error, initial = "", icon, 
 }
 
 /** Every answer, carried to the next submit. */
-const FIELDS = ["service", "acres", "unit", "landAccess", "landCondition", "landClearance", "crop", "district", "chiefdom", "village", "preferredDate", "alternateDate", "notes"] as const;
+const FIELDS = ["service", "acres", "unit", "landAccess", "landCondition", "landClearance", "crop", "landType", "cropVariety", "plantedOn", "cropReadiness", "district", "chiefdom", "village", "preferredDate", "alternateDate", "notes"] as const;
 
 const longDate = (iso: string) =>
   new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
@@ -64,6 +64,8 @@ function Summary({ v, serviceName }: { v: Record<string, string>; serviceName: s
       <Row label="Land access" value={landLabel(LAND_ACCESS, v.landAccess)} />
       {v.landCondition ? <Row label="Land condition" value={landLabel(LAND_CONDITION, v.landCondition)} /> : null}
       <Row label="Land clearance" value={landLabel(LAND_CLEARANCE, v.landClearance)} />
+      {extraDetails({ service: v.service ?? "", landType: v.landType ?? "", cropVariety: v.cropVariety ?? "", plantedOn: v.plantedOn ?? "", cropReadiness: v.cropReadiness ?? "" })
+        .map((x) => <Row key={x.label} label={x.label} value={x.value} />)}
       <Row label="District" value={v.district} />
       {v.chiefdom ? <Row label="Chiefdom" value={v.chiefdom} /> : null}
       <Row label="Village/town" value={v.village} />
@@ -74,13 +76,13 @@ function Summary({ v, serviceName }: { v: Record<string, string>; serviceName: s
   );
 }
 
-function DateField({ name, label, defaultValue, error }: { name: string; label: string; defaultValue?: string; error?: string }) {
+function DateField({ name, label, defaultValue, error, past = false }: { name: string; label: string; defaultValue?: string; error?: string; past?: boolean }) {
   return (
     <div className={`field${error ? " field--invalid" : ""}`}>
       <label className="field__label" htmlFor={`f-${name}`}>{label}</label>
       <div className="field__box">
         <span className="field__icon" aria-hidden="true"><Icon name="calendar" size={18} /></span>
-        <input id={`f-${name}`} name={name} type="date" min={today()} suppressHydrationWarning className="field__input" defaultValue={defaultValue} />
+        <input id={`f-${name}`} name={name} type="date" min={past ? undefined : today()} max={past ? today() : undefined} suppressHydrationWarning className="field__input" defaultValue={defaultValue} />
       </div>
       {error ? <p className="field__error">{error}</p> : null}
     </div>
@@ -194,10 +196,18 @@ export function BookForm({ services, districts, service = "", requestId, initial
           <Chips name="landAccess" label="Land access" options={LAND_ACCESS} initial={v.landAccess} error={e.landAccess} />
           <Chips name="landCondition" label="Land condition (optional)" options={LAND_CONDITION} initial={v.landCondition} error={e.landCondition} />
           <Chips name="landClearance" label="Land clearance" options={LAND_CLEARANCE} initial={v.landClearance} error={e.landClearance} />
+          <Chips name="landType" label="Is the land upland or lowland? (optional)" options={LAND_TYPE} initial={v.landType} error={e.landType} />
+          {asksHarvestDetails(work) ? (
+            <>
+              <Chips name="cropReadiness" label="Is the crop ready to harvest?" options={CROP_READINESS} initial={v.cropReadiness} error={e.cropReadiness} />
+              <Field name="cropVariety" label="Variety (leave empty if not sure)" required={false} placeholder="For example, NERICA" maxLength={60} defaultValue={v.cropVariety} error={e.cropVariety} />
+              <DateField past name="plantedOn" label="When was it planted? (leave empty if not sure)" defaultValue={v.plantedOn} error={e.plantedOn} />
+            </>
+          ) : null}
         </>
       ) : step === 2 ? (
         <>
-          {(["service", "acres", "unit", "landAccess", "landCondition", "landClearance", "crop"] as const).map((k) => (
+          {(["service", "acres", "unit", "landAccess", "landCondition", "landClearance", "crop", "landType", "cropVariety", "plantedOn", "cropReadiness"] as const).map((k) => (
             <input key={k} type="hidden" name={k} value={v[k] ?? ""} />
           ))}
           <Select icon="pin" name="district" label="District" options={districts.map((d) => ({ id: d, label: d }))} placeholder="Select a district" error={e.district} initial={v.district} onChange={setPickedDistrict} />
