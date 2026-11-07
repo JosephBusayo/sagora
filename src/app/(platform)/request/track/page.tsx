@@ -35,7 +35,7 @@ export default async function Page({ searchParams }: {
           request={request}
           flags={flags}
           online={monimeOfferedTo(request.contactEmail)}
-          links={{ close: "/", edit: "/request/track/edit" }}
+          links={{ close: "/", edit: "/request/track/edit", payments: "/request/track/payments", invoice: "/request/track/invoice" }}
           noQuotes={request.contactEmail
             ? "No provider has quoted yet. We will email you when one does."
             : "No provider has quoted yet. Come back with your tracking code to see their quotes."}

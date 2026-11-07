@@ -25,8 +25,10 @@ async function shrink(file: File): Promise<string> {
  * Picks one photo and puts it, shrunk, into a hidden field named `name`. `onPicked` runs once the
  * field holds the new photo, so a form can send itself straight away.
  */
-export function PhotoPicker({ name, label, current, onPicked }: {
+export function PhotoPicker({ name, label, current, onPicked, emptyText = "Add a photo", helper }: {
   name: string; label: string; current?: string | null; onPicked?: (form: HTMLFormElement | null) => void;
+  /** What the empty box says, in the wording of the screen it is on. */
+  emptyText?: string; helper?: string;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -55,7 +57,8 @@ export function PhotoPicker({ name, label, current, onPicked }: {
       <span className="field__label">{label}</span>
       <label className="photo-pick__box">
         {shown ? <img src={shown} alt="" className="photo-pick__img" /> : <Icon name="plus" size={22} />}
-        <span className="photo-pick__text">{shown ? "Change photo" : "Add a photo"}</span>
+        <span className="photo-pick__text">{shown ? "Change photo" : emptyText}</span>
+        {helper && !shown ? <span className="field__helper photo-pick__helper">{helper}</span> : null}
         <input type="file" accept="image/*" className="photo-pick__input" onChange={(e) => void choose(e.target.files?.[0])} />
       </label>
       <input type="hidden" name={name} ref={hidden} />

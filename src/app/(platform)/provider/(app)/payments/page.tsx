@@ -10,7 +10,8 @@ import { formatAmount } from "@/lib/money";
 import { serviceLabel } from "@/lib/requests";
 import { JOB_STATUS_LABEL, type JobStatus } from "@/lib/jobs";
 import {
-  FEE_POLICY, RELEASE_STATUS_LABEL, destinationFor, earningsFor, feeFor, paidJobCount, getPayoutRequest, openPayoutRequest, walletBalance,
+  FEE_POLICY, RELEASE_STATUS_LABEL, destinationFor, earningsFor, feeFor, paidJobCount, getPayoutRequest, latestPayoutRequest, openPayoutRequest, walletBalance,
+  type Destination,
 } from "@/lib/settlement";
 import { requestPayoutAction } from "./actions";
 import { DestinationForm } from "@/components/payments/DestinationForm";
@@ -19,6 +20,14 @@ export const metadata: Metadata = { title: "Payments" };
 export const dynamic = "force-dynamic";
 
 const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+/** "15 Sep 2026, 10:24 AM", as the design writes when a payout was asked for. */
+const at = (iso: string) => {
+  const d = new Date(iso);
+  return `${when(iso)}, ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Africa/Freetown" })}`;
+};
+/** The design names a mobile money payout account after Monime. */
+const methodName = (d: Destination) => (d.method === "bank" ? d.bank || "Bank account" : "Monime");
+const accountShown = (d: Destination) => (d.method === "bank" ? d.accountRef : d.accountRef.replace(/^\+232(\d{2})(\d{3})(\d{3})$/, "+232 $1 $2 $3"));
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ withdraw?: string; submitted?: string; error?: string; payout?: string }> }) {
   const { user, business, permission } = await requireWorkspace();
@@ -35,6 +44,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
   const wallet = await walletBalance(business.id);
   const open = await openPayoutRequest(business.id);
   const submitted = sp.submitted ? await getPayoutRequest(business.id, sp.submitted) : null;
+  const latest = sp.payout ? await latestPayoutRequest(business.id) : null;
   const rows = await earningsFor(business.id);
   const destination = await destinationFor(business.id);
   // UC10: what Sagora takes is shown, not left to be worked out from a smaller payout.
@@ -73,10 +83,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
               <p>Review the details before submitting</p>
             </header>
             <dl className="request-rows">
-              <div className="request-row"><dt>Method</dt><dd>{destination.method === "bank" ? destination.bank : "Mobile money"}</dd></div>
-              <div className="request-row"><dt>Account</dt><dd>{destination.accountRef}</dd></div>
-              <div className="request-row"><dt>Payout amount</dt><dd>{formatAmount(wallet)}</dd></div>
+              <div className="request-row"><dt>Method</dt><dd>{methodName(destination)}</dd></div>
+              <div className="request-row"><dt>Account</dt><dd>{accountShown(destination)}</dd></div>
             </dl>
+            <p className="field__label">Payout amount</p>
+            <p className="wallet__amount">{formatAmount(wallet)}</p>
             <p className="field__helper">This is your current available balance.</p>
             <div className="request-card__actions">
               <Link href="/provider/payments" className="button button--soft">Cancel</Link>
@@ -89,11 +100,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
         <ModalShell closeHref="/provider/payments" label="Payout request submitted">
             <header className="modal__head">
               <h2 id="po-done">Payout request submitted</h2>
+              <p>Your payout request has been submitted and is being reviewed</p>
             </header>
             <dl className="request-rows">
               <div className="request-row"><dt>Payout amount</dt><dd>{formatAmount(submitted.amountMinor)}</dd></div>
-              <div className="request-row"><dt>Request ID</dt><dd>{submitted.reference}</dd></div>
-              <div className="request-row"><dt>Requested on</dt><dd>{when(submitted.requestedAt)}</dd></div>
+              <div className="request-row"><dt>Transaction ID</dt><dd>{submitted.reference}</dd></div>
+              {destination ? <div className="request-row"><dt>Method</dt><dd>{methodName(destination)}</dd></div> : null}
+              <div className="request-row"><dt>Requested on</dt><dd>{at(submitted.requestedAt)}</dd></div>
             </dl>
             <div className="request-card__actions">
               <Link href="/provider/payments" className="button">Done</Link>
@@ -103,7 +116,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
 
       {rows.length === 0 ? (
         <div className="table-card">
-          <EmptyState icon="payments" title="You have not received any payments yet" body="Set up a payout wallet to start receiving payments for your services" href="/provider/payments?payout=1" action="Set up your payout wallet" />
+          <EmptyState icon="payments" title="You have not received any payments yet" body="Set up a payout wallet to start receiving payments for your services" href="/provider/payments?payout=change" action="Set up your payout wallet" />
         </div>
       ) : (
         <>
@@ -178,29 +191,46 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
         </>
       )}
 
-      {sp.payout ? (
-        <ModalShell closeHref="/provider/payments" label="Payout details">
-          <header className="modal__head">
-            <h2>Add payment method</h2>
-            <p>Choose how you want to receive your payouts.</p>
-          </header>
-          <p className="field__helper">
-            {destination
-              ? `Currently ${destination.method === "bank" ? `${destination.bank} account` : "mobile money"} ${destination.accountRef}, in the name of ${destination.accountName}.`
-              : "Not set yet. Add it so a payout can be sent without chasing you for details."}
-          </p>
-          <p className="field__helper">
-            Payouts are sent by the Sagora team and recorded with a transfer reference.
-          </p>
+      {sp.payout && (sp.payout === "change" || !destination) ? (
+        <ModalShell closeHref="/provider/payments" label="Add payment method" className="modal--asset">
           <DestinationForm
             cancelHref="/provider/payments"
+            changing={Boolean(destination)}
             initial={{
-              method: destination?.method ?? "mobile_money",
+              method: destination?.method ?? "",
               accountName: destination?.accountName ?? business.name,
               accountRef: destination?.accountRef ?? "",
               bank: destination?.bank ?? "",
             }}
           />
+        </ModalShell>
+      ) : sp.payout && destination ? (
+        <ModalShell closeHref="/provider/payments" label="Payout details" className="modal--asset">
+          <header className="modal__head modal__head--center">
+            <h2>Payout details</h2>
+            {latest ? <p>View the details of this payout request</p> : null}
+          </header>
+          <dl className="request-rows">
+            {latest ? (
+              <>
+                <div className="request-row"><dt>Payout amount</dt><dd>{formatAmount(latest.amountMinor)}</dd></div>
+                <div className="request-row"><dt>Transaction ID</dt><dd>{latest.reference}</dd></div>
+                <div className="request-row"><dt>Requested on</dt><dd>{at(latest.requestedAt)}</dd></div>
+                <div className="request-row">
+                  <dt>Status</dt>
+                  <dd><span className={`pill pill--${latest.status === "requested" ? "in_progress" : "completed"}`}>{latest.status === "requested" ? "In progress" : "Completed"}</span></dd>
+                </div>
+              </>
+            ) : null}
+            <div className="request-row"><dt>Method</dt><dd>{methodName(destination)}</dd></div>
+            <div className="request-row"><dt>Account</dt><dd>{accountShown(destination)}</dd></div>
+            <div className="request-row"><dt>Account name</dt><dd>{destination.accountName}</dd></div>
+          </dl>
+          <p className="field__helper">Payouts are sent by the Sagora team and recorded with a transfer reference.</p>
+          <div className="request-card__actions">
+            <Link href="/provider/payments?payout=change" className="button button--soft">Change payout account</Link>
+            <Link href="/provider/payments" className="button">Done</Link>
+          </div>
         </ModalShell>
       ) : null}
     </Shell>

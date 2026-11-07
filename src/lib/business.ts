@@ -145,5 +145,8 @@ export async function decide(businessId: string, staffId: string, decision: Deci
   if (res.changes === 0) return null;
   await audit(staffId, `business.${decision}`, businessId, note);
   const r = await db.get("SELECT * FROM provider_business WHERE id = ?", businessId) as Row;
-  return fromRow(r);
+  const b = fromRow(r);
+  // The district and services from setup are where requests start coming from.
+  if (decision === "approved") await (await import("./coverage")).activateHome(b, staffId);
+  return b;
 }

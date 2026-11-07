@@ -112,6 +112,9 @@ export async function queues(): Promise<Queue[]> {
        JOIN service_request r ON r.id = j.request_id WHERE j.status='disputed' ORDER BY j.updated_at ASC`) as
     { id: string; concern: string; updated_at: string; request_id: string; reference: string; assisted_by: string | null }[];
 
+  // UC03: an approved provider asking to work somewhere new waits for the same review.
+  const areas = await (await import("./coverage")).pendingChanges();
+
   const failed = await db.all(`SELECT id, kind, subject, created_at FROM notification_outbox WHERE status='failed' ORDER BY created_at DESC LIMIT 100`) as
     { id: string; kind: string; subject: string; created_at: string }[];
 
@@ -121,7 +124,11 @@ export async function queues(): Promise<Queue[]> {
       items: review.map((b) => item({
         key: `review:${b.id}`, reference: b.name, title: "Waiting for review", detail: b.district || "No district yet",
         href: "/staff/providers", since: b.submitted_at, overdue: b.submitted_at < daysAgo(t.review_days),
-      })),
+      })).concat(areas.map((c) => item({
+        key: `areas:${c.businessId}`, reference: c.name, title: "New districts to check",
+        detail: c.areas.map((a) => `${a.district} ${serviceLabel(a.service).toLowerCase()}`).join(", "),
+        href: "/staff/providers", since: c.requestedAt, overdue: c.requestedAt < daysAgo(t.review_days),
+      }))),
     },
     {
       id: "unquoted", title: "No quote yet", body: `Requests no provider has quoted after ${t.quote_days} days.`,

@@ -338,22 +338,25 @@ export type Transaction = {
  * One farmer's money, as the design's transactions table wants it: an id, a type, an amount, a
  * date and a status. Payments they made and refunds they were sent, newest first.
  */
-export async function transactionsFor(farmerId: string): Promise<Transaction[]> {
+export async function transactionsFor(farmerId: string, requestId?: string): Promise<Transaction[]> {
+  // One farmer account, or one request sent without an account.
+  const own = requestId ? "r.id = ?" : "r.farmer_id = ?";
+  const key = requestId ?? farmerId;
   const paid = await db.all(`SELECT p.external_ref AS id, r.reference, r.id AS request_id, p.amount_minor, p.recorded_at, p.method
-       FROM payment p JOIN service_request r ON r.id = p.request_id WHERE r.farmer_id = ?`, farmerId) as {
+       FROM payment p JOIN service_request r ON r.id = p.request_id WHERE ${own}`, key) as {
       id: string; reference: string; request_id: string; amount_minor: number; recorded_at: string; method: string;
     }[];
 
   const refunds = await db.all(`SELECT x.id, x.external_ref, r.reference, r.id AS request_id, x.net_minor, x.status, x.method,
               COALESCE(x.paid_at, x.prepared_at) AS at
        FROM release x JOIN service_request r ON r.id = x.request_id
-       WHERE x.kind = 'refund' AND x.status <> 'void' AND r.farmer_id = ?`, farmerId) as {
+       WHERE x.kind = 'refund' AND x.status <> 'void' AND ${own}`, key) as {
       id: string; external_ref: string; reference: string; request_id: string;
       net_minor: number; status: ReleaseStatus; method: string; at: string;
     }[];
 
   const agreed = new Map((await db.all(`SELECT a.request_id, a.amount_minor FROM agreement a
-       JOIN service_request r ON r.id = a.request_id WHERE r.farmer_id = ?`, farmerId) as { request_id: string; amount_minor: number }[])
+       JOIN service_request r ON r.id = a.request_id WHERE ${own}`, key) as { request_id: string; amount_minor: number }[])
     .map((x) => [x.request_id, Number(x.amount_minor)]));
   const paidTotal = new Map<string, number>();
   for (const p of paid) paidTotal.set(p.request_id, (paidTotal.get(p.request_id) ?? 0) + Number(p.amount_minor));
@@ -433,11 +436,17 @@ export async function reconcile(): Promise<Reconciliation> {
 
 /* ------------------------------------------------------- provider withdrawals */
 
-export type PayoutRequest = { id: string; reference: string; businessId: string; amountMinor: number; requestedAt: string };
+export type PayoutRequest = {
+  id: string; reference: string; businessId: string; amountMinor: number; requestedAt: string;
+  status: "requested" | "closed"; closedAt: string | null;
+};
 
-type PayoutRequestRow = { id: string; reference: string; business_id: string; amount_minor: number; requested_at: string };
+type PayoutRequestRow = {
+  id: string; reference: string; business_id: string; amount_minor: number; requested_at: string; status: "requested" | "closed"; closed_at: string | null;
+};
 const payoutRequest = (r: PayoutRequestRow): PayoutRequest => ({
   id: r.id, reference: r.reference, businessId: r.business_id, amountMinor: r.amount_minor, requestedAt: r.requested_at,
+  status: r.status, closedAt: r.closed_at ?? null,
 });
 
 /** What Sagora has approved and owes this business right now. */
@@ -450,6 +459,12 @@ export async function openPayoutRequest(businessId: string): Promise<PayoutReque
 
 export async function getPayoutRequest(businessId: string, reference: string): Promise<PayoutRequest | null> {
   const r = await db.get("SELECT * FROM payout_request WHERE business_id=? AND reference=?", businessId, reference) as PayoutRequestRow | undefined;
+  return r ? payoutRequest(r) : null;
+}
+
+/** The newest payout request, open or closed, for the Payout details window. */
+export async function latestPayoutRequest(businessId: string): Promise<PayoutRequest | null> {
+  const r = await db.get("SELECT * FROM payout_request WHERE business_id=? ORDER BY requested_at DESC LIMIT 1", businessId) as PayoutRequestRow | undefined;
   return r ? payoutRequest(r) : null;
 }
 

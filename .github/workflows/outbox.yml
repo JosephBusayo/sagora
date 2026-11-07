@@ -1,0 +1,25 @@
+# Sends waiting notification emails every 15 minutes. Vercel's free plan runs its own schedule
+# (vercel.json) only once a day. This does nothing until two repository secrets are set in GitHub:
+#   SAGORA_URL   the site, e.g. https://www.sagora.sl
+#   CRON_SECRET  the same value as CRON_SECRET in Vercel
+name: Notification queue
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Run the queue
+        env:
+          SAGORA_URL: ${{ secrets.SAGORA_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$SAGORA_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "SAGORA_URL or CRON_SECRET is not set in this repository's secrets; nothing to do."
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SAGORA_URL/api/cron/outbox"

@@ -53,3 +53,28 @@ export async function reviewBusiness(_prev: FormState, fd: FormData): Promise<Fo
 export async function signOutStaff() {
   return signOutTo("provider", "/staff/sign-in");
 }
+
+/** UC03: a provider asked to work somewhere new. Approve or decline every waiting district and service of that business. */
+export async function decideAreasAction(fd: FormData) {
+  const staff = await requireStaff();
+  const { decideAreas, pendingChanges, byDistrict } = await import("@/lib/coverage");
+  const { flash } = await import("@/lib/flash");
+  const id = String(fd.get("businessId") ?? "");
+  const approve = String(fd.get("decision") ?? "") === "approve";
+  const change = (await pendingChanges()).find((p) => p.businessId === id);
+  const n = await decideAreas(id, staff.id, approve);
+  if (n && change?.email) {
+    const where = byDistrict(change.areas).map((d) => `${d.district}: ${d.services.join(", ")}`).join("\n");
+    await notify({
+      kind: approve ? "coverage.approved" : "coverage.declined",
+      dedupeKey: `coverage:${id}:${Date.now()}`,
+      to: change.email,
+      subject: approve ? "New districts approved on Sagora" : "Your district request on Sagora",
+      text: approve
+        ? `${change.name}: you can now receive requests for\n\n${where}`
+        : `${change.name}: we could not add\n\n${where}\n\nReply to this email or speak to us on WhatsApp if you want to talk it through.`,
+    });
+  }
+  await flash(n ? (approve ? `Approved for ${change?.name ?? "the provider"}.` : `Declined for ${change?.name ?? "the provider"}.`) : "Already decided.");
+  revalidatePath("/staff/providers");
+}

@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/guard";
 import { parseAmount, formatAmount } from "@/lib/money";
 import { sendQuote, withdrawQuote } from "@/lib/quotes";
-import { covers, getById } from "@/lib/requests";
+import { getById } from "@/lib/requests";
+import { coverageOf, covers } from "@/lib/coverage";
 import { notify } from "@/lib/outbox";
 import { db } from "@/lib/db";
 import { inspectionBlocksQuote, saveInspection, type InspectionInput } from "@/lib/inspections";
@@ -45,7 +46,7 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
 
   // The list only shows what a business covers. This stops a form posted by hand.
   const target = await getById(requestId);
-  if (!target || !covers(business, target)) return { error: "This request is outside your district or services.", values };
+  if (!target || !covers(await coverageOf(business), target)) return { error: "This request is outside your district or services.", values };
 
   const blocked = await inspectionBlocksQuote(requestId, business.id);
   if (blocked) return { error: blocked, values };
@@ -87,7 +88,7 @@ export async function saveInspectionAction(_prev: FormState, fd: FormData): Prom
   if (permission === "view_jobs") return { error: "You do not have permission to change this request." };
   const requestId = str(fd, "requestId");
   const target = await getById(requestId);
-  if (!target || !covers(business, target)) return { error: "This request is outside your district or services." };
+  if (!target || !covers(await coverageOf(business), target)) return { error: "This request is outside your district or services." };
   const status = str(fd, "status");
   if (!["none", "required", "scheduled", "completed"].includes(status)) return { error: "Choose whether an inspection is needed." };
   const input: InspectionInput = {

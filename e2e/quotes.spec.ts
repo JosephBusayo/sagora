@@ -61,6 +61,7 @@ async function makeProvider(browser: Browser, p: typeof A) {
   await page.getByLabel("Town or village").fill("Makeni");
   await completeApplication(page);
   await page.getByRole("button", { name: "Submit for review" }).click();
+  await expect(page.getByText("Waiting for Sagora to review your business")).toBeVisible();
   const u = await testGet(`SELECT id FROM "user" WHERE email=?`, p.email) as { id: string };
   const now = new Date().toISOString();
   await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);

@@ -132,7 +132,10 @@ export function AssetModal({ asset, kinds, services, availability, onClose }: {
           </div>
 
           <div className="form-step" hidden={!(editing || step === 2)}>
-            <PhotoPicker name="photo" label="Photo (optional)" current={asset?.photo} />
+            {editing
+              ? <PhotoPicker name="photo" label="Photo (optional)" current={asset?.photo} emptyText="Add an image" />
+              : <PhotoPicker name="photo" label="Add images of your equipment" current={asset?.photo} emptyText="Upload photos"
+                  helper="Add clear photos of your equipment (max 5MB each)" />}
             {e.photo ? <p className="field__error">{e.photo}</p> : null}
           </div>
 

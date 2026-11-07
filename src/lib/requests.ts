@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { db, type Queries } from "./db";
 import { DISTRICTS, SERVICES, audit } from "./business";
+import { coverageOf, type Coverage } from "./coverage";
 
 /**
  * Service requests: a farmer asks for ploughing or harvesting, providers see it and
@@ -209,26 +210,18 @@ export async function listForFarmer(farmerId: string): Promise<ServiceRequest[]>
 
 export type Filters = { service?: string; district?: string; window?: string; reference?: string };
 
-/** What a provider covers. Requests go only to businesses covering their district and service. */
-export type Coverage = { id: string; district: string; services: string[] };
+/** The business a list is for: its coverage is read from lib/coverage.ts. */
+type Provider = { id: string; district: string; services: string[] };
 
-/** Setup requires both before a business can be approved, so empty means no limit was recorded. */
-export const coversWork = (c: Omit<Coverage, "id">, r: { district: string; service: string }) =>
-  !c.district || (c.district === r.district && c.services.includes(r.service));
-
-/** A direct request belongs to its chosen business alone, whatever anyone else covers. */
-export const covers = (c: Coverage, r: { district: string; service: string; directTo?: string | null }) =>
-  r.directTo ? r.directTo === c.id : coversWork(c, r);
-
+/** Requests sent to this business, and open requests in any district and service it covers. */
 function coverageClause(c: Coverage, where: string[], params: (string | number)[]) {
-  if (!c.district) {
-    where.push("(direct_to IS NULL OR direct_to = ?)");
+  if (!c.areas.length) {
+    where.push("direct_to = ?");
     params.push(c.id);
     return;
   }
-  const services = c.services.length > 0 ? ` AND service IN (${c.services.map(() => "?").join(",")})` : "";
-  where.push(`(direct_to = ? OR (direct_to IS NULL AND district = ?${services}))`);
-  params.push(c.id, c.district, ...c.services);
+  where.push(`(direct_to = ? OR (direct_to IS NULL AND (${c.areas.map(() => "(district = ? AND service = ?)").join(" OR ")})))`);
+  params.push(c.id, ...c.areas.flatMap((a) => [a.district, a.service]));
 }
 export const DATE_WINDOWS = [
   { id: "", label: "All dates" },
@@ -243,10 +236,10 @@ export const PAGE_SIZE = 7;
  * What a provider can browse. Only the farmer's service details are listed: name, phone and
  * email stay out until there is a reason to share them, which is the quote stage.
  */
-export async function browse(filters: Filters, page: number, coverage: Coverage): Promise<{ rows: ServiceRequest[]; total: number; pages: number }> {
+export async function browse(filters: Filters, page: number, business: Provider): Promise<{ rows: ServiceRequest[]; total: number; pages: number }> {
   const where: string[] = ["status <> 'cancelled'", "private_to IS NULL"];
   const params: (string | number)[] = [];
-  coverageClause(coverage, where, params);
+  coverageClause(await coverageOf(business), where, params);
   if (filters.reference) {
     where.push("reference = ?");
     params.push(filters.reference);
@@ -287,11 +280,11 @@ export async function searchForFarmer(farmerId: string, q: string): Promise<Serv
 }
 
 /** The same list a provider can browse: no contact details, nothing withdrawn. */
-export async function searchForProvider(q: string, coverage: Coverage): Promise<ServiceRequest[]> {
+export async function searchForProvider(q: string, business: Provider): Promise<ServiceRequest[]> {
   const t = likeTerm(q);
   const where: string[] = [];
   const params: (string | number)[] = [];
-  coverageClause(coverage, where, params);
+  coverageClause(await coverageOf(business), where, params);
   const also = ` AND ${where.join(" AND ")}`;
   const rows = await db.all(`SELECT * FROM service_request WHERE status <> 'cancelled' AND private_to IS NULL${also} AND ${REQUEST_MATCH} ORDER BY created_at DESC LIMIT 25`, ...params, t, t, t) as Row[];
   return rows.map(fromRow);
@@ -299,9 +292,14 @@ export async function searchForProvider(q: string, coverage: Coverage): Promise<
 
 /** Approved businesses covering this request, to tell them it exists. Their own sign-in email. */
 export async function providersCovering(r: { district: string; service: string }): Promise<{ businessId: string; email: string }[]> {
-  const rows = await db.all(`SELECT b.id AS id, b.services AS services, u.email AS email FROM provider_business b
-       JOIN "user" u ON u.id = b.user_id WHERE b.status = 'approved' AND b.district = ?`, r.district) as { id: string; services: string; email: string }[];
-  return rows.filter((b) => (JSON.parse(b.services) as string[]).includes(r.service)).map((b) => ({ businessId: b.id, email: b.email }));
+  // A business with no coverage rows yet is matched on its setup district and services.
+  const rows = await db.all(`SELECT b.id AS id, u.email AS email FROM provider_business b
+       JOIN "user" u ON u.id = b.user_id
+       WHERE b.status = 'approved' AND (
+         EXISTS (SELECT 1 FROM provider_coverage c WHERE c.business_id = b.id AND c.status = 'active' AND c.district = ? AND c.service = ?)
+         OR (NOT EXISTS (SELECT 1 FROM provider_coverage c WHERE c.business_id = b.id) AND b.district = ? AND b.services LIKE ?))`,
+    r.district, r.service, r.district, `%"${r.service}"%`) as { id: string; email: string }[];
+  return rows.map((b) => ({ businessId: b.id, email: b.email }));
 }
 
 /**

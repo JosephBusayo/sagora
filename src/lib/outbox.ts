@@ -107,6 +107,22 @@ export async function notify(message: Message): Promise<void> {
   }));
 }
 
+/**
+ * Vercel's free plan runs the scheduled send only once a day, so ordinary page views also move
+ * the queue on: at most once a minute per server instance, and only when something is due.
+ */
+let lastNudge = 0;
+export function nudge(): void {
+  if (Date.now() - lastNudge < 60_000) return;
+  lastNudge = Date.now();
+  waitUntil((async () => {
+    const due = await db.get("SELECT id FROM notification_outbox WHERE status='pending' AND next_attempt_at <= ? LIMIT 1", new Date().toISOString());
+    if (due) await drain();
+  })().catch(() => {
+    // Saved messages wait for the next nudge, the schedule or the staff queue.
+  }));
+}
+
 /* ------------------------------------------------------------ staff queue */
 
 export type OutboxRow = {

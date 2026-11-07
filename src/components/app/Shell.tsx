@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { nudge } from "@/lib/outbox";
 import { Sidebar } from "./Sidebar";
 import { SearchBox } from "./SearchBox";
 import { TableLabels } from "./TableLabels";
@@ -39,6 +40,8 @@ function shortName(name: string): string {
 }
 
 export function Shell({ crumb, user, audience = "provider", unread = 0, admin = false, search, children }: Props) {
+  // Every signed-in page view helps the notification queue along (see lib/outbox.ts).
+  nudge();
   const base = `/${audience}`;
   return (
     <div className="app">

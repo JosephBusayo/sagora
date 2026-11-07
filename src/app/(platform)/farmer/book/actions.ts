@@ -5,7 +5,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { DISTRICTS, SERVICES, districtLabel, getApprovedBusiness } from "@/lib/business";
-import { coversWork, createRequest, providersCovering, serviceLabel, updateRequest } from "@/lib/requests";
+import { createRequest, providersCovering, serviceLabel, updateRequest } from "@/lib/requests";
+import { coverageOf, inAreas } from "@/lib/coverage";
 import { requireFarmer, type SessionUser } from "@/lib/session";
 import { guestRequestId, issueTrackingCode, rememberGuest, showCodeOnce } from "@/lib/guest";
 import { db } from "@/lib/db";
@@ -128,7 +129,7 @@ async function book(fd: FormData, who: Who): Promise<BookState> {
   // never quietly opened up to everyone else.
   const directTo = str(fd, "directTo");
   const chosen = directTo ? await getApprovedBusiness(directTo) : null;
-  if (directTo && (!chosen || !coversWork(chosen, parsed.data))) {
+  if (directTo && (!chosen || !inAreas((await coverageOf(chosen)).areas, parsed.data))) {
     const what = `${serviceLabel(parsed.data.service).toLowerCase()} in ${districtLabel(parsed.data.district)}`;
     return { step: 2, fieldErrors: { district: `${chosen?.name ?? "That provider"} does not offer ${what}.` }, values };
   }

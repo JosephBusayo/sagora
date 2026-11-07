@@ -3,6 +3,29 @@
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
 each one is a swap, not a rewrite. Updated 30 Oct 2026.
 
+## 7 Nov 2026: districts, payouts, guest payments, the outbox timer
+
+Built: several operating districts per provider, each with its own services (UC04). Setup's
+district and services become the first ones on approval. A district added later waits for Sagora
+to review it (UC03); removing one is immediate, but the last one cannot be removed. Staff review
+new districts on the Providers screen and in Follow-ups. Also built: the payout account in the
+design's steps (Bank account or Monime, then that account's form), a Payout details window, and
+the submitted window's rows. Guests get an invoice download and a Payments list for their
+request. The design's photo wording is now on Add equipment. Migration 020.
+
+Still needed from someone:
+- **The outbox timer** (Joseph). The 15-minute GitHub workflow (`.github/workflows/outbox.yml`)
+  needs two repository secrets: `SAGORA_URL` (https://www.sagora.sl) and `CRON_SECRET`, the
+  same value as `CRON_SECRET` in Vercel. Until then, the daily Vercel cron and the queue
+  draining itself while people use the site still cover it.
+- **Monime "Verify account" OTP** (Karim). The design sends a code to the Monime number before
+  saving it. That needs an SMS sender, which Sagora does not have. The account is saved without
+  that check, labelled "Save payout account".
+- **The bank list** (Karim): check the banks offered on the payout form.
+- **Payout details "Paid by" and "Fees"** (Karim): what they mean for a withdrawal. They are left
+  out until someone says.
+- **Several equipment photos**: the design says "photos"; one is stored per piece of equipment.
+
 ## 6 Nov 2026: Karim's use cases, the code-only parts
 
 Built: the "Speak to us on WhatsApp" button (landing, farmer sign-in and sign-up, Help, provider
@@ -21,8 +44,7 @@ Still needed from someone:
   Today they stay until the provider removes them while preparing the application.
 - **Hold length, deposit rule, partial-service refund rules, who pays Monime's fees** (Karim,
   UC09-UC13). Not built: they are policy, not code.
-- **Operating districts** (UC04) and a fresh review when coverage changes (UC03) were not in
-  this round.
+- ~~Operating districts (UC04) and a fresh review when coverage changes (UC03)~~: built 7 Nov.
 
 ## Where this is, 30 Oct 2026
 
@@ -147,15 +169,14 @@ Not waiting on anyone; just not written yet.
 
 - ~~MFA for staff~~ — **done.** A staff password now only reaches `/staff/verify`; an emailed 7-digit code opens the rest.
 - **Changing a sign-in email** — needs re-verification; no design exists.
-- **A scheduled drain for the notification outbox** — the queue retries when something triggers it, and staff can drain it by hand at `/staff/outbox`. Nothing runs it on a timer yet; that belongs with hosting.
+- ~~A scheduled drain for the notification outbox~~: **done.** A daily Vercel cron, a 15-minute GitHub workflow (needs its secrets, see 7 Nov), and pages draining a due item at most once a minute.
 - ~~SQL migration files~~ — **done.** The schema is `migrations/*.sql`, applied once each and checksummed. Nothing creates tables at runtime.
 - ~~The async conversion~~ — **done.** Every query is awaited and every transaction is a `db.tx(...)` callback, which is what a connection pool needs. The Postgres move is now one file: `lib/db.ts`.
 - **The Postgres move itself** — waiting only on the Neon account, which waits on Karim's email.
 
 ## Design gaps from the Figma audit (31 October 2026)
 
-- Equipment photos: the design shows them, but nothing stores images yet. Needs a storage choice.
-- Equipment: the design's detail dialog and three-step add flow are not built. The menu and single form still do the work.
-- Payouts: bank and Monime method picker, OTP step and fees need Monime (see Karim).
+- ~~Equipment photos~~ and ~~the detail dialog and three-step add~~: built (one photo each).
+- Payouts: ~~bank and Monime method picker~~ built; the OTP step and fees still need answers (see 7 Nov).
 - Provider Payments: columns and filters differ from the design until real transaction records exist.
 - Not in the design at all: staff screens, mobile layouts, Help, Reports.

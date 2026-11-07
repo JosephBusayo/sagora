@@ -123,3 +123,42 @@ export async function confirmEmailChangeAction(_prev: FormState, fd: FormData): 
   const { user } = await requireWorkspace();
   return confirmEmailChange(user, fd, "/provider/settings/account", "/provider/settings/email");
 }
+
+/* --------------------------------------------------------- where you work */
+
+/** UC04: ask to take requests in another district, or for more services in one. Sagora reviews it first (UC03). */
+export async function addAreaAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  const { askForAreas } = await import("@/lib/coverage");
+  const { flash } = await import("@/lib/flash");
+  if (permission !== "full_access") {
+    await flash("You do not have permission to change where the business works.", "error");
+    redirect("/provider/settings/business#areas");
+  }
+  const district = str(fd, "district");
+  const services = fd.getAll("services").filter((s): s is string => typeof s === "string");
+  if (!district || !services.length) {
+    await flash("Choose a district and at least one service.", "error");
+    redirect("/provider/settings/business#areas");
+  }
+  const added = await askForAreas(business, user.id, district, services);
+  await flash(added ? "Sent to Sagora for review. Requests from there start once it is approved." : "You already work there, or have asked to.", added ? "success" : "error");
+  revalidatePath("/provider/settings/business");
+  redirect("/provider/settings/business#areas");
+}
+
+/** Stops requests for one district and service at once. Quotes and jobs already made are untouched. */
+export async function dropAreaAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  const { dropArea } = await import("@/lib/coverage");
+  const { flash } = await import("@/lib/flash");
+  if (permission !== "full_access") {
+    await flash("You do not have permission to change where the business works.", "error");
+    redirect("/provider/settings/business#areas");
+  }
+  const result = await dropArea(business, user.id, str(fd, "district"), str(fd, "service"));
+  await flash(result === "last" ? "Keep at least one district and service, or no requests can reach you." : result === "dropped" ? "Removed." : "That was already removed.",
+    result === "dropped" ? "success" : "error");
+  revalidatePath("/provider/settings/business");
+  redirect("/provider/settings/business#areas");
+}

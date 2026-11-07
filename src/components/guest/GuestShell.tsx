@@ -1,9 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { WhatsAppButton } from "@/components/contact/WhatsAppButton";
+import { nudge } from "@/lib/outbox";
 
 /** The frame for pages a farmer uses without an account: the logo home, the page, and WhatsApp. */
 export function GuestShell({ children }: { children: React.ReactNode }) {
+  nudge();
   return (
     <div className="guest">
       <header className="guest__bar">

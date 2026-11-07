@@ -89,6 +89,7 @@ test.beforeAll(async ({ browser }) => {
   await page.getByLabel("Town or village").fill("Makeni");
   await completeApplication(page);
   await page.getByRole("button", { name: "Submit for review" }).click();
+  await expect(page.getByText("Waiting for Sagora to review your business")).toBeVisible();
   const u = await testGet(`SELECT id FROM "user" WHERE email=?`, P.email) as { id: string };
   const now = new Date().toISOString();
   await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);
@@ -261,6 +262,7 @@ test("one provider cannot see or touch another provider's machines", async ({ br
   await o.page.getByLabel("Town or village").fill("Koidu");
   await completeApplication(o.page);
   await o.page.getByRole("button", { name: "Submit for review" }).click();
+  await expect(o.page.getByText("Waiting for Sagora to review your business")).toBeVisible();
   const u = await testGet(`SELECT id FROM "user" WHERE email=?`, other.email) as { id: string };
   const now = new Date().toISOString();
   await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);

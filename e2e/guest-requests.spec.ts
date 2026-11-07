@@ -93,6 +93,7 @@ test.beforeAll(async ({ browser }) => {
   await p.page.getByLabel("Town or village").fill("Bo town");
   await completeApplication(p.page);
   await p.page.getByRole("button", { name: "Submit for review" }).click();
+  await expect(p.page.getByText("Waiting for Sagora to review your business")).toBeVisible();
   const u = await testGet(`SELECT id FROM "user" WHERE email=?`, PROVIDER.email) as { id: string };
   const now = new Date().toISOString();
   await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);
@@ -208,6 +209,14 @@ test("the farmer sees a provider's quote with their code and accepts it", async 
   await expect(g.page.getByText("You accepted this quote. The price and terms are now fixed.", { exact: false })).toBeVisible();
   const agreed = await testGet("SELECT a.accepted_by FROM agreement a JOIN service_request r ON r.id=a.request_id WHERE r.reference=?", reference) as { accepted_by: string };
   expect(agreed.accepted_by).toMatch(/^guest:/);
+
+  // Their money on this request, as farmers with an account see theirs.
+  await g.page.getByRole("link", { name: "See all your payments" }).click();
+  await g.page.waitForURL(/\/request\/track\/payments/);
+  await expect(g.page.getByText(/Agreed Le\s?4,500\.00 · Paid so far Le\s?0\.00 · Still to pay Le\s?4,500\.00/)).toBeVisible();
+  // No invoice before the job is paid and booked, and none for a browser without the code.
+  expect((await g.page.request.get("/request/track/invoice")).status()).toBe(404);
+  expect((await browser.newContext().then((c) => c.request.get(`${new URL(g.page.url()).origin}/request/track/invoice`))).status()).toBe(404);
   await g.ctx.close();
 });
 

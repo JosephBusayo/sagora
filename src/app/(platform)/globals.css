@@ -1343,6 +1343,20 @@ a.overview__card:hover { background: var(--color-hover); border-color: var(--col
    Equipment windows: details, the three-step Add equipment, Edit details, delete.
 --------------------------------------------------------------------------- */
 .modal--asset { max-width: 614px; }
+/* Payout account: the design's Bank account / Monime cards, each a radio with a tick on the right. */
+.method-pick { display: grid; gap: 13px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.method-pick__card { position: relative; display: flex; align-items: center; gap: 12px; min-height: 100px; padding: 25px 22px;
+  border: 1px solid var(--color-hairline); border-radius: 16px; cursor: pointer; }
+.method-pick__card:has(input:checked) { border-color: var(--color-brand); }
+.method-pick__icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: #f5f5f5; color: #373737; }
+.method-pick__text { flex: 1; min-width: 0; display: grid; gap: 8px; }
+.method-pick__title { font: 500 16px/18px var(--font-sans); color: #191919; }
+.method-pick__body { font: 400 13px/21px var(--font-sans); color: #808080; }
+.method-pick__card input { position: absolute; right: 22px; width: 24px; height: 24px; margin: 0; opacity: 0; cursor: pointer; }
+.method-pick__card input:checked + .chip__icon { background-image: url(/icons/check-on.svg); }
+.method-pick__card input:focus-visible + .chip__icon { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+.payout-setup .form-actions { margin-top: 32px; }
+.payout-setup .form-actions .button { flex: 1; }
 .modal__head--center { margin-bottom: 28px; }
 .form-step { display: flex; flex-direction: column; gap: 22px; }
 .form-step[hidden] { display: none; }
@@ -1418,6 +1432,7 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .asset__photo:has(.asset__picture) { overflow: hidden; }
 .asset__picture { width: 100%; height: 100%; object-fit: cover; }
 .photo-pick__box { position: relative; display: grid; place-items: center; align-content: center; gap: 8px; height: 160px; border-radius: 14px; background: #eff2e0; color: var(--color-brand); cursor: pointer; overflow: hidden; font: 500 14px/20px var(--font-sans); }
+.photo-pick__helper { position: relative; max-width: 217px; text-align: center; }
 .photo-pick__box:focus-within { outline: 2px solid var(--color-brand); outline-offset: 2px; }
 .photo-pick__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .photo-pick__text { position: relative; padding: 4px 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.9); }
@@ -1521,3 +1536,17 @@ button.chip:hover:not(:disabled) { background: #ececec; }
   .tracking-code { padding: 18px 14px; }
   .tracking-code__value { font-size: 30px; }
 }
+
+/* UC04: where a provider works, and staff checking a change to it. */
+.work-areas__list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
+.work-areas__district { display: grid; gap: 6px; }
+.work-areas__services { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.work-areas__service { display: inline-flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border: 1px solid var(--color-hairline); border-radius: 999px; background: var(--color-surface); }
+.work-areas__service form { display: inline; }
+.work-areas__drop { min-height: 32px; padding: 0 10px; border: 0; border-radius: 999px; background: transparent; color: var(--color-error); font: inherit; font-size: 14px; cursor: pointer; }
+.work-areas__drop:hover { background: var(--color-error-bg); }
+.work-areas__add { margin-top: 20px; max-width: 520px; }
+.coverage-change { align-items: center; }
+.coverage-change__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.guest__title { margin: 0 0 8px; font-size: 24px; font-weight: 600; }

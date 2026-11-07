@@ -177,6 +177,7 @@ test.beforeAll(async ({ browser }) => {
   await p.page.getByLabel("Town or village").fill("Makeni");
   await completeApplication(p.page);
   await p.page.getByRole("button", { name: "Submit for review" }).click();
+  await expect(p.page.getByText("Waiting for Sagora to review your business")).toBeVisible();
   const u = await testGet(`SELECT id FROM "user" WHERE email=?`, PROV.email) as { id: string };
   const now = new Date().toISOString();
   await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);
@@ -427,11 +428,19 @@ test("changing where money goes withdraws an approval that has not been sent", a
   // The provider now changes their payout number.
   const p = await fresh(browser);
   await signIn(p.page, PROV, "provider");
-  await p.page.goto("/provider/payments?payout=1");
-  await p.page.getByLabel("Name on the account").fill("Sesay Tractors Ltd");
-  await p.page.getByLabel("Mobile money number").fill("76 111 222");
-  await p.page.getByRole("button", { name: "Save where money goes" }).click();
+  await p.page.goto("/provider/payments?payout=change");
+  await p.page.getByText("Monime", { exact: true }).click();
+  await p.page.getByRole("button", { name: "Continue" }).click();
+  await p.page.getByLabel("Monime phone number").fill("76 111 222");
+  await p.page.getByLabel("Account name").fill("Sesay Tractors Ltd");
+  await p.page.getByRole("button", { name: "Save payout account" }).click();
   await expect(p.page.getByText("gone back for approval").first()).toBeVisible();
+  // Payout details now shows that account, the way the design names it.
+  await p.page.goto("/provider/payments?payout=1");
+  const details = p.page.getByRole("dialog", { name: "Payout details" });
+  await expect(details.getByText("Monime", { exact: true })).toBeVisible();
+  await expect(details.getByText("+232 76 111 222")).toBeVisible();
+  await expect(details.getByRole("link", { name: "Change payout account" })).toHaveAttribute("href", "/provider/payments?payout=change");
   await p.ctx.close();
 
   await boss.page.goto("/staff/payments?tab=releases");

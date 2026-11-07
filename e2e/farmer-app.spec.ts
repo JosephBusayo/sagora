@@ -84,6 +84,7 @@ test.beforeAll(async ({ browser }) => {
   await p.page.getByLabel("Town or village").fill("Kenema Town");
   await completeApplication(p.page);
   await p.page.getByRole("button", { name: "Submit for review" }).click();
+  await expect(p.page.getByText("Waiting for Sagora to review your business")).toBeVisible();
   const u = await testGet(`SELECT id FROM "user" WHERE email=?`, PROV.email) as { id: string };
   const now = new Date().toISOString();
   await testRun("UPDATE provider_business SET status='approved', reviewed_at=?, updated_at=? WHERE user_id=?", now, now, u.id);
