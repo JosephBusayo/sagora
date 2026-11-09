@@ -3,7 +3,7 @@
 import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireStaff } from "@/lib/session";
+import { requireFinance } from "@/lib/session";
 import { parseAmount } from "@/lib/money";
 import { notify } from "@/lib/outbox";
 import { recordPayment, resolveCase } from "@/lib/payments";
@@ -22,7 +22,7 @@ async function back(tab: string, message: string, kind: "ok" | "err" = "ok") {
 }
 
 export async function recordPaymentAction(fd: FormData) {
-  const staff = await requireStaff();
+  const staff = await requireFinance();
   const requestId = str(fd, "requestId");
   const minor = parseAmount(str(fd, "amount"));
   if (minor === null) await back("collect", "Enter an amount like 1,500.00", "err");
@@ -43,14 +43,14 @@ export async function recordPaymentAction(fd: FormData) {
 }
 
 export async function preparePayoutAction(fd: FormData) {
-  const staff = await requireStaff();
+  const staff = await requireFinance();
   const r = await preparePayout(staff.id, str(fd, "requestId"));
   revalidatePath("/staff/payments");
   await back("releases", r.ok ? "Payout prepared. A second person must approve it." : r.reason, r.ok ? "ok" : "err");
 }
 
 export async function prepareRefundAction(fd: FormData) {
-  const staff = await requireStaff();
+  const staff = await requireFinance();
   const minor = parseAmount(str(fd, "amount"));
   if (minor === null) await back("cases", "Enter an amount like 1,500.00", "err");
   const r = await prepareRefund(staff.id, str(fd, "requestId"), minor as number, str(fd, "reason"));
@@ -59,14 +59,14 @@ export async function prepareRefundAction(fd: FormData) {
 }
 
 export async function approveReleaseAction(fd: FormData) {
-  const staff = await requireStaff();
+  const staff = await requireFinance();
   const r = await approveRelease(staff.id, str(fd, "id"));
   revalidatePath("/staff/payments");
   await back("releases", r.ok ? "Approved. It can now be sent." : r.reason, r.ok ? "ok" : "err");
 }
 
 export async function reviseReleaseAction(fd: FormData) {
-  const staff = await requireStaff();
+  const staff = await requireFinance();
   const minor = parseAmount(str(fd, "amount"));
   if (minor === null) await back("releases", "Enter an amount like 1,500.00", "err");
   const r = await reviseAmount(staff.id, str(fd, "id"), minor as number);
@@ -75,7 +75,7 @@ export async function reviseReleaseAction(fd: FormData) {
 }
 
 export async function markSentAction(fd: FormData) {
-  const staff = await requireStaff();
+  const staff = await requireFinance();
   const id = str(fd, "id");
   const release = await getRelease(id);
   const r = await markSent(staff.id, id, str(fd, "method"), str(fd, "reference"));
@@ -101,28 +101,28 @@ export async function markSentAction(fd: FormData) {
 }
 
 export async function voidReleaseAction(fd: FormData) {
-  const staff = await requireStaff();
+  const staff = await requireFinance();
   const r = await voidRelease(staff.id, str(fd, "id"), str(fd, "reason") || "Cancelled by staff");
   revalidatePath("/staff/payments");
   await back("releases", r.ok ? "Cancelled." : r.reason, r.ok ? "ok" : "err");
 }
 
 export async function resolveCaseAction(fd: FormData) {
-  await requireStaff();
+  await requireFinance();
   const done = await resolveCase(str(fd, "id"), str(fd, "resolution") || "Resolved by staff");
   revalidatePath("/staff/payments");
   await back("cases", done ? "Case closed." : "That case was already closed.", done ? "ok" : "err");
 }
 
 export async function closePayoutRequestAction(fd: FormData) {
-  const staff = await requireStaff();
+  const staff = await requireFinance();
   await closePayoutRequest(staff.id, String(fd.get("id") ?? ""));
   await flash("Request closed.");
   revalidatePath("/staff/payments");
 }
 
 export async function resolveDisputeAction(fd: FormData) {
-  const staff = await requireStaff();
+  const staff = await requireFinance();
   const requestId = str(fd, "requestId");
   const outcome = str(fd, "outcome") === "refund" ? "refund" : "release";
   const note = str(fd, "note");

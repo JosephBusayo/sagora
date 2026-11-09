@@ -49,6 +49,10 @@ export const auth = betterAuth({
       businessName: { type: "string", required: false, input: true },
       // Never settable from the client. Farmer accounts will be added in a later stage.
       role: { type: "string", required: false, defaultValue: "provider", input: false },
+      // Staff only. Gates the finance desk — preparing and approving payouts and refunds. Defaults
+      // to true so every existing staff account keeps working the day this ships; an admin narrows
+      // it per person once Sagora names who actually sits at the finance desk (WAITING-ON #9).
+      financeAccess: { type: "boolean", required: false, defaultValue: true, input: false },
     },
   },
 

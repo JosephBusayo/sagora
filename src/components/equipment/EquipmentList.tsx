@@ -8,7 +8,9 @@ import { useRef, useState } from "react";
 import { Icon } from "@/components/app/Icon";
 import { AssetModal } from "./AssetModal";
 import { FaultModal } from "./FaultModal";
-import { restoreAssetAction, retireAssetAction, resolveFaultAction, setAvailabilityAction, setPhotoAction } from "@/app/(platform)/provider/(app)/equipment/actions";
+import {
+  addGalleryPhotoAction, removeGalleryPhotoAction, restoreAssetAction, retireAssetAction, resolveFaultAction, setAvailabilityAction, setPhotoAction,
+} from "@/app/(platform)/provider/(app)/equipment/actions";
 import { PhotoPicker } from "./PhotoPicker";
 
 export type FaultView = { id: string; severity: "blocking" | "minor"; description: string; reportedAt: string };
@@ -19,6 +21,9 @@ export type AssetView = {
   availability: string; unavailable: string | null; faults: FaultView[];
   /** Where its photo is served from, or null with no photo yet. */
   photo: string | null;
+  /** Further photos, beyond the one cover photo. WAITING-ON (7 Nov): "several equipment photos". */
+  gallery: { id: string; src: string }[];
+  galleryFull: boolean;
 };
 type Option = { id: string; label: string };
 
@@ -61,6 +66,30 @@ function DetailsModal({ a, canEdit, availability, onClose, onEdit, onFault, onDe
             <PhotoPicker name="photo" label="Photo" current={a.photo} onPicked={(f) => f?.requestSubmit()} />
           </form>
         ) : <Photo size="large" src={a.photo} />}
+
+        {a.gallery.length > 0 || (canEdit && a.status === "active" && !a.galleryFull) ? (
+          <div className="asset__gallery">
+            {a.gallery.map((p) => (
+              <span key={p.id} className="asset__gallery-item">
+                <img src={p.src} alt="" className="asset__picture" />
+                {canEdit && a.status === "active" ? (
+                  <form action={removeGalleryPhotoAction}>
+                    <input type="hidden" name="id" value={a.id} />
+                    <input type="hidden" name="photoId" value={p.id} />
+                    <PendingButton className="asset__gallery-remove" aria-label="Remove photo"><Icon name="trash" size={14} /></PendingButton>
+                  </form>
+                ) : null}
+              </span>
+            ))}
+            {canEdit && a.status === "active" && !a.galleryFull ? (
+              <form key={a.gallery.length} action={addGalleryPhotoAction} className="asset__gallery-add" data-saves-itself>
+                <input type="hidden" name="id" value={a.id} />
+                <PhotoPicker name="photo" label="" emptyText="Add another photo" onPicked={(f) => f?.requestSubmit()} />
+              </form>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="asset__title asset__title--detail">
           <h3>{a.name}</h3>
           <Kind a={a} />

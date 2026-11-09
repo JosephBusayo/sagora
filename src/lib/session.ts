@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "./auth";
 import { isVerified } from "./mfa";
 
-export type SessionUser = { id: string; name: string; email: string; emailVerified: boolean; role?: string | null; phone?: string | null; businessName?: string | null };
+export type SessionUser = { id: string; name: string; email: string; emailVerified: boolean; role?: string | null; phone?: string | null; businessName?: string | null; financeAccess?: boolean | null };
 
 /** Verified provider, or redirect to sign-in. Every provider page and action starts here. */
 export async function requireProvider(): Promise<SessionUser> {
@@ -52,6 +52,18 @@ export async function requireStaff(): Promise<SessionUser> {
 export async function requireAdmin(): Promise<SessionUser> {
   const u = await requireStaff();
   if (u.role !== "admin") redirect("/staff/providers");
+  return u;
+}
+
+/**
+ * The finance desk: staff who may collect payments, prepare and approve payouts and refunds, and
+ * resolve disputes. An admin always has it. Everyone else defaults to it too, until an admin
+ * narrows it on the Staff screen — WAITING-ON asks "who sits at the finance desk, and who may
+ * approve"; this is where that answer takes effect, person by person, with no code change.
+ */
+export async function requireFinance(): Promise<SessionUser> {
+  const u = await requireStaff();
+  if (u.role !== "admin" && u.financeAccess === false) redirect("/staff/providers");
   return u;
 }
 

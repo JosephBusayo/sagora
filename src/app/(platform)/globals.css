@@ -1442,6 +1442,15 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .asset__photo-form .field__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 @media (max-width: 640px) { .asset__photo-form .photo-pick__box { height: 200px; } }
 
+/* Further equipment photos (WAITING-ON, 7 Nov): a strip below the cover photo. No Figma frame. */
+.asset__gallery { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 26px; }
+.asset__gallery-item { position: relative; width: 72px; height: 72px; border-radius: 12px; overflow: hidden; background: #eff2e0; }
+.asset__gallery-item .asset__picture { width: 100%; height: 100%; }
+.asset__gallery-remove { position: absolute; top: 3px; right: 3px; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.55); color: #fff; }
+.asset__gallery-add { width: 72px; }
+.asset__gallery-add .photo-pick__box { height: 72px; width: 72px; border-radius: 12px; padding: 0; font-size: 0; }
+.asset__gallery-add .field__label { display: none; }
+
 /* Check before sending: what was entered, read back before it goes. */
 .check-first { width: min(520px, calc(100vw / var(--zoom) - 32px)); }
 .check-first .confirm__body { margin-bottom: 8px; }

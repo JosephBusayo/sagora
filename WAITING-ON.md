@@ -1,7 +1,53 @@
 # Waiting on
 
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
-each one is a swap, not a rewrite. Updated 30 Oct 2026.
+each one is a swap, not a rewrite. Updated 9 Nov 2026.
+
+## 9 Nov 2026: everything codeable without Karim, the designer or a key, done
+
+A sweep for anything left that was pure coding — buildable now, even if inert until a key is set
+or a decision arrives — so nothing below needs a future coding session, only information,
+a decision, or an environment variable.
+
+**Built:**
+- **Finance desk roles.** Staff carry a `financeAccess` flag (default on, so nothing changes
+  today); an admin grants or removes it per person on the Staff screen, and `/staff/payments` —
+  collecting money, preparing and approving payouts and refunds, resolving disputes — now checks
+  it, page and actions both. Resolves "who sits at the finance desk" below: the mechanism exists,
+  Sagora just has to decide whose box to tick.
+- **Monime "Verify account" OTP.** `lib/sms.ts` is a seam for outgoing SMS, in the shape of
+  `lib/email.ts`. `lib/monime-verify.ts` sends a 6-digit code to the Monime number and checks it
+  before `setDestination` saves it, wired into the existing "Add Monime account" form. Inert —
+  skipped exactly as before — until `SMS_PROVIDER_URL` and `SMS_PROVIDER_API_KEY` are set. Also
+  answers "what does the provider-side Payments — OTP screen protect?": a provider-side OTP
+  before a sensitive money action, which the brief already asks for (§4 Auth), is now built; the
+  Figma screen's exact wording is no longer blocking anything.
+- **Several equipment photos.** A gallery alongside the one cover photo, additive — nothing that
+  reads `equipment_photo` changed. Add up to 5 more, remove any of them, from the equipment
+  detail window. Migration 022.
+- **A hold-days threshold.** The brief's open question "hold / quote / payment expiry rules"
+  (§6.3/§10.4) had no answer in code. "Payment exceptions" on the Follow-ups screen now flags a
+  held payment as overdue after a configurable number of days (default 2, the same as the other
+  thresholds there), editable on that same screen — no code change needed when the number changes.
+- **Document retention.** `DOCUMENT_RETENTION_DAYS` is read by a daily purge (added to the
+  existing outbox cron). Unset, nothing is deleted — exactly today's behaviour. The day Karim
+  gives a number, setting that one variable turns the purge on.
+- **Three small corrections, as asked:** the hand-drawn Sagora logo stays — settled, not raised
+  again. The bank list stays as built; Joseph will say if it needs to change. The provider-side
+  "Payments — OTP" question is removed below — see the Monime OTP item above.
+
+**Deliberately not built — these need a real decision or a real number, not code:**
+- **Deposit rule** (booking on partial payment, not full payment). Building this means changing
+  the one core booking decision in `lib/payments.ts` — accepted terms + funds + free resources —
+  that every money test in the brief is written against. Guessing the mechanics (what happens to
+  the balance still owed, on what deadline, what if it is never paid) risks shipping a booking
+  rule nobody actually asked for. Needs Karim's explicit answer first; it is then a small, careful
+  change, not a rewrite.
+- **Who pays Monime's own transaction fee.** This is not only a decision — nobody at Sagora knows
+  Monime's fee amount or structure yet. There is nothing to compute until that number exists.
+- **Partial-service refund amount.** Already fully supported: `prepareRefund` takes any amount up
+  to what is held, so staff can already refund part of a job. What is missing is written guidance
+  for staff on how much to refund in which case — Karim's policy content, not a code gap.
 
 ## 7 Nov 2026: districts, payouts, guest payments, the outbox timer
 
@@ -18,13 +64,10 @@ Still needed from someone:
   needs two repository secrets: `SAGORA_URL` (https://www.sagora.sl) and `CRON_SECRET`, the
   same value as `CRON_SECRET` in Vercel. Until then, the daily Vercel cron and the queue
   draining itself while people use the site still cover it.
-- **Monime "Verify account" OTP** (Karim). The design sends a code to the Monime number before
-  saving it. That needs an SMS sender, which Sagora does not have. The account is saved without
-  that check, labelled "Save payout account".
-- **The bank list** (Karim): check the banks offered on the payout form.
 - **Payout details "Paid by" and "Fees"** (Karim): what they mean for a withdrawal. They are left
   out until someone says.
-- **Several equipment photos**: the design says "photos"; one is stored per piece of equipment.
+- ~~Monime "Verify account" OTP~~, ~~the bank list~~, ~~several equipment photos~~: built 9 Nov —
+  see that entry above.
 
 ## 6 Nov 2026: Karim's use cases, the code-only parts
 
@@ -40,11 +83,12 @@ Migrations 013-018.
 Still needed from someone:
 - **Sagora's WhatsApp number** (Karim). Set `SAGORA_WHATSAPP` in Vercel, e.g. `+232 …`. The
   button stays hidden until then.
-- **Document retention policy** (Karim, UC02): how long ID and registration files are kept.
-  Today they stay until the provider removes them while preparing the application.
-- **Hold length, deposit rule, partial-service refund rules, who pays Monime's fees** (Karim,
-  UC09-UC13). Not built: they are policy, not code.
+- **Document retention policy** (Karim, UC02): how many days. The purge that reads the number
+  exists now (9 Nov) and does nothing until it is set — still today's exact behaviour.
+- **Deposit rule, who pays Monime's fees** (Karim, UC09/UC13). See 9 Nov above for why these
+  specifically still need a real answer before they can be coded.
 - ~~Operating districts (UC04) and a fresh review when coverage changes (UC03)~~: built 7 Nov.
+  ~~Hold length~~, ~~partial-service refund rules~~: answered in code 9 Nov — see that entry.
 
 ## Where this is, 30 Oct 2026
 
@@ -119,7 +163,6 @@ the Monday deadline, to be transferred afterwards.
 
 | # | What | Where it bites | Stand-in in use |
 |---|---|---|---|
-| 1 | **Sagora logo, as SVG** | Sidebar, all auth screens | Hand-drawn asterisk — the only hand-drawn graphic left |
 | 2 | **Icon corner radius** (1, 2 or 3) | Every icon | Radius 2. Round/filled/stroke-2 are confirmed by measurement; the radius cannot be read from a 22px export |
 | 3 | **Auth photos** for the farmer frames (`59-2686`) | Farmer sign-up, sign-in, verify, reset | Provider photos, cropped from the one export |
 | 4 | **Real asset exports** for the provider auth photos | Provider auth screens | Crops of `sign_in.jpg` |
@@ -152,9 +195,8 @@ the real tokens, assets and frames be pulled directly instead of measured off a 
 | 6 | **Stack confirmation** | Section 10 decisions are still unconfirmed. Nothing is blocked, but he should know what is being built |
 | 7 | **Who approves providers, and against what evidence** | The approval screen works; the policy behind it is undefined |
 | 8 | **The signed fee and refund policy sheet** | The 10% pilot fee (waived for the first 20 jobs), the 5-working-day refund deadline, the 90-day write-off, advance rules. All built; the fee is set to **0%** until this is signed |
-| 9 | **Who sits at the finance desk, and who may approve** | Money out needs two different people. Right now any staff account can prepare and any other can approve — there are no finance roles yet |
+| 9 | ~~Who sits at the finance desk, and who may approve~~ | **Built 9 Nov**: an admin grants or removes finance-desk access per staff member on the Staff screen. Money out still always needs two different people; Sagora now also decides who is eligible at all |
 | 10 | **A bank or mobile money account to send payouts from** | Payouts are recorded against a transfer reference. Someone has to actually make the transfers |
-| 11 | **What the provider-side "Payments — OTP" screen protects** | It is in the design (`15-10667`) with no explanation. Best guess: changing where payouts are sent. Staff MFA is built; this one is not, because nobody has said what it is for |
 
 ## From Joseph
 
@@ -168,7 +210,8 @@ the real tokens, assets and frames be pulled directly instead of measured off a 
 Not waiting on anyone; just not written yet.
 
 - ~~MFA for staff~~ — **done.** A staff password now only reaches `/staff/verify`; an emailed 7-digit code opens the rest.
-- **Changing a sign-in email** — needs re-verification; no design exists.
+- ~~Changing a sign-in email~~ — **done**, 6 Nov. Settings > Account sends a code to the new address first.
+- ~~Finance desk roles~~ — **done**, 9 Nov. See that entry above.
 - ~~A scheduled drain for the notification outbox~~: **done.** A daily Vercel cron, a 15-minute GitHub workflow (needs its secrets, see 7 Nov), and pages draining a due item at most once a minute.
 - ~~SQL migration files~~ — **done.** The schema is `migrations/*.sql`, applied once each and checksummed. Nothing creates tables at runtime.
 - ~~The async conversion~~ — **done.** Every query is awaited and every transaction is a `db.tx(...)` callback, which is what a connection pool needs. The Postgres move is now one file: `lib/db.ts`.
@@ -179,4 +222,4 @@ Not waiting on anyone; just not written yet.
 - ~~Equipment photos~~ and ~~the detail dialog and three-step add~~: built (one photo each).
 - Payouts: ~~bank and Monime method picker~~ built; the OTP step and fees still need answers (see 7 Nov).
 - Provider Payments: columns and filters differ from the design until real transaction records exist.
-- Not in the design at all: staff screens, mobile layouts, Help, Reports.
+- Not in the design at all: staff screens, mobile layouts, Help. (Reports has no frame either, but was built anyway, 6 Nov — see "What is left" further up.)

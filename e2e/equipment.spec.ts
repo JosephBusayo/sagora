@@ -134,7 +134,8 @@ test("a photo can be added, shows on the card, and is private to the business", 
   const details = await openCard(page, "Massey Ferguson 375");
   // Any real picture will do: a small screenshot is one. The browser shrinks it to a JPEG before it is sent.
   const png = await page.screenshot({ clip: { x: 0, y: 0, width: 40, height: 30 } });
-  await details.locator("input[type=file]").setInputFiles({ name: "tractor.png", mimeType: "image/png", buffer: png });
+  // The dialog now has a second file input too, for the photo gallery further down — scope to the cover photo.
+  await details.locator(".asset__photo-form input[type=file]").setInputFiles({ name: "tractor.png", mimeType: "image/png", buffer: png });
   await expect(card(page, "Massey Ferguson 375").locator("img.asset__picture")).toHaveAttribute("src", /\/provider\/equipment\/photo\//);
   // The photo is already saved, so closing does not ask about losing changes.
   await page.keyboard.press("Escape");

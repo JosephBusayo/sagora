@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/session";
 import { listStaff, openInvites } from "@/lib/staff";
 import { InviteStaffForm } from "@/components/staff/InviteStaffForm";
-import { cancelInviteAction, removeStaffAction } from "../team-actions";
+import { cancelInviteAction, removeStaffAction, setFinanceAccessAction } from "../team-actions";
 
 export const metadata: Metadata = { title: "Staff" };
 export const dynamic = "force-dynamic";
@@ -28,7 +28,17 @@ export default async function Page() {
           <ul className="asset__faults">
             {staff.map((s) => (
               <li key={s.id}>
-                <span className="asset__fault-text">{s.name} · {s.email} · {s.role === "admin" ? "Admin" : "Staff"}</span>
+                <span className="asset__fault-text">
+                  {s.name} · {s.email} · {s.role === "admin" ? "Admin" : "Staff"}
+                  {" · "}{s.role === "admin" || s.financeAccess ? "Finance desk" : "No finance access"}
+                </span>
+                {s.role === "admin" ? null : (
+                  <form action={setFinanceAccessAction}>
+                    <input type="hidden" name="id" value={s.id} />
+                    <input type="hidden" name="allowed" value={s.financeAccess ? "false" : "true"} />
+                    <PendingButton className="resend__button">{s.financeAccess ? "Take away finance access" : "Give finance access"}</PendingButton>
+                  </form>
+                )}
                 {s.id === admin.id ? null : (
                   <form action={removeStaffAction}>
                     <input type="hidden" name="id" value={s.id} />

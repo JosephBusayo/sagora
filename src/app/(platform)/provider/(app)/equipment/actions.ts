@@ -3,7 +3,10 @@
 import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/guard";
-import { AVAILABILITY, KINDS, addAsset, parsePhoto, reportFault, setPhoto, resolveFault, restoreAsset, retireAsset, setAvailability, updateAsset, type Availability } from "@/lib/equipment";
+import {
+  AVAILABILITY, KINDS, MAX_GALLERY_PHOTOS, addAsset, addGalleryPhoto, parsePhoto, reportFault, removeGalleryPhoto, setPhoto,
+  resolveFault, restoreAsset, retireAsset, setAvailability, updateAsset, type Availability,
+} from "@/lib/equipment";
 import { SERVICES } from "@/lib/business";
 import type { FormState } from "@/lib/auth-flows";
 
@@ -91,6 +94,27 @@ export async function setPhotoAction(fd: FormData) {
     return;
   }
   await setPhoto(business.id, user.id, str(fd, "id"), photo);
+  revalidatePath("/provider/equipment");
+}
+
+/** WAITING-ON (7 Nov): "several equipment photos". Extra photos for the detail window's gallery. */
+export async function addGalleryPhotoAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return;
+  const photo = parsePhoto(str(fd, "photo"));
+  if (!photo) {
+    await flash("That photo could not be used. Choose a JPEG or PNG photo.");
+    return;
+  }
+  const added = await addGalleryPhoto(business.id, user.id, str(fd, "id"), photo);
+  if (!added) await flash(`You can add up to ${MAX_GALLERY_PHOTOS} photos.`);
+  revalidatePath("/provider/equipment");
+}
+
+export async function removeGalleryPhotoAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return;
+  await removeGalleryPhoto(business.id, user.id, str(fd, "id"), str(fd, "photoId"));
   revalidatePath("/provider/equipment");
 }
 

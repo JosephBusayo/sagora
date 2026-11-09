@@ -81,6 +81,25 @@ export async function removeDocument(userId: string, id: string): Promise<boolea
   return res.changes > 0;
 }
 
+/**
+ * WAITING-ON (6 Nov): "document retention policy — how long ID and registration files are kept.
+ * Today they stay until the provider removes them while preparing the application." That is
+ * still exactly true once this exists: `DOCUMENT_RETENTION_DAYS` is unset by default, so nothing
+ * is ever auto-purged, which matches today's behaviour. The day Karim gives a number, setting this
+ * one variable turns on the purge — no code change.
+ *
+ * Called from the same cron the notification outbox already uses (api/cron/outbox), so it needs
+ * no schedule of its own.
+ */
+export async function purgeExpiredDocuments(): Promise<number> {
+  const days = Number(process.env.DOCUMENT_RETENTION_DAYS ?? "");
+  if (!Number.isFinite(days) || days <= 0) return 0;
+  const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+  const res = await db.run("DELETE FROM business_document WHERE uploaded_at < ?", cutoff);
+  if (res.changes) await audit("system", "business.documents_purged", "retention", String(res.changes));
+  return res.changes;
+}
+
 /** What is still missing before an application can go to review. */
 export function missingDocuments(businessType: string, docs: Pick<BusinessDocument, "kind">[]): string[] {
   const out: string[] = [];

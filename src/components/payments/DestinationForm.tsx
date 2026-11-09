@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Field } from "@/components/auth/Field";
 import { SoftForm } from "@/components/app/SoftForm";
 import { Icon } from "@/components/app/Icon";
+import { OtpInput } from "@/components/auth/OtpInput";
 import { useFormStatus } from "react-dom";
 import { saveDestination } from "@/app/(platform)/provider/(app)/payments/actions";
 
@@ -22,11 +23,11 @@ const METHODS = [
   { id: "mobile_money", label: "Monime", body: "Receive payouts to your Monime account", icon: "payments" as const },
 ];
 
-function Save() {
+function Save({ label = "Save payout account" }: { label?: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className="button" disabled={pending} aria-busy={pending} formNoValidate>
-      {pending ? "Saving…" : "Save payout account"}
+      {pending ? "Saving…" : label}
     </button>
   );
 }
@@ -83,6 +84,22 @@ export function DestinationForm({ initial, cancelHref, changing }: { initial: De
         {(s) => {
           const e = s.fieldErrors ?? {};
           const v = s.values ?? {};
+          if (v.awaitingCode === "1") {
+            return (
+              <>
+                <input type="hidden" name="method" value={v.method ?? method} />
+                <input type="hidden" name="accountName" value={v.accountName ?? ""} />
+                <input type="hidden" name="accountRef" value={v.accountRef ?? ""} />
+                <input type="hidden" name="bank" value={v.bank ?? ""} />
+                <p className="field__helper">We sent a code to {v.accountRef}. Enter it below to confirm this number.</p>
+                <OtpInput length={6} label="Verification code" error={e.code} attempt={s} />
+                <div className="form-actions">
+                  <button type="submit" name="resetCode" value="1" className="button button--soft" formNoValidate>Use a different number</button>
+                  <Save label="Verify and save" />
+                </div>
+              </>
+            );
+          }
           return (
             <>
               <input type="hidden" name="method" value={method} />

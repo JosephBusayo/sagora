@@ -34,7 +34,7 @@ function Group({ title, items, pathname, exact }: { title: string; items: NavIte
   );
 }
 
-export function Sidebar({ audience, signOutAction, admin = false }: { audience: Audience; signOutAction: () => Promise<void>; admin?: boolean }) {
+export function Sidebar({ audience, signOutAction, admin = false, finance = true }: { audience: Audience; signOutAction: () => Promise<void>; admin?: boolean; finance?: boolean }) {
   const pathname = usePathname();
   const nav = NAV[audience];
   return (
@@ -51,7 +51,7 @@ export function Sidebar({ audience, signOutAction, admin = false }: { audience: 
         </label>
       </div>
       <div className="nav__body">
-      {nav.groups.map((g) => ({ ...g, items: g.items.filter((i) => admin || !i.adminOnly) })).filter((g) => g.items.length > 0).map((g) => (
+      {nav.groups.map((g) => ({ ...g, items: g.items.filter((i) => (admin || !i.adminOnly) && (finance || !i.financeOnly)) })).filter((g) => g.items.length > 0).map((g) => (
         <Group key={g.title} title={g.title} items={g.items} pathname={pathname} exact={false} />
       ))}
       <div className="nav__spacer" />

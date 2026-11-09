@@ -21,6 +21,8 @@ type Props = {
   unread?: number;
   /** Staff admins see the pages only admins may use. */
   admin?: boolean;
+  /** Staff with finance-desk access see Payments. Everyone else does not, even by URL. */
+  finance?: boolean;
   /** What is in the search box, on the search results page. */
   search?: string;
   children: React.ReactNode;
@@ -39,14 +41,14 @@ function shortName(name: string): string {
   return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}`;
 }
 
-export function Shell({ crumb, user, audience = "provider", unread = 0, admin = false, search, children }: Props) {
+export function Shell({ crumb, user, audience = "provider", unread = 0, admin = false, finance = true, search, children }: Props) {
   // Every signed-in page view helps the notification queue along (see lib/outbox.ts).
   nudge();
   const base = `/${audience}`;
   return (
     <div className="app">
       <a href="#main" className="skip-link">Skip to content</a>
-      <Sidebar audience={audience} signOutAction={SIGN_OUT[audience]} admin={admin} />
+      <Sidebar audience={audience} signOutAction={SIGN_OUT[audience]} admin={admin} finance={finance} />
       <div className="app__panel">
         <header className="topbar">
           <p className="topbar__crumb">

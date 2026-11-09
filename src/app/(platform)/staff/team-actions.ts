@@ -7,7 +7,7 @@ import type { FormState } from "@/lib/auth-flows";
 import { notify } from "@/lib/outbox";
 import { requireAdmin } from "@/lib/session";
 import { siteUrl } from "@/lib/site";
-import { cancelInvite, inviteStaff, removeStaff } from "@/lib/staff";
+import { cancelInvite, inviteStaff, removeStaff, setFinanceAccess } from "@/lib/staff";
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 
@@ -47,5 +47,13 @@ export async function removeStaffAction(fd: FormData) {
   const admin = await requireAdmin();
   await removeStaff(admin.id, str(fd, "id"));
   await flash("Removed from staff.");
+  revalidatePath("/staff/team");
+}
+
+export async function setFinanceAccessAction(fd: FormData) {
+  const admin = await requireAdmin();
+  const allowed = str(fd, "allowed") === "true";
+  await setFinanceAccess(admin.id, str(fd, "id"), allowed);
+  await flash(allowed ? "Finance desk access granted." : "Finance desk access removed.");
   revalidatePath("/staff/team");
 }

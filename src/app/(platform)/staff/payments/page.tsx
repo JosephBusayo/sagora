@@ -4,7 +4,7 @@ import { StaffShell } from "@/components/staff/StaffShell";
 import { PageHead } from "@/components/app/Shell";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireStaff } from "@/lib/session";
+import { requireFinance } from "@/lib/session";
 import { formatAmount } from "@/lib/money";
 import { METHODS, awaitingPayment, methodLabel, openCases, paymentsFor } from "@/lib/payments";
 import {
@@ -48,7 +48,7 @@ export default async function Page({
 }: {
   searchParams: Promise<{ tab?: string; ok?: string; err?: string }>;
 }) {
-  const staff = await requireStaff();
+  const staff = await requireFinance();
   const sp = await searchParams;
   const tab = TABS.some((t) => t.id === sp.tab) ? sp.tab! : "collect";
 

@@ -18,6 +18,10 @@ export const THRESHOLDS = [
   { key: "quote_days", label: "A request with no quote is overdue after (days)", fallback: 2 },
   { key: "answer_days", label: "A quote the farmer has not answered is overdue after (days)", fallback: 3 },
   { key: "upcoming_days", label: "Show jobs starting within (days)", fallback: 7 },
+  // Open brief question (§10.4): "Hold / quote / payment expiry rules". Until Karim sets one,
+  // held money is overdue after the same 2 days as the other queues here — a sensible default,
+  // changeable on this screen like every other threshold, not a separate decision to wire in later.
+  { key: "hold_days", label: "Money held but not yet booked is overdue after (days)", fallback: 2 },
 ] as const;
 
 export type ThresholdKey = (typeof THRESHOLDS)[number]["key"];
@@ -183,10 +187,10 @@ export async function queues(): Promise<Queue[]> {
       ],
     },
     {
-      id: "payments", title: "Payment exceptions", body: "Money that arrived where it could not simply be booked.",
+      id: "payments", title: "Payment exceptions", body: `Money that arrived where it could not simply be booked, overdue after ${t.hold_days} days.`,
       items: cases.filter((c) => c.kind !== "no_replacement").map((c) => item({
         key: `case:${c.id}`, reference: c.reference, title: c.kind.replace(/_/g, " "), detail: c.detail,
-        href: "/staff/payments?tab=cases", since: c.opened_at, overdue: true,
+        href: "/staff/payments?tab=cases", since: c.opened_at, overdue: c.opened_at < daysAgo(t.hold_days),
       })),
     },
     {

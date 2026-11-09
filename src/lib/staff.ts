@@ -10,14 +10,27 @@ import { audit } from "./business";
  */
 
 export type StaffRole = "staff" | "admin";
-export type StaffMember = { id: string; name: string; email: string; role: StaffRole };
+export type StaffMember = { id: string; name: string; email: string; role: StaffRole; financeAccess: boolean };
 export type StaffInvite = { id: string; email: string; name: string; role: StaffRole; expiresAt: string };
 
 const INVITE_DAYS = 7;
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export async function listStaff(): Promise<StaffMember[]> {
-  return await db.all(`SELECT id, name, email, role FROM "user" WHERE role IN ('staff','admin') ORDER BY name ASC`) as StaffMember[];
+  const rows = await db.all(`SELECT id, name, email, role, "financeAccess" FROM "user" WHERE role IN ('staff','admin') ORDER BY name ASC`) as
+    (Omit<StaffMember, "financeAccess"> & { financeAccess: boolean | number | null })[];
+  return rows.map((r) => ({ ...r, financeAccess: r.financeAccess !== false && r.financeAccess !== 0 }));
+}
+
+/**
+ * Narrows or restores one staff member's access to the finance desk. An admin always keeps it
+ * regardless of this flag — only staff can be excluded, so a business never loses its last
+ * approver by mistake.
+ */
+export async function setFinanceAccess(adminId: string, userId: string, allowed: boolean): Promise<boolean> {
+  const res = await db.run(`UPDATE "user" SET "financeAccess"=? WHERE id=? AND role IN ('staff','admin')`, allowed, userId);
+  if (res.changes) await audit(adminId, "staff.finance_access", userId, allowed ? "granted" : "removed");
+  return res.changes > 0;
 }
 
 type InviteRow = { id: string; email: string; name: string; role: StaffRole; expires_at: string };

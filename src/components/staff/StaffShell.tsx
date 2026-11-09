@@ -20,7 +20,8 @@ export async function StaffShell({ staff, crumb, search, children }: {
   waitUntil(drain().catch(() => {}));
   const waiting = await waitingOnStaff();
   return (
-    <Shell crumb={crumb} user={{ name: staff.name || staff.email }} audience="staff" admin={staff.role === "admin"} unread={waiting.total} search={search}>
+    <Shell crumb={crumb} user={{ name: staff.name || staff.email }} audience="staff" admin={staff.role === "admin"}
+      finance={staff.role === "admin" || staff.financeAccess !== false} unread={waiting.total} search={search}>
       <div className="staff-page">{children}</div>
       <TableLabels />
     </Shell>

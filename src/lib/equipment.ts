@@ -196,6 +196,54 @@ export async function getPhoto(businessId: string, equipmentId: string): Promise
   return r ?? null;
 }
 
+/* -------------------------------------------------------- photo gallery */
+
+/**
+ * WAITING-ON (7 Nov): "several equipment photos" — the design says photos, plural, and the
+ * table above (equipment_photo, migration 009) holds exactly one. That table keeps doing exactly
+ * what it did — the cover photo on cards and lists — and this is a second, additive gallery of
+ * further photos, so nothing that already calls setPhoto/getPhoto changes behaviour.
+ */
+export const MAX_GALLERY_PHOTOS = 5;
+
+export type EquipmentPhoto = { id: string; mime: string };
+
+export async function listPhotos(businessId: string, equipmentId: string): Promise<EquipmentPhoto[]> {
+  if (!(await getAsset(businessId, equipmentId))) return [];
+  return await db.all(
+    `SELECT id, mime FROM equipment_photos WHERE equipment_id=? ORDER BY position ASC`, equipmentId,
+  ) as EquipmentPhoto[];
+}
+
+/** Adds one photo to the gallery, up to the cap. Returns null past the cap or on someone else's equipment. */
+export async function addGalleryPhoto(
+  businessId: string, actorId: string, equipmentId: string, photo: { mime: string; data: string },
+): Promise<string | null> {
+  if (!(await getAsset(businessId, equipmentId))) return null;
+  const row = (await db.get(`SELECT COUNT(*) AS n FROM equipment_photos WHERE equipment_id=?`, equipmentId)) as { n: number };
+  if (Number(row.n) >= MAX_GALLERY_PHOTOS) return null;
+
+  const id = randomUUID();
+  await db.run(`INSERT INTO equipment_photos (id, equipment_id, mime, data, position, created_at) VALUES (?,?,?,?,?,?)`,
+    id, equipmentId, photo.mime, photo.data, Number(row.n), new Date().toISOString());
+  await audit(actorId, "equipment.gallery_photo_added", equipmentId);
+  return id;
+}
+
+export async function removeGalleryPhoto(businessId: string, actorId: string, equipmentId: string, photoId: string): Promise<boolean> {
+  if (!(await getAsset(businessId, equipmentId))) return false;
+  const res = await db.run(`DELETE FROM equipment_photos WHERE id=? AND equipment_id=?`, photoId, equipmentId);
+  if (res.changes) await audit(actorId, "equipment.gallery_photo_removed", equipmentId);
+  return res.changes > 0;
+}
+
+/** One gallery photo's bytes, only for the business that owns the equipment it belongs to. */
+export async function getGalleryPhoto(businessId: string, photoId: string): Promise<{ mime: string; data: string } | null> {
+  const r = await db.get(`SELECT p.mime, p.data FROM equipment_photos p JOIN equipment e ON e.id = p.equipment_id
+       WHERE p.id=? AND e.business_id=?`, photoId, businessId) as { mime: string; data: string } | undefined;
+  return r ?? null;
+}
+
 /* ------------------------------------------------------------------ faults */
 
 export async function reportFault(businessId: string, actorId: string, equipmentId: string, severity: "blocking" | "minor", description: string): Promise<boolean> {

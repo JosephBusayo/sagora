@@ -1,6 +1,6 @@
 import type { IconName } from "./Icon";
 
-export type NavItem = { href: string; label: string; icon: IconName; adminOnly?: boolean };
+export type NavItem = { href: string; label: string; icon: IconName; adminOnly?: boolean; financeOnly?: boolean };
 export type NavGroup = { title: string; items: NavItem[] };
 export type Audience = "provider" | "farmer" | "staff";
 
@@ -69,7 +69,7 @@ export const NAV: Record<Audience, { home: string; groups: NavGroup[]; personal:
           { href: "/staff/providers", label: "Provider review", icon: "store" },
           { href: "/staff/follow-ups", label: "Follow-ups", icon: "jobs" },
           { href: "/staff/requests", label: "Assisted requests", icon: "requests" },
-          { href: "/staff/payments", label: "Payments", icon: "payments" },
+          { href: "/staff/payments", label: "Payments", icon: "payments", financeOnly: true },
           { href: "/staff/outbox", label: "Notification queue", icon: "quotes" },
           { href: "/staff/report", label: "Sagora report", icon: "reports" },
           { href: "/staff/notifications", label: "Notifications", icon: "bell" },

@@ -972,3 +972,52 @@ stack trace.
 Genuinely one file. `lib/db.ts` swaps `node:sqlite` for a `pg` pool, `tx` checks out a connection
 instead of taking the queue, and the `?` → `$n` rewrite goes in. Nothing else in the codebase
 knows which database it is talking to.
+
+## Correction (9 Nov 2026): this file stopped tracking reality around 29 Oct
+
+Everything above this point was written through 29 Oct. The project kept moving in WAITING-ON.md,
+which stayed current; this file did not. For anyone reading top to bottom: by 7 Nov, in addition
+to everything above, the following were already built and are **not** reflected above — the
+Postgres driver is live (`lib/db.ts` runs both engines today, not "one file away"), the pilot fee
+is approved and charging 10% (`FEE_POLICY.approved = true`, 6 Nov), a sign-in email can be changed
+with re-verification, Reports exists at `/provider/reports`, the public landing page is the real
+home page, providers can cover several districts, farmers can pay online through Monime's hosted
+checkout (not just manual payments), and a farmer without an account can submit a request and
+come back to it with a tracking code. WAITING-ON.md is the file to trust for current state;
+treat this one as a design record plus history from here down.
+
+## Build status update (9 Nov 2026): finance roles, Monime phone verification, equipment photo gallery, document retention
+
+**Built and tested** (71/71 money checks and the full browser suite both green). A sweep for
+everything that was pure coding and not actually waiting on a key or a decision — see
+WAITING-ON.md's 9 Nov entry for the full list and, just as importantly, the two things that were
+deliberately *not* built because they need a real decision or a real number first, not code:
+a deposit-based booking rule, and who pays Monime's own transaction fee (nobody yet knows what
+that fee even is).
+
+In brief:
+- **Finance desk roles.** Staff get a `financeAccess` flag (Better Auth `additionalFields`,
+  default on). `/staff/payments` — collecting money, preparing and approving payouts and refunds,
+  resolving disputes — is now gated on it, sidebar entry included, with an admin toggle per
+  person on the Staff screen. Answers the brief's "who sits at the finance desk" with a mechanism
+  rather than "any staff account."
+- **Monime "Verify account" OTP**, for real. `lib/sms.ts` (a seam, same shape as `lib/email.ts`)
+  and `lib/monime-verify.ts` send and check a 6-digit code against the Monime phone number before
+  `setDestination` saves it — inert, exactly today's behaviour, until `SMS_PROVIDER_URL` and
+  `SMS_PROVIDER_API_KEY` exist. This also closes the open question of what the design's
+  provider-side "Payments — OTP" screen was for: a provider-side OTP before a sensitive money
+  action is what the brief already asks for in §4, and it is now built.
+- **Several equipment photos.** A gallery table alongside the single cover photo (migration 022),
+  purely additive — nothing that already reads the cover photo changed. Up to 5 more per machine,
+  addable and removable from the equipment detail window.
+- **A hold-days threshold**, answering part of the brief's open "hold / quote / payment expiry
+  rules" question: a payment held without a confirmed booking is flagged overdue on the
+  Follow-ups screen after a configurable number of days (default 2), using the threshold
+  mechanism `lib/follow-ups.ts` already had for everything else on that screen.
+- **Document retention.** A daily purge, added to the existing outbox cron, reads
+  `DOCUMENT_RETENTION_DAYS` and deletes nothing while it is unset — today's exact behaviour.
+
+Three small corrections made at the same time, each because Joseph said so directly: the
+hand-drawn Sagora logo is staying and is not raised again; the bank list on the payout form is
+kept as built; and the ambiguous "what does the provider Payments — OTP screen protect" question
+is closed by the OTP work above rather than left open.
