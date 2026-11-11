@@ -24,6 +24,19 @@ import { getById as getRequest } from "./requests";
  *    not confirmed' case. Never overbook silently."
  */
 
+/**
+ * Karim's answer (11 Nov 2026) to the brief's open deposit question: a booking may confirm on
+ * part payment, not only in full. 50% is the threshold he gave. What happens to the balance still
+ * owed after that — a deadline, or none — is still open, so there isn't one yet: the balance just
+ * stays visible as still owed, exactly like a fully-paid job's balance would if it were ever
+ * revised downward. Nothing here claims a deadline that was never agreed.
+ */
+export const DEPOSIT_POLICY = { percent: 50 };
+
+/** The least that must be held for a booking to confirm. Always at least 1 minor unit. */
+export const depositRequired = (agreedMinor: number): number =>
+  Math.max(1, Math.ceil((agreedMinor * DEPOSIT_POLICY.percent) / 100));
+
 export const METHODS = [
   { id: "mobile_money", label: "Mobile money" },
   { id: "bank", label: "Bank transfer" },
@@ -152,21 +165,23 @@ export async function recordPayment(staffId: string, input: RecordInput): Promis
     if (held > agreement.amountMinor) {
       await openCase(t, input.requestId, "overpaid", `${formatAmount(held)} received against ${formatAmount(agreement.amountMinor)} agreed.`);
     }
-    if (held < agreement.amountMinor) {
+    const required = depositRequired(agreement.amountMinor);
+    if (held < required) {
       return {
         ok: true,
         outcome: "part_paid",
-        message: `Recorded. ${formatAmount(held)} of ${formatAmount(agreement.amountMinor)} received; the booking is not confirmed yet.`,
+        message: `Recorded. ${formatAmount(held)} of ${formatAmount(agreement.amountMinor)} received; the booking is not confirmed yet (${formatAmount(required)} needed).`,
       };
     }
 
-    // Funds are enough. The booking also needs the machines to still be free for these dates.
+    // Enough to book (the brief's "verified funds" — at least the deposit threshold, see
+    // DEPOSIT_POLICY). The booking also needs the machines to still be free for these dates.
     if (!job.startDate || !job.endDate || job.assetIds.length === 0) {
-      await openCase(t, input.requestId, "payment_received_booking_not_confirmed", "Paid in full, but the work is not scheduled yet.");
+      await openCase(t, input.requestId, "payment_received_booking_not_confirmed", "Enough received, but the work is not scheduled yet.");
       return {
         ok: true,
         outcome: "case_opened",
-        message: "Paid in full, but this job has no dates or equipment yet, so it is not booked. A case has been opened.",
+        message: "Enough has been received, but this job has no dates or equipment yet, so it is not booked. A case has been opened.",
       };
     }
 
@@ -177,18 +192,18 @@ export async function recordPayment(staffId: string, input: RecordInput): Promis
           t,
           input.requestId,
           "payment_received_booking_not_confirmed",
-          `Paid in full, but some of the equipment is now committed to ${clash.reference} for these dates.`,
+          `Enough received, but some of the equipment is now committed to ${clash.reference} for these dates.`,
         );
         return {
           ok: true,
           outcome: "case_opened",
-          message: `Paid in full, but some of the equipment is now committed to ${clash.reference}. The money is held and a case has been opened — nothing was overbooked.`,
+          message: `Enough has been received, but some of the equipment is now committed to ${clash.reference}. The money is held and a case has been opened; nothing was overbooked.`,
         };
       }
     }
 
     await t.run("INSERT INTO booking (id, request_id, job_id, business_id, amount_minor, confirmed_at, confirmed_by) VALUES (?,?,?,?,?,?,?)", randomUUID(), input.requestId, job.id, agreement.businessId, agreement.amountMinor, new Date().toISOString(), staffId);
-    return { ok: true, outcome: "booked", message: "Paid in full and booked. The equipment is confirmed for those dates." };
+    return { ok: true, outcome: "booked", message: "Enough received and booked. The equipment is confirmed for those dates." };
   });
 
   // The audit trail is written after the decision has actually committed.

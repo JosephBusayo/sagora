@@ -156,7 +156,7 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
             <h3>Payment</h3>
             <p>
               {booking
-                ? "Paid in full and booked."
+                ? `${formatAmount(received)} of ${formatAmount(agreement.amountMinor)} received and booked.`
                 : received === 0
                   ? "Nothing received yet."
                   : `${formatAmount(received)} of ${formatAmount(agreement.amountMinor)} received.`}

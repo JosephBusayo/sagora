@@ -1,7 +1,51 @@
 # Waiting on
 
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
-each one is a swap, not a rewrite. Updated 9 Nov 2026.
+each one is a swap, not a rewrite. Updated 11 Nov 2026.
+
+## 11 Nov 2026: Karim's answers, and the voice-note feature
+
+**Answered and built:**
+- **Deposit rule.** Karim: a booking may confirm on 50% of the agreed price, not only in full.
+  `DEPOSIT_POLICY` in `lib/payments.ts` carries the number; the booking decision checks the
+  deposit threshold instead of the full amount. What happens to the balance still owed is still
+  open — no deadline exists yet, so none was invented; the balance just stays visible as owed,
+  the same as it always has.
+- **Who pays Monime's fee.** Karim: it comes out of Sagora's own 10%, not a separate charge. No
+  code needed — `FEE_POLICY` already is that flat 10%.
+- **Document retention.** Karim: 6 months. `DOCUMENT_RETENTION_DAYS=180` is the value to set.
+- **Provider approval evidence.** Karim: staff judgment on the uploaded documents, no formal
+  checklist. Matches what is already built — resolved as policy, not a code gap.
+- **Payout "Paid by"/"Fees" fields, SAGORA_WHATSAPP, Monime sandbox access**: Karim says leave
+  for now / ignore / ready for go-live respectively. No action.
+- **Who sends payouts, and from what account**: clarified for Karim — Monime only collects from
+  farmers today; sending money to providers is still a manual transfer staff record afterward
+  (Phase A, PROJECT.md §6.3). The open question is which real account staff send *from*, not a
+  code question. Monime auto-disbursing payouts too would be new scope, not yet asked for.
+- **Farmer request recovery without SMS**: re-explained for Karim — today a farmer with no code
+  and no email calls Sagora, and staff look the request up by phone number (already built). Still
+  waiting on whether that is an acceptable permanent answer.
+
+**Built: voice-note request intake.** A farmer (or staff taking a call, or a provider logging a
+private job) can record a voice note — or share an existing one, since real voice notes often
+arrive via WhatsApp — instead of filling a blank form. Gemini listens to the audio directly and
+returns a transcript plus the fields BookForm needs (`lib/gemini.ts`); nothing is ever created
+from a voice note directly — it only pre-fills the same `BookForm` the farmer already reviews and
+submits. Tested on two real farmer voice notes (not scripted samples) before any UI was built:
+both transcribed as fluent, accurate Krio, and the extraction correctly pulled service, land size
+(with hectare→acre conversion), district, village and date, while correctly leaving unspoken
+fields (name, phone) as null rather than guessing. One real finding: farmers who say "I'll give
+you my number" rarely speak it as actual digits, so contact details are always asked for
+explicitly, never assumed from voice. The review screen tells each person exactly what is still
+missing for them specifically — one gap for one caller, several for another — rather than making
+everyone re-answer everything. Relative and vague dates ("this Saturday", "second week of
+October") are resolved to a real calendar date against the day the note was recorded, per Karim's
+instruction, and stay editable since it is only a best guess.
+
+Inert — the "Send a voice note" CTA simply redirects to the normal form — until
+`GOOGLE_GENERATIVE_AI_API_KEY` is set. Needs from here: a native Krio speaker's review of the
+on-screen "what to say" guidance text (drafted, not verified); no Figma frame exists for this
+screen at all, since it postdates the brief.
 
 ## 9 Nov 2026: everything codeable without Karim, the designer or a key, done
 
@@ -37,14 +81,7 @@ a decision, or an environment variable.
   "Payments — OTP" question is removed below — see the Monime OTP item above.
 
 **Deliberately not built — these need a real decision or a real number, not code:**
-- **Deposit rule** (booking on partial payment, not full payment). Building this means changing
-  the one core booking decision in `lib/payments.ts` — accepted terms + funds + free resources —
-  that every money test in the brief is written against. Guessing the mechanics (what happens to
-  the balance still owed, on what deadline, what if it is never paid) risks shipping a booking
-  rule nobody actually asked for. Needs Karim's explicit answer first; it is then a small, careful
-  change, not a rewrite.
-- **Who pays Monime's own transaction fee.** This is not only a decision — nobody at Sagora knows
-  Monime's fee amount or structure yet. There is nothing to compute until that number exists.
+- ~~Deposit rule~~ and ~~who pays Monime's fee~~ — answered by Karim 11 Nov, see that entry above.
 - **Partial-service refund amount.** Already fully supported: `prepareRefund` takes any amount up
   to what is held, so staff can already refund part of a job. What is missing is written guidance
   for staff on how much to refund in which case — Karim's policy content, not a code gap.
@@ -194,7 +231,7 @@ the real tokens, assets and frames be pulled directly instead of measured off a 
 | 5 | **Farmer request recovery without SMS** (§6.2) | Many farmers have no email. Open question in the brief, and it changes the intake design |
 | 6 | **Stack confirmation** | Section 10 decisions are still unconfirmed. Nothing is blocked, but he should know what is being built |
 | 7 | **Who approves providers, and against what evidence** | The approval screen works; the policy behind it is undefined |
-| 8 | **The signed fee and refund policy sheet** | The 10% pilot fee (waived for the first 20 jobs), the 5-working-day refund deadline, the 90-day write-off, advance rules. All built; the fee is set to **0%** until this is signed |
+| 8 | **The refund deadline and write-off rules** | The 10% pilot fee is signed and live (6 Nov) — this line used to say it was still waiting at 0%, which was stale. Still open: the 5-working-day refund deadline, the 90-day write-off, advance rules |
 | 9 | ~~Who sits at the finance desk, and who may approve~~ | **Built 9 Nov**: an admin grants or removes finance-desk access per staff member on the Staff screen. Money out still always needs two different people; Sagora now also decides who is eligible at all |
 | 10 | **A bank or mobile money account to send payouts from** | Payouts are recorded against a transfer reference. Someone has to actually make the transfers |
 

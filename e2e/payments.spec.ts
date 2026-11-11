@@ -249,7 +249,7 @@ test("paying the balance books the job and tells both sides", async ({ page }) =
   await row.getByLabel("Receipt or transaction reference").fill(`BK-${run}-A2`);
   await row.getByRole("button", { name: "Record it" }).click();
 
-  await expect(page.getByText("Paid in full and booked").first()).toBeVisible();
+  await expect(page.getByText("Enough received and booked").first()).toBeVisible();
   await expect(collectRow(page, refA).getByText("Booked", { exact: true })).toBeVisible();
 
   await expect
@@ -408,7 +408,7 @@ test("changing where money goes withdraws an approval that has not been sent", a
   await row.getByText("Record a payment", { exact: true }).click();
   await row.getByLabel("Receipt or transaction reference").fill(`MM-${run}-C1`);
   await row.getByRole("button", { name: "Record it" }).click();
-  await expect(page.getByText("Paid in full and booked").first()).toBeVisible();
+  await expect(page.getByText("Enough received and booked").first()).toBeVisible();
   const c = await testGet("SELECT id FROM service_request WHERE reference=?", refC) as { id: string };
   await testRun("UPDATE job SET status='completed', reported_acres=3, confirmed_at=? WHERE request_id=?", new Date().toISOString(), c.id);
 

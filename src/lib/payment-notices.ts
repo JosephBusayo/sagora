@@ -29,7 +29,7 @@ export async function tellBooked(requestId: string, how: "manual" | "monime") {
       to: who.farmerEmail,
       subject: `${who.reference} is booked`,
       text:
-        `Your payment for ${who.reference} has been received in full and the work is booked.\n\n` +
+        `Enough of your payment for ${who.reference} has been received and the work is booked.\n\n` +
         `${who.providerName ?? "The provider"} has the equipment committed for your dates. ` +
         `You will be asked to confirm the work once it is done.\n\n` +
         (how === "monime"
@@ -44,8 +44,10 @@ export async function tellBooked(requestId: string, how: "manual" | "monime") {
       to: who.providerEmail,
       subject: `${who.reference} is paid and booked`,
       text:
-        `${who.reference} has been paid in full and is now booked. The equipment you scheduled is ` +
-        `committed for those dates.\n\nYou are paid once the farmer confirms the work.`,
+        `${who.reference} is now booked — enough of the agreed price has been received, though not ` +
+        `necessarily all of it (Sagora can confirm a booking on a deposit). The equipment you ` +
+        `scheduled is committed for those dates. Check your Payments screen for exactly what has ` +
+        `come in.\n\nYou are paid once the farmer confirms the work.`,
     });
   }
 }

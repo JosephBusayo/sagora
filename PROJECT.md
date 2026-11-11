@@ -973,6 +973,46 @@ Genuinely one file. `lib/db.ts` swaps `node:sqlite` for a `pg` pool, `tx` checks
 instead of taking the queue, and the `?` → `$n` rewrite goes in. Nothing else in the codebase
 knows which database it is talking to.
 
+## Build status update (11 Nov 2026): a 50% deposit rule, and voice-note request intake
+
+**Built and tested (71/71 money checks; the full e2e suite rerun to confirm).**
+
+### A booking can now confirm on a deposit
+Karim's answer to the brief's open deposit question: 50% of the agreed price, not only payment in
+full. `DEPOSIT_POLICY` in `lib/payments.ts` carries that number; `recordPayment`'s one booking
+decision now checks the deposit threshold rather than the full amount. The balance still owed
+after that has no deadline yet — none was invented — so it simply stays visible as owed, same as
+any partial payment always has. Every screen and email that used to say "paid in full" now says
+what was actually received, since that is no longer always true.
+
+### Voice-note request intake
+A farmer, a staff coordinator taking a call, or a provider logging a private job can start a
+request from a voice note instead of a blank form — recorded live, or an existing one shared (real
+voice notes often arrive over WhatsApp, not recorded in-browser). Gemini listens to the audio
+directly (`lib/gemini.ts`) and returns a transcript plus the fields `BookForm` needs in one call —
+no separate speech-to-text model, no hosting. Nothing is ever created directly from a voice note:
+the result only pre-fills the same `BookForm` the farmer already reviews and submits, through the
+`VoiceIntake` component at `/request/voice`.
+
+**Proven on real speech before any UI was built.** Two actual farmer voice notes (sent over
+WhatsApp, not scripted) transcribed as fluent, accurate Krio and the extraction correctly pulled
+service, land size (converting hectares to acres), district, village and a resolved date, while
+correctly leaving name and phone as null rather than guessing when they genuinely were not said.
+One real finding from those two notes: a farmer saying "I'll give you my number" does not reliably
+transcribe as actual digits, so contact details are always asked for explicitly in the review
+step, never assumed from the recording.
+
+The review screen tells each person exactly what their own recording did not cover — one missing
+field for one caller, several for another, per Joseph's instruction — rather than making everyone
+re-answer the whole form blind. Relative and vague dates ("this Saturday", "second week of
+October") are resolved to a real calendar date against the day the note was recorded, also per
+Joseph's instruction, and stay editable since it is only a best guess.
+
+Inert — the landing page's "Send a voice note" button simply redirects to the ordinary form —
+until `GOOGLE_GENERATIVE_AI_API_KEY` is set. No Figma frame exists for this screen, since the
+feature postdates the brief entirely; built in the app's own design language. See WAITING-ON.md
+(11 Nov) for what is still open.
+
 ## Correction (9 Nov 2026): this file stopped tracking reality around 29 Oct
 
 Everything above this point was written through 29 Oct. The project kept moving in WAITING-ON.md,

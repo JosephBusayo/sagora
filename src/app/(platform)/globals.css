@@ -1451,6 +1451,16 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .asset__gallery-add .photo-pick__box { height: 72px; width: 72px; border-radius: 12px; padding: 0; font-size: 0; }
 .asset__gallery-add .field__label { display: none; }
 
+/* Voice-note request intake. No Figma frame exists for this screen. */
+.voice-capture__script { margin-bottom: 18px; padding: 14px 16px; border-radius: 14px; background: #eff2e0; }
+.voice-capture__script ul { margin: 8px 0 0; padding-left: 18px; }
+.voice-capture__script li { margin-bottom: 4px; font: 400 14px/1.5 var(--font-sans); }
+.voice-capture__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.voice-capture__upload { position: relative; cursor: pointer; }
+.voice-review { margin-bottom: 22px; }
+.voice-review__transcript { margin-bottom: 10px; font: 400 13px/1.5 var(--font-sans); color: var(--color-text-muted); }
+.voice-review__transcript summary { cursor: pointer; font: 500 14px/20px var(--font-sans); color: var(--color-text); }
+
 /* Check before sending: what was entered, read back before it goes. */
 .check-first { width: min(520px, calc(100vw / var(--zoom) - 32px)); }
 .check-first .confirm__body { margin-bottom: 8px; }
