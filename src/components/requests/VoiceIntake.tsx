@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { transcribeVoiceNoteAction, type VoiceState } from "@/app/(platform)/request/voice/actions";
 import { BookForm } from "./BookForm";
@@ -24,16 +24,27 @@ function Submitting() {
 }
 
 /** Record live (MediaRecorder) or pick an existing voice note — many farmers' notes already exist as a file shared over WhatsApp. */
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
 function Capture({ onReady }: { onReady: (dataUrl: string) => void }) {
   const [recording, setRecording] = useState(false);
+  const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<{ url: string; label: string } | null>(null);
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // A visible, ticking clock while recording — nothing else on screen says "this is working".
+  useEffect(() => {
+    if (!recording) return;
+    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [recording]);
+
   async function startRecording() {
     setError("");
+    setSeconds(0);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
@@ -93,16 +104,25 @@ function Capture({ onReady }: { onReady: (dataUrl: string) => void }) {
         </ul>
       </div>
 
+      {recording ? (
+        <p className="voice-capture__recording" role="status">
+          <span className="voice-capture__dot" aria-hidden="true" />
+          Recording… {clock(seconds)}
+        </p>
+      ) : null}
+
       <div className="voice-capture__actions">
         {recording ? (
-          <button type="button" className="button button--danger" onClick={stopRecording}>Stop recording</button>
+          <button type="button" className="button button--danger" onClick={stopRecording}>Stop and use this recording</button>
         ) : (
           <button type="button" className="button" onClick={() => void startRecording()}>Record a voice note</button>
         )}
-        <label className="button button--soft voice-capture__upload">
-          Or choose an existing voice note
-          <input type="file" accept="audio/*" className="sr-only" onChange={(ev) => void choose(ev.target.files?.[0])} />
-        </label>
+        {!recording ? (
+          <label className="button button--soft voice-capture__upload">
+            Or choose an existing voice note
+            <input type="file" accept="audio/*" className="sr-only" onChange={(ev) => void choose(ev.target.files?.[0])} />
+          </label>
+        ) : null}
       </div>
 
       {preview ? <p className="field__helper">{preview.label} is ready. <audio src={preview.url} controls /></p> : null}

@@ -26,6 +26,7 @@ import {
   IconLock,
   IconMagnifyingGlass,
   IconMapPin,
+  IconMicrophone,
   IconMoneyHand,
   IconNoteText,
   IconPeopleIdCard2,
@@ -65,6 +66,7 @@ const ICONS = {
   plus: IconPlusMedium,
   dots: IconDotGrid1x3Horizontal,
   pin: IconMapPin,
+  microphone: IconMicrophone,
   user: IconUser,
   // Request detail rows, matched to the Requests design (15-6284).
   serviceType: IconSquareGridCircle,

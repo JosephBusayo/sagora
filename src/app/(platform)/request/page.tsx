@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { randomUUID } from "node:crypto";
 import { DISTRICTS, SERVICES, getApprovedBusiness } from "@/lib/business";
-import { BookForm } from "@/components/requests/BookForm";
+import { RequestEntry } from "@/components/requests/RequestEntry";
 import { GuestShell } from "@/components/guest/GuestShell";
 import { redirect } from "next/navigation";
 import { signedInFarmer } from "@/lib/session";
+import { voiceIntakeConfigured } from "@/lib/voice-intake";
 
 export const metadata: Metadata = { title: "Request a service" };
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   return (
     <GuestShell>
       <div className="modal modal--book guest__panel">
-        <BookForm services={SERVICES} districts={DISTRICTS} service={service} direct={direct} submissionKey={randomUUID()} guest cancelHref="/" />
+        <RequestEntry services={SERVICES} districts={DISTRICTS} service={service} direct={direct} submissionKey={randomUUID()} guest cancelHref="/" voiceEnabled={voiceIntakeConfigured()} />
       </div>
       <p className="guest__note">
         Already sent a request? <Link href="/request/find">Find it here</Link>

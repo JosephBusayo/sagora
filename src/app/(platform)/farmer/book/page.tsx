@@ -6,9 +6,11 @@ import { requireFarmer } from "@/lib/session";
 import { Shell } from "@/components/app/Shell";
 import { FarmerHome } from "@/components/app/FarmerHome";
 import { BookForm } from "@/components/requests/BookForm";
+import { RequestEntry } from "@/components/requests/RequestEntry";
 import { getById, listForFarmer } from "@/lib/requests";
 import { unreadCount } from "@/lib/notifications";
 import { asTyped } from "@/lib/land-size";
+import { voiceIntakeConfigured } from "@/lib/voice-intake";
 
 export const metadata: Metadata = { title: "Book a service" };
 export const dynamic = "force-dynamic";
@@ -38,7 +40,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
       <FarmerHome name={farmer.name} requests={(await listForFarmer(farmer.id)).slice(0, 3)} />
       {/* Rendered by the server over Home, so it opens with JavaScript off. */}
       <ModalShell closeHref="/farmer/home" label="Book a service" className="modal--book">
-        <BookForm services={SERVICES} districts={DISTRICTS} service={previous?.service ?? service} initial={previous} direct={direct} submissionKey={randomUUID()} />
+        {previous ? (
+          // "Book again": pre-filled from the finished request, so the chooser is skipped.
+          <BookForm services={SERVICES} districts={DISTRICTS} service={previous.service} initial={previous} direct={direct} submissionKey={randomUUID()} />
+        ) : (
+          <RequestEntry services={SERVICES} districts={DISTRICTS} service={service} direct={direct} submissionKey={randomUUID()} guest={false}
+            cancelHref="/farmer/home" voiceEnabled={voiceIntakeConfigured()} />
+        )}
       </ModalShell>
     </Shell>
   );

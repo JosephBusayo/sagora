@@ -130,7 +130,6 @@ export const FAQS: { q: string; answer: string }[] = [
 /** Where the page's buttons lead in the Sagora app. */
 export const LINKS = {
   findService: '/request',
-  sendVoiceNote: '/request/voice',
   findRequest: '/request/find',
   joinProvider: '/provider/sign-up',
   workspace: '/provider/dashboard',
