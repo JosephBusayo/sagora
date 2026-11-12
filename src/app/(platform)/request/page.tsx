@@ -20,10 +20,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   const chosen = provider ? await getApprovedBusiness(provider) : null;
   const direct = chosen ? { id: chosen.id, name: chosen.name } : undefined;
   return (
-    <GuestShell>
-      <div className="modal modal--book guest__panel">
-        <RequestEntry services={SERVICES} districts={DISTRICTS} service={service} direct={direct} submissionKey={randomUUID()} guest cancelHref="/" voiceEnabled={voiceIntakeConfigured()} />
-      </div>
+    <GuestShell hideHeader>
+      <RequestEntry services={SERVICES} districts={DISTRICTS} service={service} direct={direct} submissionKey={randomUUID()} guest cancelHref="/" voiceEnabled={voiceIntakeConfigured()} />
       <p className="guest__note">
         Already sent a request? <Link href="/request/find">Find it here</Link>
       </p>

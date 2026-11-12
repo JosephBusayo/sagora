@@ -1454,12 +1454,18 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 /* Voice-note request intake. Matches the designer's "How would you like to tell us?" screens
    (Figma 152:107 idle, 152:267 recording, 152:546 review). */
 
-/* The segmented choice between voice and form, as in 152:107's top pill. */
+/* "How would you like to tell us?" — 44px, the largest text on this screen per the design
+   (152:107/267/546 all agree); .book__head's own 22px default is for other screens. */
+.request-entry__head h2 { font: 600 44px/1 var(--font-sans); letter-spacing: -1.76px; margin-bottom: 15px; }
+.request-entry__head p { font: 500 18px/1.5 var(--font-sans); letter-spacing: -0.36px; color: #7e8074; }
+
+/* The segmented choice between voice and form, as in 152:107's top pill — two 197px pills in a
+   58px-tall white capsule, not content-hugging text. */
 .request-entry__tabs {
-  display: inline-flex; gap: 6px; padding: 5px; margin: 0 auto 28px; background: #fff;
-  border: 1px solid #e2e6ce; border-radius: 37px; box-shadow: 0 6px 7.5px #e5e8d9;
+  display: flex; gap: 6px; width: 100%; max-width: 405px; height: 58px; padding: 5px; margin: 0 auto 28px;
+  background: #fff; border: 1px solid #e2e6ce; border-radius: 37px; box-shadow: 0 6px 7.5px #e5e8d9;
 }
-.request-entry__tab { padding: 13px 22px; border-radius: 36px; font: 500 15px/1.5 var(--font-sans); color: #7e8074; }
+.request-entry__tab { flex: 1; border-radius: 36px; font: 500 16px/1.5 var(--font-sans); letter-spacing: -0.32px; color: #7e8074; }
 .request-entry__tab--active { background: #edf0e0; color: #494f3b; }
 
 /* The idle mic circle, "Tap the icon to record". */

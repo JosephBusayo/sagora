@@ -21,7 +21,7 @@ export function RequestEntry({ services, districts, service, direct, submissionK
 
   return (
     <div className="request-entry">
-      <header className="book__head">
+      <header className="book__head request-entry__head">
         <h2>How would you like to tell us?</h2>
         <p>Just say what you want in a voice note or fill in a short form.</p>
       </header>
@@ -40,7 +40,10 @@ export function RequestEntry({ services, districts, service, direct, submissionK
       {mode === "voice" ? (
         <VoiceIntake services={services} districts={districts} direct={direct} submissionKey={submissionKey} guest={guest} cancelHref={cancelHref} />
       ) : (
-        <BookForm services={services} districts={districts} service={service} direct={direct} submissionKey={submissionKey} guest={guest} cancelHref={cancelHref} />
+        // The form itself keeps its usual boxed card — only the choice screen above sits plain on the page.
+        <div className="modal modal--book guest__panel">
+          <BookForm services={services} districts={districts} service={service} direct={direct} submissionKey={submissionKey} guest={guest} cancelHref={cancelHref} />
+        </div>
       )}
     </div>
   );
