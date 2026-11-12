@@ -132,9 +132,12 @@ export function Hero({ intro }: { intro: boolean }) {
           variants={{ hidden: { opacity: 0, y: 14, scale: 0.97 }, show: { opacity: 1, y: 0, scale: 1 } }}
           transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.98 }}
         >
-          <ButtonLink className="btn--cta" href={LINKS.findService}>
+          <ButtonLink className="btn--cta" href={LINKS.farmerSignIn}>
             Find a service provider
             <img className="btn__icon" src="/img/arrow-up-right.svg" alt="" width={24} height={24} />
+          </ButtonLink>
+          <ButtonLink variant="secondary" className="btn--cta" href={LINKS.findService}>
+            Make a quick request
           </ButtonLink>
           <p className="hero__find">
             Already sent a request? <a href={LINKS.findRequest}>Find it here</a>

@@ -2,12 +2,13 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { Icon } from "@/components/app/Icon";
 import { transcribeVoiceNoteAction, type VoiceState } from "@/app/(platform)/request/voice/actions";
 import { BookForm } from "./BookForm";
 
 type Option = { id: string; label: string };
 
-/** What to say, in Krio and English, before recording. No Figma frame exists for this screen. */
+/** What to say, in Krio and English, before recording. Matches Figma 152:107's prompt card. */
 const SCRIPT = [
   { krio: "Wetin wok yu want?", en: "What work do you need? (ploughing, harvesting, planting)" },
   { krio: "Omos lan yu get?", en: "How much land? (acres or hectares)" },
@@ -17,15 +18,15 @@ const SCRIPT = [
 ] as const;
 
 const MAX_SECONDS = 90;
+const BARS = [8, 24, 38, 24, 24, 18, 18, 18, 18, 18, 18, 8, 18, 34, 18, 12, 18];
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 function Submitting() {
   const { pending } = useFormStatus();
   return pending ? <p className="notice" role="status">Listening to your recording and working out what you need…</p> : null;
 }
 
-/** Record live (MediaRecorder) or pick an existing voice note — many farmers' notes already exist as a file shared over WhatsApp. */
-const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-
+/** Record live (tap the mic) or pick an existing voice note — many farmers' notes arrive as a file shared over WhatsApp. */
 function Capture({ onReady }: { onReady: (dataUrl: string) => void }) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -35,7 +36,6 @@ function Capture({ onReady }: { onReady: (dataUrl: string) => void }) {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // A visible, ticking clock while recording — nothing else on screen says "this is working".
   useEffect(() => {
     if (!recording) return;
     const id = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -95,34 +95,48 @@ function Capture({ onReady }: { onReady: (dataUrl: string) => void }) {
 
   return (
     <div className="voice-capture">
-      <div className="voice-capture__script">
-        <p className="field__label">Before you record, tell us:</p>
-        <ul>
-          {SCRIPT.map((s) => (
-            <li key={s.en}><strong>{s.krio}</strong> — {s.en}</li>
-          ))}
-        </ul>
-      </div>
-
-      {recording ? (
-        <p className="voice-capture__recording" role="status">
-          <span className="voice-capture__dot" aria-hidden="true" />
-          Recording… {clock(seconds)}
-        </p>
+      {!recording ? (
+        <div className="voice-capture__script">
+          <p>Before you record, tell us:</p>
+          <ul>
+            {SCRIPT.map((s) => (
+              <li key={s.en}><strong>{s.krio}</strong><span>{s.en}</span></li>
+            ))}
+          </ul>
+        </div>
       ) : null}
+
+      <div className="voice-capture__mic-wrap">
+        <button
+          type="button"
+          className={`voice-capture__mic${recording ? " voice-capture__mic--recording" : ""}`}
+          onClick={() => (recording ? stopRecording() : void startRecording())}
+          aria-label={recording ? "Stop recording" : "Start recording"}
+        >
+          {recording ? (
+            <>
+              <span className="voice-capture__ring" aria-hidden="true" />
+              <span className="voice-capture__ring" aria-hidden="true" />
+              <span className="voice-capture__wave" aria-hidden="true">
+                {BARS.map((h, i) => <span key={i} style={{ height: h, animationDelay: `${i * 0.06}s` }} />)}
+              </span>
+            </>
+          ) : (
+            <Icon name="microphone" size={48} />
+          )}
+        </button>
+        {recording ? <p className="voice-capture__timer">{clock(seconds)}</p> : <p className="voice-capture__mic-hint">Tap the icon to record</p>}
+      </div>
 
       <div className="voice-capture__actions">
         {recording ? (
-          <button type="button" className="button button--danger" onClick={stopRecording}>Stop and use this recording</button>
+          <button type="button" className="button button--soft" onClick={stopRecording}>End recording</button>
         ) : (
-          <button type="button" className="button" onClick={() => void startRecording()}>Record a voice note</button>
-        )}
-        {!recording ? (
-          <label className="button button--soft voice-capture__upload">
+          <label className="voice-capture__upload">
             Or choose an existing voice note
             <input type="file" accept="audio/*" className="sr-only" onChange={(ev) => void choose(ev.target.files?.[0])} />
           </label>
-        ) : null}
+        )}
       </div>
 
       {preview ? <p className="field__helper">{preview.label} is ready. <audio src={preview.url} controls /></p> : null}
@@ -140,22 +154,35 @@ export function VoiceIntake({ services, districts, direct, submissionKey, guest,
 }) {
   const [state, action] = useActionState<VoiceState, FormData>(transcribeVoiceNoteAction, {});
   const [audio, setAudio] = useState<string | null>(null);
+  const [hideReview, setHideReview] = useState(false);
+  const audioField = useRef<HTMLInputElement>(null);
+  const showReview = "ok" in state && state.ok && !hideReview;
 
-  if ("ok" in state && state.ok) {
+  // A recording (or a chosen file) sends itself — matches the design's record-then-review flow,
+  // with no separate "Continue" click in between.
+  function onReady(dataUrl: string) {
+    setAudio(dataUrl);
+    setHideReview(false);
+    if (audioField.current) {
+      audioField.current.value = dataUrl;
+      audioField.current.form?.requestSubmit();
+    }
+  }
+
+  if (showReview && "ok" in state && state.ok) {
     return (
       <>
         <div className="voice-review">
-          <details className="voice-review__transcript">
-            <summary>What we heard</summary>
+          <div className="voice-review__card">
+            <h3>Your request</h3>
             <p>{state.transcript}</p>
-          </details>
+          </div>
           {state.missing.length > 0 ? (
-            <p className="notice" role="status">
-              We got most of it from your recording. We still need: <strong>{state.missing.join(", ")}</strong> — fill those in below.
-            </p>
-          ) : (
-            <p className="notice notice--success" role="status">We got everything from your recording. Check it over below before sending.</p>
-          )}
+            <p className="voice-review__missing">We still need: {state.missing.join(", ")} — fill those in below.</p>
+          ) : null}
+          <div className="form-actions">
+            <button type="button" className="button button--soft" onClick={() => setHideReview(true)}>Record again</button>
+          </div>
         </div>
         <BookForm services={services} districts={districts} initial={state.initial} direct={direct} submissionKey={submissionKey} guest={guest} cancelHref={cancelHref} />
       </>
@@ -164,13 +191,12 @@ export function VoiceIntake({ services, districts, direct, submissionKey, guest,
 
   return (
     <form action={action} className="form-soft">
-      <input type="hidden" name="audio" value={audio ?? ""} />
-      <Capture onReady={setAudio} />
+      <input ref={audioField} type="hidden" name="audio" defaultValue={audio ?? ""} />
+      <Capture onReady={onReady} />
       {"ok" in state && !state.ok ? <p className="notice notice--error" role="alert">{state.reason}</p> : null}
       <Submitting />
       <div className="form-actions">
         <a href={cancelHref} className="button button--soft">Cancel</a>
-        <button type="submit" className="button" disabled={!audio}>Continue</button>
       </div>
     </form>
   );
