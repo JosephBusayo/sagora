@@ -3,9 +3,11 @@
 import { parseAudio, processVoiceNote } from "@/lib/voice-intake";
 import { signedInFarmer } from "@/lib/session";
 
+/** `sent` echoes back which recording this answers, so the screen can tell a result for the
+ * recording it is waiting on from the leftover result of the one before it. */
 export type VoiceState =
-  | { ok: true; transcript: string; initial: Record<string, string>; missing: string[] }
-  | { ok: false; reason: string }
+  | { ok: true; sent: number; transcript: string; initial: Record<string, string>; missing: string[] }
+  | { ok: false; sent: number; reason: string }
   | Record<string, never>;
 
 /**
@@ -14,12 +16,13 @@ export type VoiceState =
  * `initial`, which the farmer reviews and submits exactly as they would without voice at all.
  */
 export async function transcribeVoiceNoteAction(_prev: VoiceState, fd: FormData): Promise<VoiceState> {
+  const sent = Number(fd.get("sent") ?? 0) || 0;
   const audio = parseAudio(String(fd.get("audio") ?? ""));
-  if (!audio) return { ok: false, reason: "That recording could not be used. Please try again, or fill in the form instead." };
+  if (!audio) return { ok: false, sent, reason: "That recording could not be used. Please try again, or fill in the form instead." };
 
   const farmer = await signedInFarmer();
   const result = await processVoiceNote(audio, { kind: farmer ? "farmer" : "guest", id: farmer?.id ?? null });
-  if (!result.ok) return result;
+  if (!result.ok) return { ...result, sent };
 
   const e = result.extracted;
   const initial: Record<string, string> = {};
@@ -45,5 +48,5 @@ export async function transcribeVoiceNoteAction(_prev: VoiceState, fd: FormData)
     if (!e.contactPhone) missing.push("Your phone number");
   }
 
-  return { ok: true, transcript: result.transcript, initial, missing };
+  return { ok: true, sent, transcript: result.transcript, initial, missing };
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { useFormStatus } from "react-dom";
 import { transcribeVoiceNoteAction, type VoiceState } from "@/app/(platform)/request/voice/actions";
 import { BookForm } from "./BookForm";
 
@@ -55,13 +54,27 @@ function MicGlyph() {
   );
 }
 
+/**
+ * The screen between recording and the transcript. It replaces the mic and the prompt card
+ * outright: once the recording has ended there is nothing left to tap, and the farmer needs to
+ * see plainly that Sagora is working rather than wonder whether anything happened at all.
+ */
 function Processing() {
-  const { pending } = useFormStatus();
-  return pending ? <p className="voice-status" role="status">Listening to your recording and working out what you need…</p> : null;
+  return (
+    <div className="voice-processing" role="status" aria-live="polite">
+      <Circle>
+        <span className="voice-processing__dots" aria-hidden="true">
+          <span /><span /><span />
+        </span>
+      </Circle>
+      <h3 className="voice-processing__title">Listening to your recording</h3>
+      <p className="voice-processing__note">Working out what work you need, where, and when. This takes a few seconds — please wait.</p>
+    </div>
+  );
 }
 
 /** Screens 1 and 2: tap the mic to record, the arc fills as time passes, "End recording" sends it. */
-function Capture({ onReady }: { onReady: (dataUrl: string) => void }) {
+function Capture({ onReady, onSending, notice }: { onReady: (dataUrl: string) => void; onSending: () => void; notice?: string }) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
@@ -94,7 +107,9 @@ function Capture({ onReady }: { onReady: (dataUrl: string) => void }) {
       mediaRef.current = recorder;
       recorder.start();
       setRecording(true);
-      timerRef.current = setTimeout(() => recorder.state === "recording" && recorder.stop(), MAX_SECONDS * 1000);
+      // The cap stops the recording the same way the button does, so the farmer sees the same
+      // processing screen either way rather than being dropped back on the mic.
+      timerRef.current = setTimeout(() => recorder.state === "recording" && stopRecording(), MAX_SECONDS * 1000);
     } catch {
       setError("We could not reach your microphone. Allow it in your browser, or fill in the form instead.");
     }
@@ -104,6 +119,9 @@ function Capture({ onReady }: { onReady: (dataUrl: string) => void }) {
     if (timerRef.current) clearTimeout(timerRef.current);
     mediaRef.current?.stop();
     setRecording(false);
+    // Said now, not when the clip finishes encoding: reading the blob takes a moment, and the mic
+    // must not reappear in the gap.
+    onSending();
   }
 
   return (
@@ -124,8 +142,10 @@ function Capture({ onReady }: { onReady: (dataUrl: string) => void }) {
             <Circle><MicGlyph /></Circle>
           </button>
           <p className="voice-capture__hint">Tap the icon to record</p>
-          <Processing />
+          {/* Both sit above the prompt card, by the mic they are about — below it they were far
+              enough down the screen to be missed entirely. */}
           {error ? <p className="notice notice--error" role="alert">{error}</p> : null}
+          {notice ? <p className="notice notice--error" role="alert">{notice}</p> : null}
           <div className="voice-script">
             <p className="voice-script__title">Before you record, tell us:</p>
             <ul>
@@ -150,17 +170,28 @@ export function VoiceIntake({ services, districts, direct, submissionKey, guest,
   const [state, action] = useActionState<VoiceState, FormData>(transcribeVoiceNoteAction, {});
   const [hideReview, setHideReview] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  // Set when the recording ends, which is the start of the wait — earlier than the form's own
+  // pending status, because encoding the clip takes a moment and the mic must not flash back on.
+  const [sending, setSending] = useState(0);
+  // The recorder's own callback runs later, from a render that happened before the count went up,
+  // so the count lives in a ref and the state above only exists to redraw the screen.
+  const sentRef = useRef(0);
+  const sentField = useRef<HTMLInputElement>(null);
   const audioField = useRef<HTMLInputElement>(null);
   const showReview = "ok" in state && state.ok && !hideReview;
+  // Still waiting while no answer has come back for *this* recording. Comparing the number rather
+  // than just looking for a result keeps the previous recording's result from ending the wait.
+  const waiting = sending > 0 && (!("sent" in state) || state.sent !== sending);
 
   // Ending the recording sends it straight to be transcribed — the design goes record → review.
   function onReady(dataUrl: string) {
     setHideReview(false);
     setShowForm(false);
-    if (audioField.current) {
-      audioField.current.value = dataUrl;
-      audioField.current.form?.requestSubmit();
-    }
+    // Nothing captured: go back to the mic rather than wait on an answer that cannot come.
+    if (!dataUrl || !audioField.current || !sentField.current) return setSending(0);
+    audioField.current.value = dataUrl;
+    sentField.current.value = String(sentRef.current);
+    audioField.current.form?.requestSubmit();
   }
 
   if (showReview && "ok" in state && state.ok) {
@@ -196,10 +227,18 @@ export function VoiceIntake({ services, districts, direct, submissionKey, guest,
   }
 
   return (
+    // The form stays mounted either way: ending the recording submits it from the recorder's own
+    // callback, which needs the hidden field to still be there.
     <form action={action} className="voice-form">
       <input ref={audioField} type="hidden" name="audio" defaultValue="" />
-      <Capture onReady={onReady} />
-      {"ok" in state && !state.ok ? <p className="notice notice--error" role="alert">{state.reason}</p> : null}
+      <input ref={sentField} type="hidden" name="sent" defaultValue="0" />
+      {waiting ? <Processing /> : (
+        <Capture
+          onReady={onReady}
+          onSending={() => setSending((sentRef.current += 1))}
+          notice={"ok" in state && !state.ok ? state.reason : undefined}
+        />
+      )}
     </form>
   );
 }

@@ -10,6 +10,10 @@ import { nudge } from "@/lib/outbox";
 
 export const metadata: Metadata = { title: "Make a quick request" };
 export const dynamic = "force-dynamic";
+/** The voice note is transcribed by a server action posted to this route, and Gemini gives itself
+ * 45 seconds. This caps the request a little above that: without it the platform default let a
+ * stalled call run for a full five minutes before killing it, which the farmer saw as a crash. */
+export const maxDuration = 60;
 
 /**
  * "Make a quick request", without an account: the landing page's nav, then the choice between a

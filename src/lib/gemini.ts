@@ -12,7 +12,22 @@ import "server-only";
  */
 
 const apiKey = () => process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
-const model = () => process.env.AI_MODEL?.trim() || "gemini-2.5-flash";
+
+/** The model this was built and tested against. An AI_MODEL that Gemini rejects falls back to it
+ * rather than taking the whole feature down: a mistyped variable should not stop a farmer. */
+const DEFAULT_MODEL = "gemini-2.5-flash";
+const model = () => process.env.AI_MODEL?.trim() || DEFAULT_MODEL;
+
+/**
+ * How long to wait for Gemini. Left to itself it can sit on an audio clip for minutes — long
+ * enough that Vercel killed the whole request at its own 300-second limit and the farmer got
+ * nothing but a crash page. This is the limit the farmer actually feels, so it is short.
+ */
+const TIMEOUT_MS = 45_000;
+
+/** Where to call. Overridden only so the browser tests can stand in for Gemini, exactly as
+ * MONIME_API_URL lets them stand in for Monime. Unset everywhere else, including production. */
+const baseUrl = () => process.env.GEMINI_API_URL?.replace(/\/$/, "") || "https://generativelanguage.googleapis.com";
 
 /** Sierra Leone's districts, exactly as BookForm's own list spells them (src/lib/business.ts),
  * so an extracted district matches the dropdown's value instead of needing a human to retype it. */
@@ -30,6 +45,15 @@ export class GeminiError extends Error {
   }
 }
 
+/** Gemini did not answer in time. Told apart from the rest so the farmer can be told to retry. */
+export class GeminiTimeout extends Error {
+  constructor() {
+    super(`Gemini did not answer within ${TIMEOUT_MS / 1000}s`);
+  }
+}
+
+const SERVICES = ["ploughing", "harvesting", "planting"] as const;
+
 /** The fields BookForm's first two steps can use. Anything not heard stays null — never guessed. */
 export type ExtractedFields = {
   service: "ploughing" | "harvesting" | "planting" | null;
@@ -41,10 +65,6 @@ export type ExtractedFields = {
   preferredDate: string | null;
   contactName: string | null;
   contactPhone: string | null;
-};
-
-const EMPTY: ExtractedFields = {
-  service: null, acres: null, district: null, village: null, preferredDate: null, contactName: null, contactPhone: null,
 };
 
 export type Transcribed = { transcript: string; extracted: ExtractedFields };
@@ -72,24 +92,66 @@ export async function transcribeAndExtract(audioBase64: string, mime: string): P
     '{ "transcript": string, "extracted": { "service": ..., "acres": ..., "district": ..., ' +
     '"village": ..., "preferredDate": ..., "contactName": ..., "contactPhone": ... } }, no commentary.';
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model()}:generateContent?key=${key}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mime, data: audioBase64 } }] }],
-      }),
-    },
-  );
+  const contents = [{ parts: [{ text: prompt }, { inlineData: { mimeType: mime, data: audioBase64 } }] }];
+
+  // First try: the configured model, answering in JSON, with thinking switched off — thinking is
+  // what made this take minutes. Anything Gemini refuses outright is retried once on the model
+  // this was tested against, asked plainly, which also covers an AI_MODEL that does not exist.
+  const started = Date.now();
+  let res = await send(key, model(), { contents, generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } } }, TIMEOUT_MS);
+  if (!res.ok && model() !== DEFAULT_MODEL) {
+    // Both tries share one budget, so a retry cannot push the request past the route's own limit.
+    // A refused model answers in well under a second, so in practice the budget is barely touched.
+    res = await send(key, DEFAULT_MODEL, { contents, generationConfig: { responseMimeType: "application/json" } }, Math.max(5_000, TIMEOUT_MS - (Date.now() - started)));
+  }
+
   const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; error?: { message: string } };
   if (!res.ok) throw new GeminiError(res.status, json.error?.message ?? JSON.stringify(json).slice(0, 300));
 
   const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  let parsed: { transcript?: string; extracted?: Partial<ExtractedFields> };
   try {
-    const parsed = JSON.parse(text.replace(/^```json\s*|```$/g, "").trim()) as { transcript?: string; extracted?: Partial<ExtractedFields> };
-    return { transcript: parsed.transcript ?? "", extracted: { ...EMPTY, ...parsed.extracted } };
+    parsed = JSON.parse(text.replace(/^```json\s*|```$/g, "").trim()) as typeof parsed;
   } catch {
     throw new GeminiError(res.status, "Gemini did not return valid JSON");
   }
+  return { transcript: String(parsed.transcript ?? ""), extracted: clean(parsed.extracted ?? {}) };
+}
+
+/** One attempt, abandoned after `ms` so a stalled call cannot hold the whole request open. */
+async function send(key: string, name: string, body: unknown, ms: number): Promise<Response> {
+  try {
+    return await fetch(`${baseUrl()}/v1beta/models/${name}:generateContent?key=${key}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(ms),
+    });
+  } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) throw new GeminiTimeout();
+    throw err;
+  }
+}
+
+/**
+ * Keeps only values the form can actually use. A service or district Gemini invented, or a date
+ * in the wrong shape, becomes null — which the screen then asks the farmer for — rather than a
+ * value that silently fails the form's own validation later on.
+ */
+function clean(e: Partial<ExtractedFields>): ExtractedFields {
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  const service = str(e.service);
+  const district = str(e.district);
+  const date = str(e.preferredDate);
+  const acres = typeof e.acres === "number" && Number.isFinite(e.acres) && e.acres > 0 ? e.acres : null;
+  const phone = str(e.contactPhone)?.replace(/[^\d]/g, "") || null;
+  return {
+    service: SERVICES.find((s) => s === service?.toLowerCase()) ?? null,
+    acres,
+    district: DISTRICTS.find((d) => d.toLowerCase() === district?.toLowerCase()) ?? null,
+    village: str(e.village),
+    preferredDate: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
+    contactName: str(e.contactName),
+    contactPhone: phone,
+  };
 }

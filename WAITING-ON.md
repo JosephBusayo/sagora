@@ -1,7 +1,26 @@
 # Waiting on
 
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
-each one is a swap, not a rewrite. Updated 11 Nov 2026.
+each one is a swap, not a rewrite. Updated 13 Nov 2026.
+
+## 13 Nov 2026: two things to check on the live deployment
+
+Both are about the voice note. The code works either way now, but both are worth putting right.
+
+1. **`AI_MODEL` in Vercel may name a model that does not exist.** The value set for production is
+   marked Sensitive, so it cannot be read back to check. If it reads `gemini-3.5-flash`, that is
+   not a real model — the real ones are `gemini-2.5-flash` (what this was built and tested
+   against) and `gemini-3-pro-preview`. Since 13 Nov the code falls back to `gemini-2.5-flash`
+   whenever the configured model is refused, so a wrong value costs one wasted call per recording
+   rather than the whole feature. Simplest fix: set `AI_MODEL` to `gemini-2.5-flash`, or remove it
+   altogether — unset, the code uses that model anyway.
+
+2. **Migration `023_voice_intake.sql` may never have been applied to production.** Migrations do
+   not run on deploy; `npm run db:migrate` has to be run by hand against Neon. Until it is, the
+   `voice_intake` table is missing. That used to crash the screen after a farmer had already
+   recorded; since 13 Nov the row is written on a best-effort basis and a failure is logged and
+   ignored, because the table is for debugging bad transcriptions and is not the product. So the
+   feature works without it — but nothing can be debugged until it exists.
 
 ## 11 Nov 2026: Karim's answers, and the voice-note feature
 

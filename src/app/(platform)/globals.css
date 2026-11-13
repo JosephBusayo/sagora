@@ -11,7 +11,7 @@
 @media (min-width: 1024px) {
   :root { zoom: 0.8; --zoom: 0.8; }
   :root:has(.auth) { zoom: 0.9; --zoom: 0.9; }
-  :root:has(.quick-request) { zoom: 1; --zoom: 1; } /* drawn at the landing page scale */
+  :root:has(.quick-request) { zoom: 0.7; --zoom: 0.7; } /* drawn full size, shown at 70% */
 }
 
 /* ---------------------------------------------------------------------------
@@ -1506,6 +1506,18 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .voice-capture__hint { margin: 0; font: 500 20px/1.5 var(--font-sans); color: #567621; }
 .voice-status { margin: 0; font: 500 15px/1.5 var(--font-sans); color: #7e8074; }
 
+/* The wait after recording: the circle again, so the screen does not jump, with the mic and the
+   prompt card gone and the heading saying what is happening. */
+.voice-processing { display: flex; flex-direction: column; align-items: center; gap: 18px; width: 100%; }
+.voice-processing__title { margin: 0; font: 600 24px/1.3 var(--font-sans); letter-spacing: -0.48px; color: #20201e; text-align: center; }
+.voice-processing__note { max-width: 420px; margin: 0; font: 500 15px/1.6 var(--font-sans); letter-spacing: -0.3px; color: #7e8074; text-align: center; }
+.voice-processing__dots { display: flex; align-items: center; gap: 10px; }
+.voice-processing__dots span { display: block; width: 14px; height: 14px; border-radius: 50%; background: #567621; animation: voice-dot 1.1s ease-in-out infinite; }
+.voice-processing__dots span:nth-child(2) { animation-delay: 0.18s; }
+.voice-processing__dots span:nth-child(3) { animation-delay: 0.36s; }
+@keyframes voice-dot { 0%, 100% { opacity: 0.25; transform: scale(0.7); } 50% { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .voice-processing__dots span { animation: none; opacity: 0.7; } }
+
 .voice-wave { display: flex; align-items: center; gap: 6px; }
 .voice-wave span { display: block; width: 4px; border-radius: 14px; background: #567621; transform-origin: center; animation: voice-wave 0.9s ease-in-out infinite; }
 @keyframes voice-wave { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
@@ -1529,21 +1541,32 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .voice-review__actions .qr-btn { flex: 1; font-size: 14px; letter-spacing: -0.28px; }
 .voice-review__form { margin-top: 8px; }
 
-/* Phones: the nav keeps its logo and buttons, everything else stacks at full width. */
+/* Phones: the nav keeps its logo and buttons, everything else stacks at full width. Nothing is
+   zoomed below 1024, so the sizes come down here by hand instead — about 4px off each. */
 @media (max-width: 999px) {
   .site-nav__inner { padding: 20px 16px; }
   .site-nav__links { display: none; }
+  .site-nav__logo img { width: 94px; height: 24px; }
   .quick-request__main { padding-top: 16px; }
-  .request-entry__head h2 { font-size: 32px; letter-spacing: -1.2px; }
-  .request-entry__head p { font-size: 16px; }
-  .request-entry__tabs { max-width: none; }
-  .voice-circle { width: 200px; height: 200px; }
+  .qr-btn { height: 43px; padding: 0 20px; font-size: 14px; letter-spacing: -0.28px; }
+  .request-entry__head h2 { font-size: 28px; letter-spacing: -1.1px; }
+  .request-entry__head p { font-size: 14px; }
+  .request-entry__tabs { max-width: none; height: 52px; }
+  .request-entry__tab { font-size: 14px; }
+  .voice-circle { width: 176px; height: 176px; }
+  .voice-capture__hint { font-size: 16px; }
+  .voice-processing__title { font-size: 20px; }
+  .voice-processing__note { font-size: 13px; }
   .voice-script, .voice-review__card { padding: 20px 18px; border-radius: 24px; }
+  .voice-script__title, .voice-review__card h3 { font-size: 14px; }
+  .voice-script li { font-size: 13px; }
+  .voice-script span { font-size: 12px; }
   .voice-review__actions { flex-direction: column; gap: 12px; }
 }
 @media (max-width: 480px) {
-  .site-nav__actions .qr-btn { height: 42px; padding: 0 16px; font-size: 15px; }
-  .request-entry__head h2 { font-size: 28px; }
+  .site-nav__actions .qr-btn { height: 38px; padding: 0 14px; font-size: 13px; }
+  .request-entry__head h2 { font-size: 24px; }
+  .voice-circle { width: 164px; height: 164px; }
 }
 
 /* Check before sending: what was entered, read back before it goes. */

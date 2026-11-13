@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { db } from "./db";
-import { geminiConfigured, transcribeAndExtract, type ExtractedFields } from "./gemini";
+import { GeminiTimeout, geminiConfigured, transcribeAndExtract, type ExtractedFields } from "./gemini";
 
 /** The largest voice note accepted, as base64 text — about 2MB of actual audio, plenty for 90s of webm/opus. */
 const AUDIO_MAX_CHARS = 2_800_000;
@@ -36,17 +36,32 @@ export async function processVoiceNote(
   const now = new Date().toISOString();
   try {
     const { transcript, extracted } = await transcribeAndExtract(audio.data, audio.mime);
-    await db.run(
-      `INSERT INTO voice_intake (id, created_by_kind, created_by_id, transcript, extracted_json, status, created_at) VALUES (?,?,?,?,?,'transcribed',?)`,
-      randomUUID(), by.kind, by.id, transcript, JSON.stringify(extracted), now,
-    );
+    await log(`INSERT INTO voice_intake (id, created_by_kind, created_by_id, transcript, extracted_json, status, created_at) VALUES (?,?,?,?,?,'transcribed',?)`,
+      [randomUUID(), by.kind, by.id, transcript, JSON.stringify(extracted), now]);
     return { ok: true, transcript, extracted };
   } catch (err) {
     const message = String(err instanceof Error ? err.message : err).slice(0, 300);
-    await db.run(
-      `INSERT INTO voice_intake (id, created_by_kind, created_by_id, status, error, created_at) VALUES (?,?,?,'failed',?,?)`,
-      randomUUID(), by.kind, by.id, message, now,
-    );
-    return { ok: false, reason: "We could not understand that recording. Please try again, or fill in the form instead." };
+    console.error("voice intake failed:", message);
+    await log(`INSERT INTO voice_intake (id, created_by_kind, created_by_id, status, error, created_at) VALUES (?,?,?,'failed',?,?)`,
+      [randomUUID(), by.kind, by.id, message, now]);
+    return {
+      ok: false,
+      reason: err instanceof GeminiTimeout
+        ? "That took too long to understand. Please try a shorter recording, or fill in the form instead."
+        : "We could not understand that recording. Please try again, or fill in the form instead.",
+    };
+  }
+}
+
+/**
+ * Writes the log row, and swallows anything that goes wrong doing so. This table exists to debug
+ * bad transcriptions — it is not the product. An unapplied migration or a database hiccup used to
+ * escape the catch block above and crash the screen, losing a transcript that had already worked.
+ */
+async function log(sql: string, args: (string | null)[]): Promise<void> {
+  try {
+    await db.run(sql, ...args);
+  } catch (err) {
+    console.error("voice_intake log failed:", err instanceof Error ? err.message : err);
   }
 }

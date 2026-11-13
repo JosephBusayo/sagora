@@ -38,6 +38,11 @@ export default defineConfig({
       MONIME_ACCESS_TOKEN: "mon_test_stub_token",
       MONIME_SPACE_ID: "spc-test",
       MONIME_WEBHOOK_SECRET: "test-webhook-secret",
+      // A stand-in Gemini (e2e/gemini-stub.ts), started by the voice-note tests. The key only has
+      // to be non-empty for the voice option to be offered at all; the stub does not check it.
+      GEMINI_API_URL: "http://localhost:3498",
+      GOOGLE_GENERATIVE_AI_API_KEY: "e2e-stub-key",
+      AI_MODEL: "gemini-2.5-flash",
     },
   },
 });
