@@ -59,18 +59,37 @@ test("a voice note becomes a transcript, then the form it filled in", async ({ p
 
   // The transcript comes back as the farmer's own words, with Record again / Send request.
   await expect(page.getByRole("heading", { name: "Your request" })).toBeVisible();
-  await expect(page.getByText("Mongere village", { exact: false })).toBeVisible();
+  await expect(page.getByText("Makonteh", { exact: false }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Record again" })).toBeVisible();
 
   // Sending reveals the form it filled in — the farmer still submits that themselves. The
-  // service was heard, so the form opens past the step that asks for it, already on ploughing.
+  // service was heard, so the form opens past the step that asks for it, already on harvesting.
   await page.getByRole("button", { name: "Send request" }).click();
-  await expect(page.getByRole("heading", { name: "Ploughing service" })).toBeVisible();
-  await expect(page.getByLabel("Land size")).toHaveValue("2");
+  await expect(page.getByRole("heading", { name: "Harvesting service" })).toBeVisible();
+  await expect(page.getByLabel("Land size")).toHaveValue("494.21");
   await expect(page.getByLabel("Unit")).toHaveValue("acres");
+  // Said out loud, so not typed again: the crop, and what no other field holds.
+  await expect(page.getByLabel("Crop", { exact: true })).toHaveValue("rice");
+  await expect(page.getByLabel("Additional notes (optional)")).toHaveValue(/call me back|called back/i);
 
-  // The phone number was never spoken, so it is asked for rather than invented.
+  // The land questions were never spoken, so they are still the farmer's to answer — the form
+  // will not go on without them, which is the point of listing them on the review screen.
+  await page.getByLabel("Easy access").check();
+  await page.getByLabel("Cleared").check();
+  await page.getByLabel("Ready now").check();
+
+  // Step 2 carries the place and the date, resolved from "second week October".
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByLabel("District")).toHaveValue("Bombali");
+  await expect(page.getByLabel("Village/town")).toHaveValue("Makonteh");
+  await expect(page.getByLabel("Preferred start date")).toHaveValue("2027-10-11");
+  // "Karene Chiefdom" is a neighbouring district, not a Bombali chiefdom, so it is not filled in.
+  await expect(page.getByLabel("Chiefdom")).toHaveValue("");
+
+  // What was never said is asked for by name rather than guessed at.
   await expect(page.locator(".voice-review__note")).toContainText("Your phone number");
+  await expect(page.locator(".voice-review__note")).toContainText("Chiefdom");
+  await expect(page.locator(".voice-review__note")).toContainText("Land access");
 
   // Thinking was switched off on the call, which is what kept it from running for minutes.
   expect(gemini.seen.at(-1)).toMatchObject({ model: "gemini-2.5-flash", thinkingOff: true, mime: "audio/webm" });

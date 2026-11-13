@@ -1,4 +1,6 @@
 import "server-only";
+import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, LAND_TYPE, CROP_READINESS } from "./land";
+import { chiefdomsOf } from "./chiefdoms";
 
 /**
  * Voice-note request intake, phase 1-2 (see the plan). Gemini listens to the audio directly and
@@ -54,17 +56,35 @@ export class GeminiTimeout extends Error {
 
 const SERVICES = ["ploughing", "harvesting", "planting"] as const;
 
+/** The option ids as the prompt lists them, so the form's own wording is the only wording. */
+const ids = (options: readonly { id: string }[]) => JSON.stringify(options.map((o) => o.id));
+
 /** The fields BookForm's first two steps can use. Anything not heard stays null — never guessed. */
 export type ExtractedFields = {
   service: "ploughing" | "harvesting" | "planting" | null;
   acres: number | null;
+  /** What is grown, for harvesting and planting — the form will not go on without it. */
+  crop: string | null;
   district: string | null;
+  /** Only kept when it is really a chiefdom of the district named: farmers sometimes name a
+   * neighbouring district as their chiefdom, and a wrong one fails the form's own check. */
+  chiefdom: string | null;
   village: string | null;
   /** Resolved to a real date (YYYY-MM-DD) relative to when the note was recorded — "this Saturday"
    * becomes an actual date, not left as text, so it can go straight into BookForm's date field. */
   preferredDate: string | null;
   contactName: string | null;
   contactPhone: string | null;
+  /** The land and crop questions, as the form's own ids. Only filled when the farmer actually
+   * said something that answers them — an unasked question is left for them to answer. */
+  landAccess: string | null;
+  landCondition: string | null;
+  landClearance: string | null;
+  landType: string | null;
+  cropReadiness: string | null;
+  /** Whatever else they said that matters and no field above holds — how to reach them, what
+   * they are unsure about. Without this it was simply lost between the recording and the form. */
+  notes: string | null;
 };
 
 export type Transcribed = { transcript: string; extracted: ExtractedFields };
@@ -81,16 +101,35 @@ export async function transcribeAndExtract(audioBase64: string, mime: string): P
     "field, as faithfully as you can even if some words are unclear. Then, in an \"extracted\" " +
     "field, pull out: service (exactly one of \"ploughing\", \"harvesting\", \"planting\", or null " +
     "if unclear), acres (a number — convert hectares to acres if that is what they said — or " +
-    `null), district (exactly one of ${JSON.stringify(DISTRICTS)}, matching the closest place ` +
-    "they named, or null if you cannot tell), village or town (or null), preferredDate (if they give a specific, " +
+    "null), crop (what is grown or to be planted, as a plain lowercase name such as \"rice\" or " +
+    "\"cassava\", or null if they named none), " +
+    `district (exactly one of ${JSON.stringify(DISTRICTS)}, matching the closest place ` +
+    "they named, or null if you cannot tell), chiefdom (the chiefdom they named, spelled as a " +
+    "chiefdom of that district, or null), village or town (or null), " +
+    "preferredDate (if they give a specific, " +
     "relative, or vague date or time period — \"this Saturday\", \"second week of October\", " +
     "\"next month\" — resolve it to your single best-guess real calendar date in YYYY-MM-DD " +
-    "format, relative to today's date given above; null only if they gave no date at all), " +
+    "format, relative to today's date given above. It must be on or after today's date: if the " +
+    "period they named has already gone by this year, they mean the next time it comes round, so " +
+    "use next year. Null only if they gave no date at all), " +
     "contactName (or null), contactPhone (digits only, or null — people often say \"I'll send my " +
-    "number\" without actually speaking digits; only fill this if real digits were spoken). " +
+    "number\" without actually speaking digits; only fill this if real digits were spoken), " +
+    // The land questions are only filled from something actually said: a guess here is worse
+    // than a blank, because the farmer sees an answered question and never corrects it.
+    `landAccess (one of ${ids(LAND_ACCESS)}, or null), ` +
+    `landCondition (one of ${ids(LAND_CONDITION)}, or null), ` +
+    `landClearance (one of ${ids(LAND_CLEARANCE)}, or null), ` +
+    `landType (one of ${ids(LAND_TYPE)}, or null), ` +
+    `cropReadiness (one of ${ids(CROP_READINESS)}, or null) ` +
+    "— each of these five only if they actually said something that answers it, otherwise null, " +
+    "never a guess. Finally notes: anything else they said that someone arranging this work would " +
+    "need to know and no field above holds — how to reach them, what they are unsure about — in " +
+    "one or two plain English sentences, or null if there is nothing left over. " +
     "Reply with JSON only, shaped exactly as " +
-    '{ "transcript": string, "extracted": { "service": ..., "acres": ..., "district": ..., ' +
-    '"village": ..., "preferredDate": ..., "contactName": ..., "contactPhone": ... } }, no commentary.';
+    '{ "transcript": string, "extracted": { "service": ..., "acres": ..., "crop": ..., ' +
+    '"district": ..., "chiefdom": ..., "village": ..., "preferredDate": ..., "contactName": ..., ' +
+    '"contactPhone": ..., "landAccess": ..., "landCondition": ..., "landClearance": ..., ' +
+    '"landType": ..., "cropReadiness": ..., "notes": ... } }, no commentary.';
 
   const contents = [{ parts: [{ text: prompt }, { inlineData: { mimeType: mime, data: audioBase64 } }] }];
 
@@ -140,18 +179,35 @@ async function send(key: string, name: string, body: unknown, ms: number): Promi
  */
 function clean(e: Partial<ExtractedFields>): ExtractedFields {
   const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
-  const service = str(e.service);
-  const district = str(e.district);
+  /** An option id, only if it is one the form actually offers. */
+  const pick = (v: unknown, options: readonly { id: string }[]) => {
+    const want = str(v)?.toLowerCase();
+    return options.find((o) => o.id === want)?.id ?? null;
+  };
+  const district = DISTRICTS.find((d) => d.toLowerCase() === str(e.district)?.toLowerCase()) ?? null;
+  const said = str(e.chiefdom)?.toLowerCase();
   const date = str(e.preferredDate);
-  const acres = typeof e.acres === "number" && Number.isFinite(e.acres) && e.acres > 0 ? e.acres : null;
-  const phone = str(e.contactPhone)?.replace(/[^\d]/g, "") || null;
+  const today = new Date().toISOString().slice(0, 10);
+
   return {
-    service: SERVICES.find((s) => s === service?.toLowerCase()) ?? null,
-    acres,
-    district: DISTRICTS.find((d) => d.toLowerCase() === district?.toLowerCase()) ?? null,
+    service: SERVICES.find((s) => s === str(e.service)?.toLowerCase()) ?? null,
+    acres: typeof e.acres === "number" && Number.isFinite(e.acres) && e.acres > 0 ? e.acres : null,
+    crop: str(e.crop)?.toLowerCase() ?? null,
+    district,
+    // Dropped unless it belongs to the district: "Bombali District, Karene Chiefdom" names a
+    // neighbouring district, and the form would refuse it. Better asked than wrong.
+    chiefdom: (district ? chiefdomsOf(district).find((c) => c.toLowerCase() === said) : null) ?? null,
     village: str(e.village),
-    preferredDate: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
+    // A date already gone by is not something a farmer can be booked for, so it is asked for
+    // again rather than carried into a form that would only reject it.
+    preferredDate: date && /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= today ? date : null,
     contactName: str(e.contactName),
-    contactPhone: phone,
+    contactPhone: str(e.contactPhone)?.replace(/[^\d]/g, "") || null,
+    landAccess: pick(e.landAccess, LAND_ACCESS),
+    landCondition: pick(e.landCondition, LAND_CONDITION),
+    landClearance: pick(e.landClearance, LAND_CLEARANCE),
+    landType: pick(e.landType, LAND_TYPE),
+    cropReadiness: pick(e.cropReadiness, CROP_READINESS),
+    notes: str(e.notes),
   };
 }

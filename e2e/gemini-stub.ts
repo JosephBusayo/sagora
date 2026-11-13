@@ -16,13 +16,20 @@ export function startGeminiStub() {
   // of the file. They are tracked so stopping can drop them.
   const stalled = new Set<ReturnType<typeof setTimeout>>();
 
+  // A real farmer's request, shortened: rice to harvest at Makonteh in Bombali, 200 hectares,
+  // the second week of October, no phone number spoken. "Karene Chiefdom" is deliberate — it is
+  // a neighbouring district, not a Bombali chiefdom, and must not reach the form.
   const answer = {
     transcript:
-      "A want fo plough mi lan. Na tu acre. I de na Bo District, na Mongere village. A want di wok " +
-      "fo bigin dis Satide. Mi nem na Sahr Konteh.",
+      "We in Makonteh. We get land dey, rice where we grow where we want for harvest. Na 200 " +
+      "hectare. We want for do this work ya inside October, second week October. Makonteh na " +
+      "Bombali District, Karene Chiefdom. Na my number dis, make una call me back.",
     extracted: {
-      service: "ploughing", acres: 2, district: "Bo", village: "Mongere",
-      preferredDate: "2026-11-14", contactName: "Sahr Konteh", contactPhone: null,
+      service: "harvesting", acres: 494.21, crop: "rice", district: "Bombali",
+      chiefdom: "Karene", village: "Makonteh", preferredDate: "2027-10-11",
+      contactName: null, contactPhone: null, landAccess: null, landCondition: null,
+      landClearance: null, landType: null, cropReadiness: null,
+      notes: "Asks to be called back, or sent a text or voice note. Unsure what the process is.",
     },
   };
 
