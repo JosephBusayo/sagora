@@ -23,7 +23,9 @@ export function RequestEntry({ services, districts, service, direct, submissionK
     <div className="request-entry">
       <header className="request-entry__head">
         <h2>How would you like to tell us?</h2>
-        <p>Just say what you want in a voice note or fill in a short form.</p>
+        {/* The break lands after "a" on phones, where the line would otherwise fall badly.
+            On wider screens the <br> is hidden and it reads as one line. */}
+        <p>Just say what you want in a<br className="only-narrow" /> voice note or fill in a short form.</p>
       </header>
 
       {voiceEnabled ? (
