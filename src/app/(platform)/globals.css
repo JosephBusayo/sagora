@@ -11,7 +11,7 @@
 @media (min-width: 1024px) {
   :root { zoom: 0.8; --zoom: 0.8; }
   :root:has(.auth) { zoom: 0.9; --zoom: 0.9; }
-  :root:has(.quick-request) { zoom: 0.7; --zoom: 0.7; } /* drawn full size, shown at 70% */
+  :root:has(.quick-request) { zoom: 0.75; --zoom: 0.75; } /* drawn full size, shown at 75% */
 }
 
 /* ---------------------------------------------------------------------------
