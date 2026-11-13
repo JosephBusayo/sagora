@@ -21,7 +21,7 @@ export function RequestEntry({ services, districts, service, direct, submissionK
 
   return (
     <div className="request-entry">
-      <header className="book__head request-entry__head">
+      <header className="request-entry__head">
         <h2>How would you like to tell us?</h2>
         <p>Just say what you want in a voice note or fill in a short form.</p>
       </header>

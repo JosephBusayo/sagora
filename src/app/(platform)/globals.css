@@ -11,6 +11,7 @@
 @media (min-width: 1024px) {
   :root { zoom: 0.8; --zoom: 0.8; }
   :root:has(.auth) { zoom: 0.9; --zoom: 0.9; }
+  :root:has(.quick-request) { zoom: 1; --zoom: 1; } /* drawn at the landing page scale */
 }
 
 /* ---------------------------------------------------------------------------
@@ -1451,62 +1452,99 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .asset__gallery-add .photo-pick__box { height: 72px; width: 72px; border-radius: 12px; padding: 0; font-size: 0; }
 .asset__gallery-add .field__label { display: none; }
 
-/* Voice-note request intake. Matches the designer's "How would you like to tell us?" screens
-   (Figma 152:107 idle, 152:267 recording, 152:546 review). */
+/* ==========================================================================
+   "Make a quick request" — the voice-note flow, to the designer's screens
+   (Figma 152:107 idle, 152:267 recording, 152:546 review). Drawn at the landing
+   page's scale, with its nav, plain on the page: no card around the choice.
+   ========================================================================== */
 
-/* "How would you like to tell us?" — 44px, the largest text on this screen per the design
-   (152:107/267/546 all agree); .book__head's own 22px default is for other screens. */
-.request-entry__head h2 { font: 600 44px/1 var(--font-sans); letter-spacing: -1.76px; margin-bottom: 15px; }
-.request-entry__head p { font: 500 18px/1.5 var(--font-sans); letter-spacing: -0.36px; color: #7e8074; }
+.quick-request { min-height: var(--screen-h, 100vh); background: var(--color-bg); color: #20201e; }
+.quick-request__main { max-width: 780px; margin: 0 auto; padding: 32px 16px 80px; }
 
-/* The segmented choice between voice and form, as in 152:107's top pill — two 197px pills in a
-   58px-tall white capsule, not content-hugging text. */
-.request-entry__tabs {
-  display: flex; gap: 6px; width: 100%; max-width: 405px; height: 58px; padding: 5px; margin: 0 auto 28px;
-  background: #fff; border: 1px solid #e2e6ce; border-radius: 37px; box-shadow: 0 6px 7.5px #e5e8d9;
-}
-.request-entry__tab { flex: 1; border-radius: 36px; font: 500 16px/1.5 var(--font-sans); letter-spacing: -0.32px; color: #7e8074; }
+/* The landing page's nav bar, as it is on these screens. */
+.site-nav { position: sticky; top: 0; z-index: 10; background: var(--color-bg); }
+.site-nav__inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; max-width: 1520px; margin: 0 auto; padding: 32px 40px; }
+.site-nav__logo img { display: block; width: 108px; height: 28px; }
+.site-nav__links { display: flex; align-items: center; gap: 42px; }
+.site-nav__link { display: inline-flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; font: 500 16px/1.5 var(--font-sans); letter-spacing: -0.32px; color: #024321; cursor: pointer; }
+.site-nav__chev { width: 24px; height: 24px; transition: transform 0.2s; }
+.site-nav__drop-btn[aria-expanded="true"] .site-nav__chev { transform: rotate(180deg); }
+.site-nav__drop { position: relative; }
+.site-nav__menu { position: absolute; top: calc(100% + 12px); left: 0; z-index: 20; min-width: 220px; margin: 0; padding: 8px; list-style: none; background: #fff; border: 1px solid #e2e6ce; border-radius: 16px; box-shadow: 0 6px 15px #e5e8d9; }
+.site-nav__menu--end { left: auto; right: 0; }
+.site-nav__menu-item { display: block; padding: 10px 12px; border-radius: 10px; font: 500 15px/1.4 var(--font-sans); color: #024321; white-space: nowrap; }
+.site-nav__menu-item:hover, .site-nav__menu-item:focus-visible { background: #edf0e0; outline: none; }
+.site-nav__actions { display: flex; align-items: center; gap: 14px; }
+
+/* The buttons on these screens: 47px, radius 12, as the nav and review buttons are drawn. */
+.qr-btn { display: inline-flex; align-items: center; justify-content: center; height: 47px; padding: 0 25px; border: 0; border-radius: 12px; background: #024321; font: 500 16px/1.5 var(--font-sans); letter-spacing: -0.32px; color: #cee06a; white-space: nowrap; cursor: pointer; transition: background-color 0.2s, transform 0.2s; }
+.qr-btn:hover, .qr-btn:focus-visible { background: #035a2c; outline: none; }
+.qr-btn--soft { background: #e9ecd7; color: #024321; }
+.qr-btn--soft:hover, .qr-btn--soft:focus-visible { background: #dfe4c8; }
+
+/* "How would you like to tell us?" — 44px, the largest text on the screen; then the subtext. */
+.request-entry { display: flex; flex-direction: column; align-items: center; }
+.request-entry__head { margin-bottom: 15px; text-align: center; }
+.request-entry__head h2 { margin: 0; font: 600 44px/1 var(--font-sans); letter-spacing: -1.76px; color: #20201e; }
+.request-entry__head p { margin: 15px 0 0; font: 500 18px/1.5 var(--font-sans); letter-spacing: -0.36px; color: #7e8074; }
+
+/* The segmented choice: two 197px pills in a 58px white capsule. */
+.request-entry__tabs { display: flex; gap: 6px; width: 100%; max-width: 405px; height: 58px; padding: 5px; margin: 0 0 32px; background: #fff; border: 1px solid #e2e6ce; border-radius: 37px; box-shadow: 0 6px 7.5px #e5e8d9; }
+.request-entry__tab { flex: 1; border: 0; border-radius: 36px; background: none; font: 500 16px/1.5 var(--font-sans); letter-spacing: -0.32px; color: #7e8074; cursor: pointer; }
 .request-entry__tab--active { background: #edf0e0; color: #494f3b; }
+.request-entry > .modal { width: 100%; }
 
-/* The idle mic circle, "Tap the icon to record". */
-.voice-capture__script { margin: 0 auto 18px; max-width: 495px; padding: 18px 20px; border-radius: 24px; border: 1px solid #e2e6ce; background: #fff; text-align: center; }
-.voice-capture__script p:first-child { margin: 0 0 14px; font: 600 15px/20px var(--font-sans); color: #567621; }
-.voice-capture__script ul { margin: 0; padding: 0; list-style: none; text-align: left; }
-.voice-capture__script li { display: flex; flex-wrap: wrap; gap: 8px; padding: 9px 0; border-top: 1px solid #e4e6dd; font: 500 13px/1.5 var(--font-sans); }
-.voice-capture__script li:first-child { border-top: none; }
-.voice-capture__script strong { color: #567621; }
-.voice-capture__script span { color: var(--color-text-muted); }
+/* Screens 1 and 2: the circle, the mic or the waveform inside it, the prompt list below. */
+.voice-form, .voice-capture { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.voice-capture { gap: 20px; }
+.voice-capture__mic { padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; }
+.voice-capture__mic:focus-visible { outline: 3px solid #a7bd1f; outline-offset: 4px; }
+.voice-circle { position: relative; display: block; width: 239px; height: 239px; }
+.voice-circle__discs { display: block; width: 100%; height: 100%; }
+.voice-circle__content { position: absolute; inset: 0; display: grid; place-items: center; }
+.voice-circle__progress { transition: stroke-dashoffset 0.9s linear; }
+.voice-capture__hint { margin: 0; font: 500 20px/1.5 var(--font-sans); color: #567621; }
+.voice-status { margin: 0; font: 500 15px/1.5 var(--font-sans); color: #7e8074; }
 
-.voice-capture__mic-wrap { display: flex; flex-direction: column; align-items: center; gap: 18px; margin-bottom: 24px; }
-.voice-capture__mic {
-  position: relative; display: grid; place-items: center; width: 160px; height: 160px; border-radius: 50%;
-  border: 1px solid #d9e0b8; background: #fff; color: #567621; cursor: pointer;
+.voice-wave { display: flex; align-items: center; gap: 6px; }
+.voice-wave span { display: block; width: 4px; border-radius: 14px; background: #567621; transform-origin: center; animation: voice-wave 0.9s ease-in-out infinite; }
+@keyframes voice-wave { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .voice-wave span { animation: none; } .voice-circle__progress { transition: none; } }
+
+.voice-script { width: 100%; max-width: 535px; margin-top: 12px; padding: 22px 26px; background: #fff; border: 1px solid #e2e6ce; border-radius: 33px; }
+.voice-script__title { margin: 0 0 8px; font: 600 16px/1.5 var(--font-sans); letter-spacing: -0.32px; color: #567621; text-align: center; }
+.voice-script ul { margin: 0; padding: 0; list-style: none; }
+.voice-script li { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 11px 0; border-bottom: 1px solid #e4e6dd; font: 500 14px/1.5 var(--font-sans); }
+.voice-script li:last-child { border-bottom: 0; }
+.voice-script strong { font-weight: 500; letter-spacing: -0.28px; color: #567621; }
+.voice-script span { font-size: 13px; letter-spacing: -0.26px; color: #7e8074; }
+
+/* Screen 3: the transcript as a card, the note, Record again / Send request. */
+.voice-review { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; }
+.voice-review__card { width: 100%; max-width: 535px; padding: 36px 30px; background: #fff; border: 1px solid #e2e6ce; border-radius: 33px; }
+.voice-review__card h3 { margin: 0 0 18px; font: 600 16px/1.5 var(--font-sans); letter-spacing: -0.32px; color: #567621; text-align: center; }
+.voice-review__card p { margin: 0; font: 500 13px/1.8 var(--font-sans); letter-spacing: -0.26px; color: #7e8074; white-space: pre-wrap; }
+.voice-review__note { margin: 0; padding: 4px 16px; border-radius: 16px; background: #e9ecd7; font: 500 13px/1.5 var(--font-sans); letter-spacing: -0.26px; color: #567621; text-align: center; }
+.voice-review__actions { display: flex; gap: 20px; width: 100%; max-width: 498px; }
+.voice-review__actions .qr-btn { flex: 1; font-size: 14px; letter-spacing: -0.28px; }
+.voice-review__form { margin-top: 8px; }
+
+/* Phones: the nav keeps its logo and buttons, everything else stacks at full width. */
+@media (max-width: 999px) {
+  .site-nav__inner { padding: 20px 16px; }
+  .site-nav__links { display: none; }
+  .quick-request__main { padding-top: 16px; }
+  .request-entry__head h2 { font-size: 32px; letter-spacing: -1.2px; }
+  .request-entry__head p { font-size: 16px; }
+  .request-entry__tabs { max-width: none; }
+  .voice-circle { width: 200px; height: 200px; }
+  .voice-script, .voice-review__card { padding: 20px 18px; border-radius: 24px; }
+  .voice-review__actions { flex-direction: column; gap: 12px; }
 }
-.voice-capture__mic:hover, .voice-capture__mic:focus-visible { border-color: var(--color-brand); outline: none; }
-.voice-capture__mic--recording { border-color: #c1ea60; }
-.voice-capture__mic-hint { font: 500 15px/1.5 var(--font-sans); color: #567621; }
-
-/* Recording: pulsing rings behind the icon, a live waveform in place of it, "End recording" below. */
-.voice-capture__ring { position: absolute; inset: 0; border-radius: 50%; border: 1px solid #c1ea60; animation: voice-ring 1.8s ease-out infinite; }
-.voice-capture__ring:nth-child(2) { animation-delay: 0.6s; }
-@keyframes voice-ring { 0% { transform: scale(0.82); opacity: 0.9; } 100% { transform: scale(1.08); opacity: 0; } }
-.voice-capture__wave { display: flex; align-items: center; gap: 3px; height: 40px; }
-.voice-capture__wave span { width: 4px; border-radius: 14px; background: #567621; animation: voice-wave 0.9s ease-in-out infinite; }
-@keyframes voice-wave { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
-@media (prefers-reduced-motion: reduce) {
-  .voice-capture__ring, .voice-capture__wave span { animation: none; }
+@media (max-width: 480px) {
+  .site-nav__actions .qr-btn { height: 42px; padding: 0 16px; font-size: 15px; }
+  .request-entry__head h2 { font-size: 28px; }
 }
-.voice-capture__timer { font: 500 14px/1.5 var(--font-sans); color: var(--color-text-muted); }
-
-.voice-capture__actions { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 14px; }
-.voice-capture__upload { position: relative; cursor: pointer; font: 500 14px/1.5 var(--font-sans); color: #567621; text-decoration: underline; }
-
-/* Review: the transcript as a card, then whatever still needs filling in. */
-.voice-review { margin-bottom: 10px; max-width: 495px; margin-left: auto; margin-right: auto; }
-.voice-review__card { padding: 24px; border-radius: 24px; border: 1px solid #e2e6ce; background: #fff; text-align: center; }
-.voice-review__card h3 { margin: 0 0 14px; font: 600 15px/20px var(--font-sans); color: #567621; }
-.voice-review__card p { margin: 0; text-align: left; font: 500 14px/1.8 var(--font-sans); color: var(--color-text-muted); white-space: pre-wrap; }
-.voice-review__missing { display: inline-block; margin: 14px auto 0; padding: 5px 16px; border-radius: 16px; background: #e9ecd7; font: 500 13px/1.5 var(--font-sans); color: #567621; text-align: center; }
 
 /* Check before sending: what was entered, read back before it goes. */
 .check-first { width: min(520px, calc(100vw / var(--zoom) - 32px)); }

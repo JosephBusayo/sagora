@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { completeApplication, confirmChecks } from "./checks";
+import { completeApplication, confirmChecks, openForm } from "./checks";
 import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -109,6 +109,7 @@ test("a farmer with no account sends a request, gets a tracking code and can cha
   await page.goto("/");
   await expect(page.getByRole("link", { name: "Find it here" })).toHaveAttribute("href", "/request/find");
   await page.goto("/request");
+  await openForm(page);
   await page.getByLabel("What work do you need?").selectOption("ploughing");
   await page.getByLabel("Land size").fill("3");
   await page.getByLabel("Easy access").check();

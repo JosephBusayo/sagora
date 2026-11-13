@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { completeApplication, confirmChecks } from "./checks";
+import { completeApplication, confirmChecks, openForm } from "./checks";
 import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -73,6 +73,7 @@ const inDays = (n: number) => new Date(Date.now() + n * 86400000).toISOString().
 /** A harvest request in Kenema, sent without an account. Returns its reference. */
 async function kenemaHarvest(page: Page): Promise<string> {
   await page.goto("/request");
+  await openForm(page);
   await page.getByLabel("What work do you need?").selectOption("harvesting");
   await page.getByLabel("Land size").fill("2");
   await page.getByLabel("Crop", { exact: true }).fill("Rice");

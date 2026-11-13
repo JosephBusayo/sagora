@@ -44,3 +44,12 @@ export async function completeApplication(page: Page): Promise<void> {
   await page.getByLabel("Deposit you ask for").fill("No deposit");
   await page.getByLabel("If the work is cancelled").fill("Full refund up to 2 days before");
 }
+
+/**
+ * /request opens on "Send a voice note" when a transcription key is configured, so the form is
+ * one tab away. Clicks that tab when it is there, and does nothing when it is not.
+ */
+export async function openForm(page: Page): Promise<void> {
+  const tab = page.getByRole("tab", { name: "Fill a form" });
+  if (await tab.isVisible().catch(() => false)) await tab.click();
+}
