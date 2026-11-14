@@ -59,10 +59,20 @@ function LandRows({ request }: { request: RequestDetail }) {
   );
 }
 
-export function RequestModal({ request, myQuote, onClose }: { request: RequestDetail; myQuote: MyQuote | null; onClose: () => void }) {
+/** The job this request became, once a quote was accepted. Where the work is run from. */
+export type RequestJob = { reference: string; scheduled: boolean };
+
+export function RequestModal({ request, myQuote, job, onClose }: {
+  request: RequestDetail; myQuote: MyQuote | null; job?: RequestJob | null; onClose: () => void;
+}) {
   const [tab, setTab] = useState<"details" | "quote" | "activity">("details");
   const ref = useRef<HTMLDivElement>(null);
   const close = useModal(ref, onClose);
+
+  // The farmer picked this business: the request is now a job, and everything left to do with
+  // it — scheduling, equipment, the work report — lives there.
+  const won = myQuote?.status === "accepted";
+  const jobHref = job ? `/provider/jobs?open=${encodeURIComponent(job.reference)}` : "/provider/jobs";
 
 
   return (
@@ -105,7 +115,25 @@ export function RequestModal({ request, myQuote, onClose }: { request: RequestDe
             {!myQuote || myQuote.status === "sent" || myQuote.status === "superseded" ? (
               <InspectionForm requestId={request.id} existing={request.inspection} />
             ) : null}
-            <QuoteForm requestId={request.id} service={request.service} existing={myQuote} onDone={onClose} />
+            {/* An accepted quote is the agreement: it is read back, not re-opened for editing.
+                Sending another is refused by the server anyway, so offering the form here only
+                walked a provider into a dead end. */}
+            {won && myQuote ? (
+              <>
+                <div className="detail-list">
+                  <Row icon="payments" label="Agreed price" value={myQuote.amount} />
+                  <Row icon="info" label="What it covers" value={myQuote.includes} />
+                  <Row icon="calendar" label="Starting" value={myQuote.startDate} />
+                  {myQuote.note ? <Row icon="info" label="Your note" value={myQuote.note} /> : null}
+                </div>
+                <div className="form-actions">
+                  <button type="button" className="button button--soft" onClick={() => setTab("details")}>Back</button>
+                  <a className="button" href={jobHref}>{job?.scheduled ? "Open the job" : "Schedule the work"}</a>
+                </div>
+              </>
+            ) : (
+              <QuoteForm requestId={request.id} service={request.service} existing={myQuote} onDone={onClose} />
+            )}
           </>
         ) : (
         <>
@@ -129,11 +157,18 @@ export function RequestModal({ request, myQuote, onClose }: { request: RequestDe
           <Row icon="info" label="Additional information" value={request.notes || "None"} />
         </div>
 
+        {/* Once the farmer has accepted, quoting is over and the work is the next thing. The
+            button used to say "Send a quote" either way, which sent a provider to a form that
+            could only refuse them, and left scheduling to be hunted for under Jobs. */}
         <div className="form-actions">
           <button type="button" className="button button--soft" onClick={onClose}>Close</button>
-          <button type="button" className="button" onClick={() => setTab("quote")}>
-            {myQuote && myQuote.status === "sent" ? "Update my quote" : "Send a quote"}
-          </button>
+          {won ? (
+            <a className="button" href={jobHref}>{job?.scheduled ? "Open the job" : "Schedule the work"}</a>
+          ) : (
+            <button type="button" className="button" onClick={() => setTab("quote")}>
+              {myQuote && myQuote.status === "sent" ? "Update my quote" : "Send a quote"}
+            </button>
+          )}
         </div>
         </>
         )}

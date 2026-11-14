@@ -9,6 +9,7 @@ import { DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
 import { DATE_WINDOWS, STATUS_LABEL, browse, serviceLabel, type RequestStatus } from "@/lib/requests";
 import { QUOTE_STATUS_LABEL, activityFor, currentQuote, isExpired, type QuoteStatus } from "@/lib/quotes";
 import { formatAmount } from "@/lib/money";
+import { jobForRequest } from "@/lib/jobs";
 import { RequestsTable, type RequestRow } from "@/components/requests/RequestsTable";
 import { FilterAutoSubmit } from "@/components/requests/FilterAutoSubmit";
 
@@ -92,6 +93,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
         note: q.note,
         expired: isExpired(q),
       };
+    })(),
+    // The job this became, so an accepted request can point at the work instead of at a quote
+    // form it would only refuse.
+    job: await (async () => {
+      const j = await jobForRequest(r.id);
+      return j ? { reference: r.reference, scheduled: Boolean(j.startDate) } : null;
     })(),
   })));
 

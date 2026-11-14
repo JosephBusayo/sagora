@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { db } from "./db";
 import { logError } from "./log";
-import { createCheckoutSession, getCheckoutSession, monimeTestMode } from "./monime";
+import { MonimeError, createCheckoutSession, getCheckoutSession, monimeTestMode } from "./monime";
 import { bookingFor, fundsFor, recordPayment } from "./payments";
 import { jobForRequest } from "./jobs";
 import { tellBooked } from "./payment-notices";
@@ -70,6 +70,11 @@ export async function startCheckout(farmerId: string, requestId: string, back = 
     });
   } catch (err) {
     logError("monime.checkout", err);
+    // Monime will not open a checkout for a test token. Saying "try again" sends someone round
+    // the same loop for ever, so this says what is actually wrong.
+    if (err instanceof MonimeError && err.status === 403 && /test mode/i.test(err.message)) {
+      return { ok: false, reason: "Paying online is not switched on yet. Pay by transfer and Sagora will record it against this request." };
+    }
     return { ok: false, reason: "We couldn't open the payment page. Please try again in a moment." };
   }
   if (!session?.id || !session.redirectUrl) {

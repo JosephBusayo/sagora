@@ -22,12 +22,21 @@ export const monimeConfigured = () => Boolean(token() && space());
 export const monimeTestMode = () => token().startsWith("mon_test_");
 
 /**
- * Whether this farmer is offered online payment. With a live token, everyone. With a test token
- * on the live site, only the named testers, so nobody books real work with pretend money.
+ * Whether this farmer is offered online payment.
+ *
+ * With a live token, everyone. With a test token, nobody: Monime refuses to open a checkout at
+ * all for one — "Test mode is not supported for this endpoint: '/v1/checkout-sessions'" — so the
+ * button could only ever fail. Paying by transfer and having Sagora record it still works, which
+ * is the path the whole system is built around anyway.
+ *
+ * The exception is the automated tests, which talk to a stand-in Monime that does support it.
+ * MONIME_TESTERS then names who sees the button, as it did before.
  */
 export function monimeOfferedTo(email: string): boolean {
   if (!monimeConfigured()) return false;
-  if (!monimeTestMode() || process.env.SAGORA_ENV !== "production") return true;
+  if (!monimeTestMode()) return true;
+  if (!process.env.MONIME_API_URL?.trim()) return false;
+  if (process.env.SAGORA_ENV !== "production") return true;
   const testers = (process.env.MONIME_TESTERS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
   return testers.includes(email.toLowerCase());
 }

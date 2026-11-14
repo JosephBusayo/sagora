@@ -3,11 +3,11 @@
 import { EmptyState } from "@/components/app/EmptyState";
 import { useState } from "react";
 import { Icon, ServiceIcon } from "@/components/app/Icon";
-import { RequestModal, type RequestDetail } from "./RequestModal";
+import { RequestModal, type RequestDetail, type RequestJob } from "./RequestModal";
 import type { MyQuote } from "./QuoteForm";
 import { landSize } from "@/lib/land-size";
 
-export type RequestRow = RequestDetail & { statusLabel: string; status: string; myQuote: MyQuote | null };
+export type RequestRow = RequestDetail & { statusLabel: string; status: string; myQuote: MyQuote | null; job: RequestJob | null };
 
 export function RequestsTable({ rows, initialOpen, filtered }: { rows: RequestRow[]; initialOpen?: string; filtered?: boolean }) {
   const [open, setOpen] = useState<RequestRow | null>(rows.find((r) => r.reference === initialOpen) ?? null);
@@ -62,7 +62,7 @@ export function RequestsTable({ rows, initialOpen, filtered }: { rows: RequestRo
           </tbody>
         </table>
       </div>
-      {open ? <RequestModal request={open} myQuote={open.myQuote} onClose={() => setOpen(null)} /> : null}
+      {open ? <RequestModal request={open} myQuote={open.myQuote} job={open.job} onClose={() => setOpen(null)} /> : null}
     </>
   );
 }
