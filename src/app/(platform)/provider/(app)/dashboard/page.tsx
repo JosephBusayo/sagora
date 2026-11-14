@@ -13,7 +13,7 @@ import { unreadCount } from "@/lib/notifications";
 import { greeting, todayLong } from "@/lib/greeting";
 import { landSize } from "@/lib/land-size";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Home" };
 export const dynamic = "force-dynamic";
 
 /** The three cards the design offers from the dashboard, with the designer's own wording. */
@@ -71,7 +71,7 @@ export default async function Page() {
   ];
 
   return (
-    <Shell crumb={{ label: "Dashboard", icon: "home" }} user={{ name: user.name }} unread={await unreadCount(user)}>
+    <Shell crumb={{ label: "Home", icon: "home" }} user={{ name: user.name }} unread={await unreadCount(user)}>
       <div className="greeting">
         <p className="greeting__date">{todayLong()}</p>
         <h1 className="greeting__title">{greeting()}, {firstName}</h1>

@@ -101,8 +101,8 @@ test("a wrong code is refused and the right one still works", async ({ page }) =
   await expect(page).toHaveURL(/\/staff\/verify$/);
 
   await typeCode(page, code);
-  await expect(page).toHaveURL(/\/staff\/providers$/);
-  await expect(page.getByRole("heading", { name: "Providers waiting for review" })).toBeVisible();
+  await expect(page).toHaveURL(/\/staff\/home$/);
+  await expect(page.getByRole("heading", { name: /^(Good morning|Good afternoon|Good evening)/ })).toBeVisible();
 });
 
 test("a used code cannot be replayed, and one browser's check does not cover another", async ({ page, browser }) => {
@@ -111,7 +111,7 @@ test("a used code cannot be replayed, and one browser's check does not cover ano
   await page.goto("/staff/payments");
   const used = await latestCode(STAFF.email);
   await typeCode(page, used);
-  await expect(page).toHaveURL(/\/staff\/providers$/);
+  await expect(page).toHaveURL(/\/staff\/home$/);
 
   // Browser B has the same password and has seen that code. Neither gets it in.
   const b = await fresh(browser);
@@ -155,7 +155,7 @@ test("five wrong codes burn the code, not the account", async ({ page, browser }
   await expect(b.page.getByText("We sent a new code").first()).toBeVisible();
   await b.page.waitForTimeout(100);
   await typeCode(b.page, await latestCode(STAFF.email));
-  await expect(b.page).toHaveURL(/\/staff\/providers$/);
+  await expect(b.page).toHaveURL(/\/staff\/home$/);
   await b.ctx.close();
   expect(page.url()).toBeTruthy();
 });
@@ -164,7 +164,7 @@ test("signing out ends it: coming back needs a new code", async ({ page }) => {
   await signIn(page);
   await page.goto("/staff/payments");
   await typeCode(page, await latestCode(STAFF.email));
-  await expect(page).toHaveURL(/\/staff\/providers$/);
+  await expect(page).toHaveURL(/\/staff\/home$/);
 
   await page.getByRole("button", { name: "Logout" }).click();
   await expect(page).toHaveURL(/\/staff\/sign-in$/);
@@ -202,7 +202,7 @@ test("staff have their own door, and an admin adds and removes staff", async ({ 
   await page.waitForURL(/\/staff\/providers/);
   await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Staff", exact: true })).toHaveCount(0);
   await page.goto("/staff/team");
-  await expect(page).toHaveURL(/\/staff\/providers$/);
+  await expect(page).toHaveURL(/\/staff\/home$/);
   await testRun(`UPDATE "user" SET role='admin' WHERE email=?`, STAFF.email);
   await page.goto("/staff/team");
 
@@ -267,7 +267,7 @@ test("staff take a request over the phone, with who called on record", async ({ 
   // Staff work in the same frame as the apps: sidebar, search and account. This account was
   // made an admin above, so it also sees the Staff page.
   const nav = page.getByRole("navigation", { name: "Main" });
-  for (const name of ["Provider review", "Assisted requests", "Payments", "Notification queue", "Notifications", "General settings", "Account"]) {
+  for (const name of ["Home", "Provider review", "Assisted requests", "Payments", "Notification queue", "Notifications", "General settings", "Account"]) {
     await expect(nav.getByRole("link", { name, exact: true })).toBeVisible();
   }
   await expect(nav.getByRole("link", { name: "Staff", exact: true })).toBeVisible();

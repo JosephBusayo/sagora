@@ -16,7 +16,9 @@ export const NAV: Record<Audience, { home: string; groups: NavGroup[]; personal:
       {
         title: "General",
         items: [
-          { href: "/provider/dashboard", label: "Dashboard", icon: "home" },
+          // "Home" in all three apps. The address stays /provider/dashboard: links already sent
+          // out keep working, and nobody but the team ever reads it.
+          { href: "/provider/dashboard", label: "Home", icon: "home" },
           { href: "/provider/requests", label: "Requests", icon: "requests" },
           { href: "/provider/quotes", label: "My quotes", icon: "quotes" },
           { href: "/provider/jobs", label: "Jobs", icon: "jobs" },
@@ -61,11 +63,12 @@ export const NAV: Record<Audience, { home: string; groups: NavGroup[]; personal:
     ],
   },
   staff: {
-    home: "/staff/providers",
+    home: "/staff/home",
     groups: [
       {
         title: "General",
         items: [
+          { href: "/staff/home", label: "Home", icon: "home" },
           { href: "/staff/providers", label: "Provider review", icon: "store" },
           { href: "/staff/follow-ups", label: "Follow-ups", icon: "jobs" },
           { href: "/staff/requests", label: "Assisted requests", icon: "requests" },

@@ -600,6 +600,14 @@ a.topbar__round:hover, a.topbar__user:hover { background: var(--color-hover); te
 .table__ref-icon .icon { width: 20px; height: 20px; }
 .table__go { width: 56px; text-align: right; color: var(--color-heading); }
 .table__go a { color: inherit; }
+
+/* A row that opens something. The link in the last cell is stretched across the row, so the
+   whole row is the target without nesting a link inside every cell. */
+.table__row--link { position: relative; }
+.table__row--link:hover td, .table__row--link:focus-within td { background: var(--color-field-soft); }
+.table__stretch::after { content: ""; position: absolute; inset: 0; }
+.table__row--link:focus-within { outline: 2px solid var(--color-brand); outline-offset: -2px; }
+.table__stretch:focus-visible { outline: none; }
 .table__go .icon { vertical-align: middle; }
 .icon-button { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--color-text); cursor: pointer; }
 .icon-button:hover { background: var(--color-bg); }
@@ -856,6 +864,9 @@ a.home-card:hover { background: var(--color-hover); border-color: var(--color-ho
 .home-card__icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 40px;
   background: var(--color-chip); color: var(--color-brand); }
 .home-card__icon .icon { width: 20px; height: 20px; }
+/* A queue's size, in the same spot a card's icon sits, so the number is what the eye lands on. */
+.home-card__count { flex: none; display: grid; place-items: center; min-width: 48px; height: 48px; padding: 0 10px; border-radius: 40px;
+  background: #e9ecd7; color: var(--color-brand); font: 600 20px/1 var(--font-sans); }
 /* Figma trims a text box to its cap height; CSS keeps the whole line box. Left alone, the
    13px subtitle takes about 19px of height where the design gives it 9, and every card came
    out 4px taller than drawn. The gap is tightened to 8 to put the pair back at the 40px the

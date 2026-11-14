@@ -25,7 +25,7 @@ export const ROUTES = {
 
 /** Where this account belongs, whichever sign-in screen it used. */
 export function homeForRole(role: string | null | undefined): string {
-  if (isStaffRole(role)) return "/staff/providers";
+  if (isStaffRole(role)) return "/staff/home";
   if (role === "farmer") return ROUTES.farmer.home;
   return ROUTES.provider.home;
 }

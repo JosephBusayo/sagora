@@ -114,12 +114,15 @@ export function FarmerHome({ name, requests }: { name: string; requests: Service
                 </tr>
               </thead>
               <tbody>
+                {/* The whole row opens the request, not just the reference: a farmer taps the
+                    row they are reading. It goes to My requests with the details window already
+                    open — the same window that screen shows — rather than a page of its own. */}
                 {requests.map((r) => (
-                  <tr key={r.id}>
+                  <tr key={r.id} className="table__row--link">
                     <td>
                       <span className="table__ref">
                         <ServiceIcon service={r.service} />
-                        <Link href={`/farmer/requests/${r.id}`}>{r.reference}</Link>
+                        {r.reference}
                       </span>
                     </td>
                     <td>{serviceLabel(r.service)}</td>
@@ -127,7 +130,13 @@ export function FarmerHome({ name, requests }: { name: string; requests: Service
                     <td>{landSize(r.acres)}</td>
                     <td>{fmt(r.preferredDate)}</td>
                     <td><span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
-                    <td className="table__go"><Icon name="chevron" size={22} /></td>
+                    <td className="table__go">
+                      {/* One real link, stretched over the row by CSS: a row cannot be wrapped
+                          in a link, and nested links would be two targets in one row. */}
+                      <Link href={`/farmer/requests?open=${r.id}`} className="table__stretch" aria-label={`Request ${r.reference} details`}>
+                        <Icon name="chevron" size={22} />
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
