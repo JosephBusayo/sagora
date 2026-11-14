@@ -3,7 +3,7 @@
 import { Icon, type IconName } from "@/components/app/Icon";
 import { today } from "@/components/app/today";
 import { useSafely } from "@/components/app/safely";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { bookAsGuest, bookService, type BookState } from "@/app/(platform)/farmer/book/actions";
@@ -12,6 +12,7 @@ import { CROP_READINESS, LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, LAND_TYPE,
 import { chiefdomsOf } from "@/lib/chiefdoms";
 import { landSize, landUnit, toAcres } from "@/lib/land-size";
 import { LandSizeField } from "./LandSizeField";
+import { clearDraft, restoreDraft, saveDraft } from "./draft";
 
 type Option = { id: string; label: string };
 
@@ -136,7 +137,7 @@ function Notes({ value, error, service }: { value?: string; error?: string; serv
  * Two steps, as the design draws them (465:11158, 465:11454). Each step is a real submit and the
  * first step's answers travel as hidden fields, so the flow works with JavaScript off.
  */
-export function BookForm({ services, districts, service = "", requestId, initial, direct, submissionKey, guest = false, cancelHref }: {
+export function BookForm({ services, districts, service = "", requestId, initial, direct, submissionKey, guest = false, cancelHref, draftKey }: {
   services: readonly Option[]; districts: readonly string[];
   /** Pre-chosen from the home screen's "Book ploughing" / "Book harvesting" tiles. */
   service?: string;
@@ -151,6 +152,9 @@ export function BookForm({ services, districts, service = "", requestId, initial
   /** Sent without an account: asks for a name and number, and answers with a tracking code. */
   guest?: boolean;
   cancelHref?: string;
+  /** Set to keep a half-filled form in the browser under this name, so leaving the page does
+   * not throw the answers away. Left unset, nothing is stored. */
+  draftKey?: string;
 }) {
   const [state, action] = useActionState(useSafely(guest ? bookAsGuest : bookService), {} as BookState);
   const e = state.fieldErrors ?? {};
@@ -168,8 +172,29 @@ export function BookForm({ services, districts, service = "", requestId, initial
   const place = pickedDistrict || v.district || "";
   const chiefdoms = chiefdomsOf(place);
 
+  // Saved answers go back in once the step is on screen. The form is keyed by step, so this
+  // runs again for each one — which is what carries step two's answers through a reload.
+  // It also runs again as `work` and `place` become known, because restoring the service and
+  // the district is what builds the fields that depend on them: Crop, the harvest questions,
+  // the chiefdoms. Restoring only ever fills an empty field, so running again is harmless.
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (draftKey && form.current) restoreDraft(draftKey, form.current);
+  }, [draftKey, step, work, place]);
+
   return (
-    <form key={step} action={action} className="form-soft book__form">
+    <form
+      key={step}
+      ref={form}
+      action={action}
+      className="form-soft book__form"
+      // Every keystroke and every chip, rather than only on moving between steps: the farmer
+      // who closes the tab mid-field is the one this is for.
+      onInput={() => draftKey && form.current && saveDraft(draftKey, form.current)}
+      onChange={() => draftKey && form.current && saveDraft(draftKey, form.current)}
+      // The last step is the one that sends it, so the draft has done its job.
+      onSubmit={() => { if (draftKey && step === 3) clearDraft(draftKey); }}
+    >
       <header className="book__head">
         {step === 3 ? (
           <>

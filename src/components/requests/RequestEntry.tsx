@@ -6,6 +6,10 @@ import { VoiceIntake } from "./VoiceIntake";
 
 type Option = { id: string; label: string };
 
+/** Where a half-filled quick request is kept in the browser. Both ways in share it, so trying
+ * the voice note and coming back to the form does not start the form over. */
+const DRAFT_KEY = "sagora:quick-request";
+
 /**
  * "Make a quick request": fill in the form, or send a voice note — a segmented choice, matching
  * the designer's "How would you like to tell us?" screen (Figma node 152:107/267/546).
@@ -40,11 +44,11 @@ export function RequestEntry({ services, districts, service, direct, submissionK
       ) : null}
 
       {mode === "voice" ? (
-        <VoiceIntake services={services} districts={districts} direct={direct} submissionKey={submissionKey} guest={guest} cancelHref={cancelHref} />
+        <VoiceIntake services={services} districts={districts} direct={direct} submissionKey={submissionKey} guest={guest} cancelHref={cancelHref} draftKey={DRAFT_KEY} />
       ) : (
         // The form itself keeps its usual boxed card — only the choice screen above sits plain on the page.
         <div className="modal modal--book guest__panel">
-          <BookForm services={services} districts={districts} service={service} direct={direct} submissionKey={submissionKey} guest={guest} cancelHref={cancelHref} />
+          <BookForm services={services} districts={districts} service={service} direct={direct} submissionKey={submissionKey} guest={guest} cancelHref={cancelHref} draftKey={DRAFT_KEY} />
         </div>
       )}
     </div>

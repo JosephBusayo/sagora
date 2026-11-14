@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { transcribeVoiceNoteAction, type VoiceState } from "@/app/(platform)/request/voice/actions";
 import { BookForm } from "./BookForm";
+import { clearDraft } from "./draft";
 
 type Option = { id: string; label: string };
 
@@ -160,12 +161,13 @@ function Capture({ onReady, onSending, notice }: { onReady: (dataUrl: string) =>
   );
 }
 
-export function VoiceIntake({ services, districts, direct, submissionKey, guest, cancelHref }: {
+export function VoiceIntake({ services, districts, direct, submissionKey, guest, cancelHref, draftKey }: {
   services: readonly Option[]; districts: readonly string[];
   direct?: { id: string; name: string };
   submissionKey: string;
   guest: boolean;
   cancelHref: string;
+  draftKey?: string;
 }) {
   const [state, action] = useActionState<VoiceState, FormData>(transcribeVoiceNoteAction, {});
   const [hideReview, setHideReview] = useState(false);
@@ -206,8 +208,10 @@ export function VoiceIntake({ services, districts, direct, submissionKey, guest,
             <p className="voice-review__note">Select any part of your request to edit it.</p>
             <div className="voice-review__actions">
               <button type="button" className="qr-btn qr-btn--soft" onClick={() => setHideReview(true)}>Record again</button>
-              {/* Sending reveals the filled-in form, which the farmer checks and sends themselves. */}
-              <button type="button" className="qr-btn" onClick={() => setShowForm(true)}>Send request</button>
+              {/* Sending reveals the filled-in form, which the farmer checks and sends themselves.
+                  What was just said replaces any half-filled form kept from before — it is newer,
+                  and the recording is what the farmer means to send now. */}
+              <button type="button" className="qr-btn" onClick={() => { if (draftKey) clearDraft(draftKey); setShowForm(true); }}>Send request</button>
             </div>
           </>
         ) : (
@@ -218,7 +222,7 @@ export function VoiceIntake({ services, districts, direct, submissionKey, guest,
               <p className="voice-review__note">Check the details below, then send.</p>
             )}
             <div className="modal modal--book guest__panel voice-review__form">
-              <BookForm services={services} districts={districts} initial={state.initial} direct={direct} submissionKey={submissionKey} guest={guest} cancelHref={cancelHref} />
+              <BookForm services={services} districts={districts} initial={state.initial} direct={direct} submissionKey={submissionKey} guest={guest} cancelHref={cancelHref} draftKey={draftKey} />
             </div>
           </>
         )}
