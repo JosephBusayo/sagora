@@ -28,8 +28,9 @@ export function Footer({ onProviders }: { onProviders: () => void }) {
     {
       title: 'Company',
       links: [
-        // Contact us and Legal come back once the support details and legal pages exist.
+        // Contact us comes back once the support details exist.
         { label: 'About Sagora', href: '#about' },
+        { label: 'Privacy policy', href: '/privacy-policy' },
       ],
     },
   ]
