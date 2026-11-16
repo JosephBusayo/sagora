@@ -69,24 +69,27 @@ WhatsApp today.
 
 ## Building a release for Play
 
-Play takes an *app bundle* (), not an APK.
+Play takes an *app bundle* (`.aab`), not an APK.
 
-Signing is read from , which is gitignored and per-machine - copy
- and fill it in. The keystore it points at belongs outside
-the repository and must be backed up somewhere off the machine: anyone holding that file and
-its passwords can publish an update as Sagora.
+Signing is read from `android/keystore.properties`, which is gitignored and written per machine
+- copy `android/keystore.properties.example` and fill it in. The keystore it points at belongs
+outside the repository and must be backed up somewhere off the machine: anyone holding that file
+and its passwords can publish an update as Sagora.
 
 Without that file the release build is simply unsigned, and debug builds are untouched.
 
+```bash
+cd android
+JAVA_HOME="/c/Program Files/Android/Android Studio/jbr" ./gradlew bundleRelease
+```
 
+The bundle lands at `android/app/build/outputs/bundle/release/app-release.aab`.
 
-The bundle lands at .
-
-Accept **Play App Signing** when the listing is created. Google then holds the real signing key
+Accept **Play App Signing** when the listing is created. Google then holds the real signing key,
 and the key above is only an upload key, which Google can reset if it is ever lost. Opting out
 makes losing it final.
 
- in  has to go up by one for every upload; Play rejects a
+`versionCode` in `android/app/build.gradle` has to go up by one for every upload; Play rejects a
 bundle whose code it has seen before.
 
 ## Before it can go on the stores
