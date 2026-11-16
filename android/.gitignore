@@ -102,3 +102,6 @@ app/src/main/res/xml/config.xml
 
 # The client's own Firebase config, added per machine (see MOBILE.md).
 google-services.json
+
+# Filled in per machine from keystore.properties.example. Holds the signing passwords.
+keystore.properties

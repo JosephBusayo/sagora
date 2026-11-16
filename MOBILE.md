@@ -67,6 +67,28 @@ the same reason the Monime account must be:
 Unset, `pushConfigured()` is false and nothing is sent and nothing breaks, the same as SMS and
 WhatsApp today.
 
+## Building a release for Play
+
+Play takes an *app bundle* (), not an APK.
+
+Signing is read from , which is gitignored and per-machine - copy
+ and fill it in. The keystore it points at belongs outside
+the repository and must be backed up somewhere off the machine: anyone holding that file and
+its passwords can publish an update as Sagora.
+
+Without that file the release build is simply unsigned, and debug builds are untouched.
+
+
+
+The bundle lands at .
+
+Accept **Play App Signing** when the listing is created. Google then holds the real signing key
+and the key above is only an upload key, which Google can reset if it is ever lost. Opting out
+makes losing it final.
+
+ in  has to go up by one for every upload; Play rejects a
+bundle whose code it has seen before.
+
 ## Before it can go on the stores
 
 - **A privacy policy at a public URL.** Both stores require one, and there is none yet.
