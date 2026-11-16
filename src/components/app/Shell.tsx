@@ -1,3 +1,4 @@
+import { PushRegistrar } from "./PushRegistrar";
 import Link from "next/link";
 import { nudge } from "@/lib/outbox";
 import { Sidebar } from "./Sidebar";
@@ -48,6 +49,9 @@ export function Shell({ crumb, user, audience = "provider", unread = 0, admin = 
   return (
     <div className="app">
       <a href="#main" className="skip-link">Skip to content</a>
+      {/* Nothing in a browser. On the phone app, asks to send notifications now that they
+          are signed in, so the request has a reason behind it. */}
+      <PushRegistrar />
       <Sidebar audience={audience} signOutAction={SIGN_OUT[audience]} admin={admin} finance={finance} />
       <div className="app__panel">
         <header className="topbar">

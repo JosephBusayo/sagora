@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { waitUntil } from "@vercel/functions";
 import { db } from "./db";
 import { sendEmail } from "./email";
+import { pushConfigured, pushToEmail } from "./push";
+import { siteUrl } from "./site";
 
 /**
  * The notification outbox.
@@ -97,9 +99,33 @@ export async function drain(limit = 25): Promise<{ sent: number; failed: number 
  * Save and then try to send, without making the caller wait or fail. This is what application
  * code calls: the message is durable the moment this returns.
  */
+/**
+ * The outbox speaks in emails - a subject, and a body with greetings and sign-offs. A phone
+ * notification is one line on a lock screen, so the body is cut back to its first paragraph.
+ *
+ * Swallows everything. A phone that cannot be reached must never stop an email being sent.
+ */
+async function pushForMessage(message: Message): Promise<void> {
+  try {
+    if (!pushConfigured()) return;
+    const opening = message.text.split(/\n\s*\n/)[0].replace(/\s+/g, " ").trim();
+    await pushToEmail(message.to, {
+      title: message.subject,
+      body: opening.length > 160 ? `${opening.slice(0, 157)}…` : opening,
+      url: siteUrl(),
+    });
+  } catch {
+    // Nothing to do, and nothing that should surface: the email is the promise that matters.
+  }
+}
+
 export async function notify(message: Message): Promise<void> {
   const id = await enqueue(message);
   if (!id) return;
+  // The phone, as well as the inbox. A farmer with no email address hears nothing otherwise,
+  // and this is the one thing the app can do that the website cannot. Never awaited, and it
+  // cannot throw: the email is what was promised, the buzz is a bonus.
+  waitUntil(pushForMessage(message));
   // On Vercel an instance is frozen once the response is sent, which would stop a send halfway
   // or before it starts. waitUntil keeps it alive until the send finishes; elsewhere it is harmless.
   waitUntil(drain().catch(() => {
