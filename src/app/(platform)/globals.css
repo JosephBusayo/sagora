@@ -135,8 +135,8 @@ a {
 .auth__logo {
   display: block;
   margin: 0 auto;
-  width: 70px;
-  height: 65px;
+  width: 150px;
+  height: 36px;
 }
 
 .auth__head {
@@ -1475,7 +1475,7 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 /* The landing page's nav bar, as it is on these screens. */
 .site-nav { position: sticky; top: 0; z-index: 10; background: var(--color-bg); }
 .site-nav__inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; max-width: 1520px; margin: 0 auto; padding: 32px 40px; }
-.site-nav__logo img { display: block; width: 108px; height: 28px; }
+.site-nav__logo img { display: block; width: 108px; height: 26px; }
 .site-nav__links { display: flex; align-items: center; gap: 42px; }
 .site-nav__link { display: inline-flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; font: 500 16px/1.5 var(--font-sans); letter-spacing: -0.32px; color: #024321; cursor: pointer; }
 .site-nav__chev { width: 24px; height: 24px; transition: transform 0.2s; }
@@ -1558,7 +1558,7 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 @media (max-width: 999px) {
   .site-nav__inner { padding: 20px 16px; }
   .site-nav__links { display: none; }
-  .site-nav__logo img { width: 94px; height: 24px; }
+  .site-nav__logo img { width: 94px; height: 22px; }
   .quick-request__main { padding-top: 16px; }
   .qr-btn { height: 43px; padding: 0 20px; font-size: 14px; letter-spacing: -0.28px; }
   .request-entry__head h2 { font-size: 28px; letter-spacing: -1.1px; }

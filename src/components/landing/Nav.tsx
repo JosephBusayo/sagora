@@ -100,7 +100,7 @@ export function Nav({ intro, onProviders }: Props) {
     >
       <div className="nav__inner">
         <a href="#top" className="nav__logo" aria-label="Sagora — back to top" onClick={close}>
-          <img src="/brand/logo-wordmark.svg" alt="Sagora" width={108} height={28} />
+          <img src="/brand/logo-wordmark.png" alt="Sagora" width={108} height={26} />
         </a>
 
         <nav className="nav__links" aria-label="Main">

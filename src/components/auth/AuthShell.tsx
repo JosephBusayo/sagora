@@ -17,10 +17,10 @@ export function AuthShell({ image, title, subtitle, children, footer }: Props) {
         <div className="auth__form-col">
           <Image
             className="auth__logo"
-            src="/brand/logo-mark.svg"
+            src="/brand/logo-wordmark.png"
             alt="Sagora"
-            width={70}
-            height={65}
+            width={150}
+            height={36}
             priority
           />
           <header className="auth__head">

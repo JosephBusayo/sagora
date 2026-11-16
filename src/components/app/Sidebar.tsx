@@ -44,7 +44,7 @@ export function Sidebar({ audience, signOutAction, admin = false, finance = true
       <input key={pathname} id="nav-open" type="checkbox" className="nav__toggle" aria-label="Menu" />
       <div className="nav__bar">
         <Link href={nav.home} className="nav__brand">
-          <Image src="/brand/logo-wordmark.svg" alt="Sagora" width={120} height={31} priority />
+          <Image src="/brand/logo-wordmark.png" alt="Sagora" width={120} height={29} priority />
         </Link>
         <label htmlFor="nav-open" className="nav__burger" aria-hidden="true">
           <span /><span /><span />

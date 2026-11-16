@@ -10,7 +10,7 @@ export function GuestShell({ children, hideHeader = false }: { children: React.R
     <div className="guest">
       {hideHeader ? null : (
         <header className="guest__bar">
-          <Link href="/" aria-label="Sagora home"><Image src="/brand/logo-mark.svg" alt="Sagora" width={44} height={41} priority /></Link>
+          <Link href="/" aria-label="Sagora home"><Image src="/brand/logo-wordmark.png" alt="Sagora" width={100} height={24} priority /></Link>
           <Link href="/farmer/sign-in" className="guest__signin">Have an account? Sign in</Link>
         </header>
       )}

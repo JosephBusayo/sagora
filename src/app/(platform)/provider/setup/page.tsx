@@ -51,7 +51,7 @@ export default async function Page() {
   return (
     <main className="setup">
       <div className="setup__card">
-        <Image src="/brand/logo-mark.svg" alt="Sagora" width={70} height={65} />
+        <Image src="/brand/logo-wordmark.png" alt="Sagora" width={150} height={36} />
         <h1 className="auth__title setup__title">{editable ? "Set up your business" : b.name}</h1>
         {b.status === "draft" ? (
           <p className="auth__subtitle">Tell us about your business. Sagora reviews it before you can receive requests.</p>

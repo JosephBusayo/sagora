@@ -84,7 +84,7 @@ export function Loader({ onDone }: { onDone: () => void }) {
         animate={leaving ? { opacity: 0, y: -24 } : { opacity: 1, y: 0 }}
         transition={{ duration: leaving ? 0.45 : 0.6, ease: EASE_OUT }}
       >
-        <img src="/brand/logo-wordmark.svg" alt="" width={108} height={28} />
+        <img src="/brand/logo-wordmark.png" alt="" width={108} height={26} />
       </motion.div>
 
       <motion.div

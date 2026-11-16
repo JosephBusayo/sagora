@@ -41,7 +41,7 @@ export function SiteNav() {
     <header className="site-nav" ref={wrap}>
       <div className="site-nav__inner">
         <Link href="/" className="site-nav__logo" aria-label="Sagora home">
-          <img src="/brand/logo-wordmark.svg" alt="Sagora" width={108} height={28} />
+          <img src="/brand/logo-wordmark.png" alt="Sagora" width={108} height={26} />
         </Link>
 
         <nav className="site-nav__links" aria-label="Main">

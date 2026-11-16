@@ -12,7 +12,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
   return (
     <main className="setup">
       <div className="setup__card door">
-        <Image src="/brand/logo-mark.svg" alt="Sagora" width={70} height={65} />
+        <Image src="/brand/logo-wordmark.png" alt="Sagora" width={150} height={36} />
         <h1 className="auth__title">{offline ? "You seem to be offline" : "Something went wrong"}</h1>
         <p className="auth__subtitle">{offline ? "Check your connection, then try again." : "Nothing you saved has been lost. Please try again."}</p>
         <button type="button" className="button" onClick={reset}>Try again</button>

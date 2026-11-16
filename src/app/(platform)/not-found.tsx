@@ -8,7 +8,7 @@ export default function NotFound() {
   return (
     <main className="setup">
       <div className="setup__card door">
-        <Image src="/brand/logo-mark.svg" alt="Sagora" width={70} height={65} />
+        <Image src="/brand/logo-wordmark.png" alt="Sagora" width={150} height={36} />
         <h1 className="auth__title">We can&apos;t find that page</h1>
         <p className="auth__subtitle">The link may be old or mistyped.</p>
         <Link href="/" className="button">Go to Sagora</Link>
