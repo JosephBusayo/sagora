@@ -24,6 +24,14 @@ export async function signedInFarmer(): Promise<SessionUser | null> {
   return u && u.emailVerified && u.role === "farmer" ? u : null;
 }
 
+/** Any signed-in, verified person, whatever their role. For the phone app, which has to know
+ * where this person belongs before it knows what they are. */
+export async function signedInUser(): Promise<SessionUser | null> {
+  const s = await auth.api.getSession({ headers: await headers() });
+  const u = s?.user as SessionUser | undefined;
+  return u && u.emailVerified ? u : null;
+}
+
 /** Verified farmer, or redirect to the farmer sign-in. */
 export async function requireFarmer(): Promise<SessionUser> {
   const s = await auth.api.getSession({ headers: await headers() });

@@ -1707,3 +1707,8 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .coverage-change__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .guest__title { margin: 0 0 8px; font-size: 24px; font-weight: 600; }
+
+/* The phone app's first screen: the two ways in, as big as a thumb. */
+.app-entry { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.app-entry .button { display: grid; place-items: center; text-decoration: none; }
+.app-entry__note { margin: 6px 0 0; text-align: center; font: var(--text-helper); color: var(--color-text-muted); }
