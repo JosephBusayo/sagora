@@ -71,7 +71,7 @@ export function FarmerRequestsList({ rows, page, pages, justCreated }: {
                     <td><span className="table__ref"><ServiceIcon service={r.service} /><Link href={`/farmer/requests/${r.id}`}>{r.reference}</Link></span></td>
                     <td>{serviceLabel(r.service)}</td>
                     <td>{districtLabel(r.district)}</td>
-                    <td>{landSize(r.acres)}</td>
+                    <td className="table__size">{landSize(r.acres)}</td>
                     <td>{fmt(r.preferredDate)}</td>
                     <td><span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
                     <td className="table__go">

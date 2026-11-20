@@ -10,7 +10,7 @@ export type Suggestion = { kind: "request" | "job" | "equipment" | "provider"; s
  * The top bar's search, with suggestions under it as someone types. It is still a plain GET form
  * underneath, so Enter goes to the full results page, and it works with JavaScript off.
  */
-export function SearchBox({ base, initial, placeholder = "Search requests, jobs, equipments..." }: { base: string; initial?: string; placeholder?: string }) {
+export function SearchBox({ base, initial, placeholder = "Search requests, jobs, equipment..." }: { base: string; initial?: string; placeholder?: string }) {
   const router = useRouter();
   const listId = useId();
   const [q, setQ] = useState(initial ?? "");

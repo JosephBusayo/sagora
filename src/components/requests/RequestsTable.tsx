@@ -49,7 +49,7 @@ export function RequestsTable({ rows, initialOpen, filtered }: { rows: RequestRo
                 </td>
                 <td>{r.serviceLabel}</td>
                 <td>{r.district}</td>
-                <td>{landSize(r.acres)}</td>
+                <td className="table__size">{landSize(r.acres)}</td>
                 <td>{r.preferredDate}</td>
                 <td><span className={`pill pill--${r.status}`}>{r.statusLabel}</span></td>
                 <td className="table__actions">

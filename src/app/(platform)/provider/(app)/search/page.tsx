@@ -25,7 +25,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
 
   return (
     <Shell crumb={{ label: "Search", icon: "search" }} user={{ name: user.name || business.name }} audience="provider" search={q}>
-      <PageHead title="Search" subtitle={q ? `Results for “${q}”` : "Search requests, jobs, equipments..."} />
+      <PageHead title="Search" subtitle={q ? `Results for “${q}”` : "Search requests, jobs, equipment..."} />
       {nothing ? <div className="table-card"><EmptyState icon="search" title={q ? "No results" : "Search your workspace"} body={q ? "Nothing matches that search." : "Type a reference, place or equipment."} /></div> : null}
       {requests.length > 0 ? (
         <>

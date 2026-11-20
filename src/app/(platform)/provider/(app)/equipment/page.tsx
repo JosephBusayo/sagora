@@ -43,7 +43,7 @@ export default async function Page() {
     <Shell crumb={{ label: "Equipment", icon: "equipment" }} user={{ name: user.name }}>
       <PageHead
         title="Equipments"
-        subtitle="Manage the equipments you use for farm services"
+        subtitle="Manage the equipment you use for farm services"
       />
       <EquipmentList
         assets={assets}

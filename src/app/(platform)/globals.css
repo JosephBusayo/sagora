@@ -594,6 +594,10 @@ a.topbar__round:hover, a.topbar__user:hover { background: var(--color-hover); te
    "Preferred date" heading wrapped onto two lines before, which made the rows uneven. */
 .table--requests th, .table--requests td { white-space: nowrap; }
 .table--requests tbody tr:first-child td { border-top: 0; }
+/* Farm size is the one column with no ceiling on its length - a big field reads "1,235.53 acres
+   (500 ha)". Held to nowrap it overflowed its cell and painted over the date beside it, so it
+   alone is allowed to wrap. Two lines still sit inside the row height the design draws. */
+.table--requests td.table__size { white-space: normal; min-width: 11ch; }
 .table__ref { display: flex; align-items: center; gap: 10px; }
 .table__ref-icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 40px;
   background: var(--color-chip); color: var(--color-brand); }

@@ -121,6 +121,11 @@ export async function listJobs(businessId: string): Promise<ListedJob[]> {
 }
 
 /** Every job an asset is committed to that overlaps the window, ignoring one job being edited. */
+/** A stored date read back the way the rest of Sagora writes one: 16 Nov 2026, not 2026-11-16.
+ * These end up in front of a provider, so they match the dates on the screen around them. */
+const onDay = (iso: string): string =>
+  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+
 export async function clashesFor(equipmentId: string, start: string, end: string, exceptJobId: string | null, t: Queries = db) {
   return await t.all(`SELECT j.id, r.reference, j.start_date, j.end_date
        FROM job_asset a JOIN job j ON j.id = a.job_id JOIN service_request r ON r.id = j.request_id
@@ -189,14 +194,14 @@ export async function scheduleJob(businessId: string, actorId: string, jobId: st
         // Nothing written yet, so returning commits an empty transaction.
         return {
           ok: false,
-          reason: `${names.get(id)} is already committed to ${clash.reference} from ${clash.start_date} to ${clash.end_date}.`,
+          reason: `${names.get(id)} is already committed to ${clash.reference} from ${onDay(clash.start_date)} to ${onDay(clash.end_date)}.`,
         };
       }
     }
     if (input.operatorId) {
       const busy = (await operatorClashesFor(input.operatorId, input.startDate, input.endDate, jobId, t))[0];
       if (busy) {
-        return { ok: false, reason: `This operator is already on another job for those dates (${busy.reference}, ${busy.start_date} to ${busy.end_date}).` };
+        return { ok: false, reason: `This operator is already on another job for those dates (${busy.reference}, ${onDay(busy.start_date)} to ${onDay(busy.end_date)}).` };
       }
     }
     await t.run("DELETE FROM job_asset WHERE job_id=?", jobId);
