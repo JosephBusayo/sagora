@@ -59,4 +59,7 @@ next-env.d.ts
 *.jks
 *.keystore
 keystore.properties
-/sagora-keys
+sagora-keys/
+
+# android/ and ios/ are tracked on this branch - this is where the app is built from - so the
+# rules main carries for them deliberately do not come across.

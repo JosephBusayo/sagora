@@ -22,7 +22,7 @@ const ACTIONS: { href: string; art: string; title: string; body: string }[] = [
     body: "View farm service requests & find work that matches your services." },
   { href: "/provider/jobs", art: "/home/home-schedule.svg", title: "Manage your schedule",
     body: "Check upcoming jobs and review equipment and operator availability." },
-  { href: "/provider/equipment", art: "/home/home-equipment.svg", title: "Manage equipments",
+  { href: "/provider/equipment", art: "/home/home-equipment.svg", title: "Manage equipment",
     body: "View your registered equipment and update its availability or condition." },
 ];
 
@@ -155,7 +155,7 @@ export default async function Page() {
                     </td>
                     <td>{serviceLabel(r.service)}</td>
                     <td>{districtLabel(r.district)}</td>
-                    <td>{landSize(r.acres)}</td>
+                    <td className="table__size">{landSize(r.acres)}</td>
                     <td>{fmtYear(r.preferredDate)}</td>
                     <td><span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
                     <td className="table__go">

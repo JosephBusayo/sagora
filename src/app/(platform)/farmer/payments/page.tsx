@@ -38,6 +38,14 @@ const keyOf = (t: { kind: string; id: string }) => `${t.kind}-${t.id}`;
 export default async function Page({ searchParams }: { searchParams: Promise<{ open?: string }> }) {
   const farmer = await requireFarmer();
   const rows = await transactionsFor(farmer.id);
+  // What is still to pay, which this screen promises and could not show: a booking with an
+  // agreed price and nothing (or not enough) received against it leaves no transaction row,
+  // so a farmer who owed money was told "No payments yet" and shown nothing to act on.
+  const paidFor = new Map<string, number>();
+  for (const t of rows) paidFor.set(t.requestId, Math.max(paidFor.get(t.requestId) ?? 0, t.paidMinor));
+  const owed = (await bookingsForFarmer(farmer.id))
+    .map((b) => ({ booking: b, due: b.amountMinor - (paidFor.get(b.requestId) ?? 0) }))
+    .filter((o) => o.booking.amountMinor > 0 && o.due > 0);
   const sp = await searchParams;
   // The design's Payment details window: the work the money was for, and where it stands.
   const open = rows.find((t) => keyOf(t) === sp.open);
@@ -52,9 +60,42 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
       unread={await unreadCount(farmer)}
     >
       <PageHead title="Payments" subtitle="See what you have paid for your bookings, what is still to pay, and any refunds." />
+      {owed.length > 0 ? (
+        <section className="home-section">
+          <div className="home-section__head"><h2 className="home-section__title">Still to pay</h2></div>
+          <div className="table-card">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th scope="col">Request</th>
+                  <th scope="col">Service</th>
+                  <th scope="col">Agreed</th>
+                  <th scope="col">Still to pay</th>
+                  <th scope="col"><span className="sr-only">Open</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {owed.map(({ booking, due }) => (
+                  <tr key={booking.id}>
+                    <td>{booking.reference}</td>
+                    <td>{serviceLabel(booking.service)}</td>
+                    <td>{formatAmount(booking.amountMinor)}</td>
+                    <td><strong>{formatAmount(due)}</strong></td>
+                    <td className="table__go">
+                      <Link href={`/farmer/requests/${booking.requestId}`} aria-label={`Pay for ${booking.reference}`}>
+                        <Icon name="chevron" size={22} />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
       <>
         {rows.length === 0 ? (
-          <div className="table-card"><EmptyState icon="payments" title="No payments yet" body="Your payment records will appear here after you complete a booking" href="/farmer/book" action="Book a service" /></div>
+          <div className="table-card"><EmptyState icon="payments" title="Nothing paid yet" body={owed.length > 0 ? "What you still owe is listed above. Payments you make will show here." : "Your payment records will appear here after you complete a booking"} href="/farmer/book" action="Book a service" /></div>
         ) : (
           <div className="table-card">
             <table className="table">

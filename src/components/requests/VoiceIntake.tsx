@@ -9,10 +9,10 @@ type Option = { id: string; label: string };
 
 /** What to say, in Krio and English, below the mic. The design's prompt card (152:244). */
 const SCRIPT = [
-  { krio: "Wetin wok yu want?", en: "What work do you need? (ploughing, harvesting, planting)" },
-  { krio: "Omos lan yu get?", en: "How much land? (acres or hectares)" },
-  { krio: "Usai di lan de?", en: "Your district and village/town" },
-  { krio: "Wen yu want di wok bigin?", en: "When do you want the work to start?" },
+  { krio: "Wetin you wan do?", en: "What work do you need? (ploughing, harvesting, planting)" },
+  { krio: "How big you farm?", en: "How much land? (acres or hectares)" },
+  { krio: "Usai the farm de?", en: "Your district and village/town" },
+  { krio: "Wen you want di wok for begin?", en: "When do you want the work to start?" },
   { krio: "Wetin na yu nem, ɛn wetin na yu fon nɔmba?", en: "Your name and phone number" },
 ] as const;
 

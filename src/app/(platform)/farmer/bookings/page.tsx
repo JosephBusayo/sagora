@@ -92,7 +92,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
                   <td><span className="table__ref"><ServiceIcon service={b.service} /><span>{b.reference}</span></span></td>
                   <td>{serviceLabel(b.service)}</td>
                   <td>{districtLabel(b.district)}</td>
-                  <td>{landSize(b.acres)}</td>
+                  <td className="table__size">{landSize(b.acres)}</td>
                   <td>{fmt(b.startDate) ?? "Not yet"}</td>
                   <td><span className={`pill pill--${PILL_FARMER[b.status]}`}>{JOB_STATUS_LABEL[b.status as JobStatus]}</span></td>
                   <td className="table__go">
