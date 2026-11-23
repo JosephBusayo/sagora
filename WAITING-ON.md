@@ -1,7 +1,36 @@
 # Waiting on
 
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
-each one is a swap, not a rewrite. Updated 13 Nov 2026.
+each one is a swap, not a rewrite. Updated 23 Nov 2026.
+
+## 23 Nov 2026: do providers specialise, or does everyone do everything?
+
+**Open. Nothing has been changed while it is open — matching works as the brief specifies.**
+
+A planting request in Bombali was invisible to an approved Bombali provider. Nothing is broken:
+a provider is shown a request when one of their active coverage pairs matches it on **district
+and service**, and that provider covered Bombali for ploughing and harvesting but not planting.
+Chiefdom and village take no part in matching at all — they are there so a provider knows where
+they are driving and so staff can find the farm. `npm run db:why-no-match` prints, for every open
+request, who can see it and the reason for everyone who cannot.
+
+The rule itself is the brief's, not an assumption: "General requests go to eligible providers
+covering the district + service" (PROJECT.md §Requests & agreements). So service matching stays.
+
+What is actually open is whether it matters in practice:
+
+- **If most providers do all three services**, this is a data problem with a sharp edge. Planting
+  was added to Sagora after ploughing and harvesting, so every provider approved before that has
+  coverage rows for only those two. They look completely correct on their profile — approved, right
+  district — and planting work is silently invisible to them. Those providers need planting adding,
+  and it is worth asking whether a provider should be told "there are N requests in your district
+  you are not covered for" rather than seeing an empty list and assuming there is no work.
+- **If providers genuinely specialise**, the present behaviour is already right and the only thing
+  to fix is the one provider's coverage.
+
+Two related traps, which look identical to a provider from the outside and should be kept in mind
+whichever way the answer goes: a service added *after* approval is written as `pending` and brings
+in nothing until staff approve it, and a business not yet `approved` is shown nothing at all.
 
 ## 13 Nov 2026: two things to check on the live deployment
 

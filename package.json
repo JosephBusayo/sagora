@@ -21,7 +21,8 @@
     "mail": "node scripts/mail.mjs",
     "vercel:env": "node scripts/vercel-env.mjs",
     "db:clear-activity": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/clear-activity.mts",
-    "db:delete-demo": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/delete-demo-accounts.mts"
+    "db:delete-demo": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/delete-demo-accounts.mts",
+    "db:why-no-match": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/why-no-match.mts"
   },
   "dependencies": {
     "@central-icons-react/round-filled-radius-2-stroke-2": "^1.2.22",
