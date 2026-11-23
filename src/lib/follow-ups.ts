@@ -3,6 +3,7 @@ import { db } from "./db";
 import { audit } from "./business";
 import { missingDetails } from "./land";
 import { serviceLabel } from "./requests";
+import { RESPONSE_HOURS } from "./quotes";
 
 /**
  * The coordinator's queues (UC14). Each queue is worked out from the records themselves, so
@@ -16,7 +17,9 @@ import { serviceLabel } from "./requests";
 export const THRESHOLDS = [
   { key: "review_days", label: "A provider review is overdue after (days)", fallback: 2 },
   { key: "quote_days", label: "A request with no quote is overdue after (days)", fallback: 2 },
-  { key: "answer_days", label: "A quote the farmer has not answered is overdue after (days)", fallback: 3 },
+  // There was an "answer_days" threshold here. It is gone rather than left on the settings screen
+  // doing nothing: a quote now lapses after a fixed 48 hours (src/lib/quotes.ts), so how long to
+  // wait before chasing one is no longer a setting anybody can meaningfully change.
   { key: "upcoming_days", label: "Show jobs starting within (days)", fallback: 7 },
   // Open brief question (§10.4): "Hold / quote / payment expiry rules". Until Karim sets one,
   // held money is overdue after the same 2 days as the other queues here — a sensible default,
@@ -93,14 +96,20 @@ export async function queues(): Promise<Queue[]> {
     service: r.service ?? "", landType: r.land_type ?? "", cropVariety: r.crop_variety ?? "", plantedOn: r.planted_on ?? "", cropReadiness: r.crop_readiness ?? "",
   }) })).filter((x) => x.gaps.length);
 
-  const inspections = await db.all(`SELECT i.request_id, i.status, i.scheduled_for, i.updated_at, r.reference, r.assisted_by, b.name AS business
+  const inspections = await db.all(`SELECT i.request_id, i.status, i.scheduled_for, i.proposed_for, i.updated_at, r.reference, r.assisted_by, b.name AS business
        FROM inspection i JOIN service_request r ON r.id = i.request_id JOIN provider_business b ON b.id = i.business_id
        WHERE i.status IN ('required','scheduled') ORDER BY i.updated_at ASC`) as
-    { request_id: string; status: string; scheduled_for: string; updated_at: string; reference: string; assisted_by: string | null; business: string }[];
+    { request_id: string; status: string; scheduled_for: string; proposed_for: string | null; updated_at: string; reference: string; assisted_by: string | null; business: string }[];
 
+  // Quotes still inside their 48 hours but running out, so a coordinator can ring the farmer
+  // while there is still something to accept. The old answer_days threshold outlived its rule: it
+  // waited three days to flag a quote that now dies after 48 hours, so by the time anything showed
+  // up here it was already dead. The window itself is the deadline; this looks at what is left.
+  const closingSoon = new Date(Date.now() - (RESPONSE_HOURS - 12) * 3600_000).toISOString();
+  const lapsedAt = new Date(Date.now() - RESPONSE_HOURS * 3600_000).toISOString();
   const unanswered = await db.all(`SELECT q.id, q.created_at, q.valid_until, r.id AS request_id, r.reference, r.assisted_by, b.name AS business
        FROM quote q JOIN service_request r ON r.id = q.request_id JOIN provider_business b ON b.id = q.business_id
-       WHERE q.status='sent' AND q.valid_until >= ? AND q.created_at < ? AND r.status <> 'cancelled' ORDER BY q.created_at ASC`, isoDay(), daysAgo(t.answer_days)) as
+       WHERE q.status='sent' AND q.created_at < ? AND q.created_at > ? AND r.status <> 'cancelled' ORDER BY q.created_at ASC`, closingSoon, lapsedAt) as
     { id: string; created_at: string; valid_until: string; request_id: string; reference: string; assisted_by: string | null; business: string }[];
 
   const upcoming = await db.all(`SELECT j.id, j.start_date, j.ready_at, j.mobilised_at, j.updated_at, r.id AS request_id, r.reference, r.assisted_by, b.name AS business
@@ -152,15 +161,23 @@ export async function queues(): Promise<Queue[]> {
       id: "inspections", title: "Inspections", body: "Farms a provider needs to see before pricing.",
       items: inspections.map((i) => item({
         key: `inspection:${i.request_id}:${i.business}`, reference: i.reference, title: i.business,
-        detail: i.status === "scheduled" ? `Booked for ${i.scheduled_for}` : "Needed, not booked yet",
-        href: requestHref({ id: i.request_id, assisted_by: i.assisted_by }), since: i.updated_at,
-        overdue: i.status === "scheduled" && i.scheduled_for < isoDay(),
+        detail: i.status === "scheduled" ? `Booked for ${i.scheduled_for}`
+          : i.proposed_for ? `Farmer suggested ${i.proposed_for}, provider has not confirmed`
+            : "Needed, no day agreed yet",
+        // Farm inspections, not the assisted-request page: that one 404s for a farmer who has an
+        // account, and this queue is mostly those. The new page carries both sides' numbers.
+        href: "/staff/inspections", since: i.updated_at,
+        // A day that has already passed, or a farmer's suggestion nobody has answered.
+        overdue: (i.status === "scheduled" && i.scheduled_for < isoDay())
+          || (i.status === "required" && Boolean(i.proposed_for) && i.updated_at < daysAgo(1)),
       })),
     },
     {
-      id: "unanswered", title: "Unanswered quotes", body: `Quotes the farmer has not answered after ${t.answer_days} days.`,
+      id: "unanswered", title: "Quotes about to lapse",
+      body: `Quotes with less than 12 hours left of their ${RESPONSE_HOURS}-hour window. Ring the farmer before they expire.`,
       items: unanswered.map((q) => item({
-        key: `unanswered:${q.id}`, reference: q.reference, title: q.business, detail: `Price holds until ${q.valid_until}`,
+        key: `unanswered:${q.id}`, reference: q.reference, title: q.business,
+        detail: `Expires ${new Date(Date.parse(q.created_at) + RESPONSE_HOURS * 3600_000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })}`,
         href: requestHref({ id: q.request_id, assisted_by: q.assisted_by }), since: q.created_at, overdue: true,
       })),
     },

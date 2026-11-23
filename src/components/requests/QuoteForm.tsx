@@ -21,7 +21,18 @@ export type MyQuote = {
   note: string;
   statusLabel: string;
   expired: boolean;
+  /** Days the work was quoted to take, and the last day it would run. */
+  days: number;
+  endDate: string;
+  /** The machines this quote names, as ids for the form and as text for reading back. */
+  assetIds: string[];
+  assetNames: string;
+  /** Set when a machine on this quote has since been committed elsewhere for those days. */
+  clash: string | null;
 };
+
+/** One of the provider's machines, as the quote form offers it. */
+export type QuotableAsset = { id: string; name: string; detail: string };
 
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -53,8 +64,12 @@ const COVERS_EXAMPLE: Record<string, string> = {
   planting: "Tractor, planter and operator",
 };
 
-export function QuoteForm({ requestId, service, existing, onDone }: {
-  requestId: string; service: string; existing: MyQuote | null; onDone: () => void;
+export function QuoteForm({ requestId, service, existing, assets, responseHours, onDone }: {
+  requestId: string; service: string; existing: MyQuote | null;
+  assets: readonly QuotableAsset[];
+  /** How long the farmer has to answer, so the form says the same number the rules enforce. */
+  responseHours: number;
+  onDone: () => void;
 }) {
   const [state, action] = useActionState(useSafely(sendQuoteAction), {} as FormState);
   // The toast says it worked, and the list behind is what changed.
@@ -64,6 +79,8 @@ export function QuoteForm({ requestId, service, existing, onDone }: {
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   const locked = existing && (existing.status === "accepted" || existing.status === "not_selected");
+  // A rejected post hands back the ids it had; otherwise start from the quote being replaced.
+  const chosen = new Set(v.assetIds !== undefined ? v.assetIds.split(",").filter(Boolean) : existing?.assetIds ?? []);
 
   if (locked) {
     return (
@@ -73,6 +90,8 @@ export function QuoteForm({ requestId, service, existing, onDone }: {
           <dt>Price</dt><dd>{existing.amount}</dd>
           <dt>Covers</dt><dd>{existing.includes}</dd>
           <dt>Can start</dt><dd>{existing.startDate}</dd>
+          <dt>Days to finish</dt><dd>{existing.days}</dd>
+          {existing.assetNames ? <><dt>Equipment</dt><dd>{existing.assetNames}</dd></> : null}
           <dt>Version</dt><dd>{existing.version}</dd>
         </dl>
         <p className="field__helper">
@@ -91,9 +110,12 @@ export function QuoteForm({ requestId, service, existing, onDone }: {
       {existing ? (
         <p className="notice notice--success" role="status">
           {existing.expired
-            ? `Your quote (version ${existing.version}) has expired. Sending again replaces it with a new version.`
+            ? `Your quote (version ${existing.version}) expired after ${responseHours} hours without an answer. Sending again replaces it with a new version.`
             : `You quoted ${existing.amount} (version ${existing.version}). Sending again replaces it with a new version; the farmer keeps seeing what you sent until then.`}
         </p>
+      ) : null}
+      {existing?.clash ? (
+        <p className="notice notice--error" role="alert">{existing.clash} Change the dates or the equipment before the farmer tries to accept.</p>
       ) : null}
       <Field name="amount" label="Total price (Le)" type="text" inputMode="numeric" placeholder="1,500.00"
         defaultValue={v.amount ?? existing?.amountInput} error={e.amount} />
@@ -101,9 +123,46 @@ export function QuoteForm({ requestId, service, existing, onDone }: {
         defaultValue={v.includes ?? existing?.includes} error={e.includes} />
       <div className="form-row">
         <DateField name="startDate" label="Can start on" defaultValue={v.startDate ?? existing?.startDate} error={e.startDate} />
-        <DateField name="validUntil" label="Price holds until" defaultValue={v.validUntil ?? existing?.validUntil} error={e.validUntil}
-          helper="On or before the start date" />
+        <div className={`field${e.days ? " field--invalid" : ""}`}>
+          <label className="field__label" htmlFor="q-days">Days to finish the work</label>
+          <div className="field__box">
+            <input id="q-days" name="days" type="number" min={1} max={120} step={1} inputMode="numeric" className="field__input"
+              defaultValue={v.days ?? (existing ? String(existing.days) : "")} />
+          </div>
+          {e.days ? <p className="field__error">{e.days}</p> : <p className="field__helper">Counting the start day. The farmer sees this.</p>}
+        </div>
       </div>
+
+      {/* Chosen with the price, not after the farmer has committed: the farmer compares machines
+          as well as figures, and the job starts out already carrying them. */}
+      <fieldset className={`field quote-assets${e.assetIds ? " field--invalid" : ""}`}>
+        <legend className="field__label">Equipment you will put on this work</legend>
+        {assets.length === 0 ? (
+          <p className="field__helper">
+            You have no equipment available for work. Add a machine, or clear its faults, before quoting.
+          </p>
+        ) : (
+          <ul className="quote-assets__list">
+            {assets.map((a) => (
+              <li key={a.id}>
+                <label className="readiness__item">
+                  <input type="checkbox" name="assetIds" value={a.id} defaultChecked={chosen.has(a.id)} />
+                  <span>
+                    <strong>{a.name}</strong>
+                    {a.detail ? <span className="field__helper">{a.detail}</span> : null}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
+        {e.assetIds ? <p className="field__error">{e.assetIds}</p> : (
+          <p className="field__helper">
+            Naming a machine here holds nothing: you can quote it on several jobs. It is committed to these dates
+            only once a farmer accepts.
+          </p>
+        )}
+      </fieldset>
       <div className={`field${e.note ? " field--invalid" : ""}`}>
         <label className="field__label" htmlFor="q-note">Anything the farmer should know</label>
         <div className="field__box" style={{ height: "auto", alignItems: "flex-start" }}>
@@ -112,6 +171,12 @@ export function QuoteForm({ requestId, service, existing, onDone }: {
         </div>
         {e.note ? <p className="field__error">{e.note}</p> : null}
       </div>
+      {/* Said before they send, not discovered afterwards: the window is short and it is theirs
+          to plan around. It replaced the "price holds until" date they used to pick themselves. */}
+      <p className="field__helper">
+        The farmer has {responseHours} hours to answer. After that the quote cannot be accepted and your
+        equipment is free again.
+      </p>
       {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
       <FormNotice state={state} />
       <div className="form-actions">

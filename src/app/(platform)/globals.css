@@ -1711,3 +1711,28 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .coverage-change__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .guest__title { margin: 0 0 8px; font-size: 24px; font-weight: 600; }
+
+/* ---- Equipment and days on a quote (review with Karim, 22 Nov 2026) ---- */
+
+/* The provider's picker. Scrolls rather than pushing the price fields off a phone screen when a
+   business has a long register. */
+.quote-assets { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
+.quote-assets__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-height: 240px; overflow-y: auto; }
+.quote-assets__list .readiness__item span { display: grid; gap: 2px; }
+.quote-assets__list .readiness__item strong { font: 500 15px/22px var(--font-sans); color: #191919; }
+.quote-assets__list .field__helper { margin: 0; }
+
+/* The same machines as the farmer reads them, in the quote card. No photographs: Karim asked for
+   the detail only, and a farmer on a slow connection should not wait on pictures to compare prices. */
+.offer__machines { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.offer__machines li { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #f5f5f5; }
+.offer__machines strong { font: 500 13px/20px var(--font-sans); color: #191919; }
+.offer__machines span { font: 400 12px/18px var(--font-sans); color: #808080; }
+
+/* How long is left to accept. Plain text, not a pill: it is a sentence, and it changes meaning
+   as it runs down. */
+.offer__deadline { margin: 8px 0 0; font: 500 13px/21px var(--font-sans); color: #8a6d00; }
+
+/* Both sides' details on one line each, so a coordinator can read a number off the screen while
+   holding a phone. */
+.inspections-list li { display: grid; gap: 4px; }

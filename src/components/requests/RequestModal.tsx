@@ -3,7 +3,7 @@
 import { useModal } from "@/components/app/useModal";
 import { useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/app/Icon";
-import { QuoteForm, type MyQuote } from "./QuoteForm";
+import { QuoteForm, type MyQuote, type QuotableAsset } from "./QuoteForm";
 import { InspectionForm, type MyInspection } from "./InspectionForm";
 import { landSize } from "@/lib/land-size";
 
@@ -62,12 +62,24 @@ function LandRows({ request }: { request: RequestDetail }) {
 /** The job this request became, once a quote was accepted. Where the work is run from. */
 export type RequestJob = { reference: string; scheduled: boolean };
 
-export function RequestModal({ request, myQuote, job, onClose }: {
-  request: RequestDetail; myQuote: MyQuote | null; job?: RequestJob | null; onClose: () => void;
+export function RequestModal({ request, myQuote, job, assets, responseHours, onClose }: {
+  request: RequestDetail; myQuote: MyQuote | null; job?: RequestJob | null;
+  assets: readonly QuotableAsset[];
+  responseHours: number;
+  onClose: () => void;
 }) {
   const [tab, setTab] = useState<"details" | "quote" | "activity">("details");
   const ref = useRef<HTMLDivElement>(null);
   const close = useModal(ref, onClose);
+
+  /**
+   * An inspection the provider has not finished is the whole answer on pricing, so the price
+   * fields are not shown at all (Karim, 22 Nov 2026). The server has always refused a quote in
+   * this state — src/lib/inspections.ts — but the form stayed on screen, so a provider filled
+   * the whole thing in and was turned away at the end. The rule and the screen now agree.
+   */
+  const [inspection, setInspection] = useState<MyInspection>(request.inspection);
+  const awaitingInspection = inspection?.status === "required" || inspection?.status === "scheduled";
 
   // The farmer picked this business: the request is now a job, and everything left to do with
   // it — scheduling, equipment, the work report — lives there.
@@ -113,7 +125,7 @@ export function RequestModal({ request, myQuote, job, onClose }: {
           <>
             <div className="detail-list"><LandRows request={request} /></div>
             {!myQuote || myQuote.status === "sent" || myQuote.status === "superseded" ? (
-              <InspectionForm requestId={request.id} existing={request.inspection} />
+              <InspectionForm requestId={request.id} existing={inspection} onChange={setInspection} />
             ) : null}
             {/* An accepted quote is the agreement: it is read back, not re-opened for editing.
                 Sending another is refused by the server anyway, so offering the form here only
@@ -131,8 +143,33 @@ export function RequestModal({ request, myQuote, job, onClose }: {
                   <a className="button" href={jobHref}>{job?.scheduled ? "Open the job" : "Schedule the work"}</a>
                 </div>
               </>
+            ) : awaitingInspection ? (
+              /* No price fields while the visit is outstanding: a provider who has not seen the
+                 ground has nothing to price yet, and the farmer is told to expect the visit
+                 rather than a figure. */
+              <div className="quote-summary">
+                <p className="notice notice--warn" role="status">
+                  {inspection?.status === "required"
+                    ? "You said this farm needs a visit before it can be priced. The farmer has been told, and can put a day forward for you to confirm."
+                    : `The visit is booked for ${inspection?.scheduledFor}. Record what you find, and the price fields come back.`}
+                </p>
+                {inspection?.proposedFor ? (
+                  <p className="notice notice--success" role="status">
+                    The farmer suggested {inspection.proposedFor}. Choose <strong>Inspection booked</strong> above with that date to confirm it.
+                  </p>
+                ) : null}
+                <p className="field__helper">
+                  Once the visit is done, set the inspection to <strong>Inspection done</strong> and say what you found. You can
+                  then send a price.
+                </p>
+                <div className="form-actions">
+                  <button type="button" className="button button--soft" onClick={() => setTab("details")}>Back</button>
+                  <button type="button" className="button" onClick={onClose}>Close</button>
+                </div>
+              </div>
             ) : (
-              <QuoteForm requestId={request.id} service={request.service} existing={myQuote} onDone={onClose} />
+              <QuoteForm requestId={request.id} service={request.service} existing={myQuote}
+                assets={assets} responseHours={responseHours} onDone={onClose} />
             )}
           </>
         ) : (
@@ -166,7 +203,7 @@ export function RequestModal({ request, myQuote, job, onClose }: {
             <a className="button" href={jobHref}>{job?.scheduled ? "Open the job" : "Schedule the work"}</a>
           ) : (
             <button type="button" className="button" onClick={() => setTab("quote")}>
-              {myQuote && myQuote.status === "sent" ? "Update my quote" : "Send a quote"}
+              {awaitingInspection ? "Farm inspection" : myQuote && myQuote.status === "sent" ? "Update my quote" : "Send a quote"}
             </button>
           )}
         </div>

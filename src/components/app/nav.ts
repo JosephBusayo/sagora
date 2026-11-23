@@ -72,6 +72,7 @@ export const NAV: Record<Audience, { home: string; groups: NavGroup[]; personal:
           { href: "/staff/providers", label: "Provider review", icon: "store" },
           { href: "/staff/follow-ups", label: "Follow-ups", icon: "jobs" },
           { href: "/staff/requests", label: "Assisted requests", icon: "requests" },
+          { href: "/staff/inspections", label: "Farm inspections", icon: "jobs" },
           { href: "/staff/payments", label: "Payments", icon: "payments", financeOnly: true },
           { href: "/staff/outbox", label: "Notification queue", icon: "quotes" },
           { href: "/staff/report", label: "Sagora report", icon: "reports" },

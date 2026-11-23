@@ -45,7 +45,11 @@ function parse(fd: FormData) {
   const hp = Number(horsepower);
   if (horsepower && (!/^\d{1,4}$/.test(horsepower) || hp < 1 || hp > 1000)) fieldErrors.horsepower = "Enter the horsepower as a number, like 75";
   if (implements_.length > 120) fieldErrors.implements = "Use 120 characters or fewer";
-  if (identifier.length > 60) fieldErrors.identifier = "Use 60 characters or fewer";
+  // Required since the review with Karim (22 Nov 2026). A quote now names specific machines and
+  // accepting one commits them, so "the tractor" has to mean one identifiable tractor: without
+  // this, two identical machines on a register cannot be told apart on a job sheet or a dispute.
+  if (!identifier) fieldErrors.identifier = "Enter the registration or serial number";
+  else if (identifier.length > 60) fieldErrors.identifier = "Use 60 characters or fewer";
   if (services.length === 0) fieldErrors.services = "Choose what this equipment is used for";
   if (!availabilityIds.includes(availability)) fieldErrors.availability = "Choose whether it can be booked";
   if (ownership !== "owned" && ownership !== "leased") fieldErrors.ownership = "Say whether you own or lease it";

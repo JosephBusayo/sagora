@@ -119,8 +119,10 @@ export function AssetModal({ asset, kinds, services, availability, onClose }: {
             <Field name="brand" label="Brand" placeholder="eg: CAT" defaultValue={val("brand", legacyBrand)} error={e.brand} />
             <Field name="model" label="Model" placeholder="eg: 5075E" defaultValue={val("model", asset?.model ?? "")} error={e.model} />
             <Field name="year" label="Year (optional)" placeholder="eg: 2022" inputMode="numeric" required={false} defaultValue={val("year", asset?.year ?? "")} error={e.year} />
-            <Field name="identifier" label="Registration or serial number (optional)" placeholder="Tells two identical pieces of equipment apart"
-              required={false} defaultValue={val("identifier", asset?.identifier ?? "")} error={e.identifier} />
+            {/* Required now that a quote names specific machines: a farmer accepting one is
+                committing this exact machine, so it has to be identifiable. */}
+            <Field name="identifier" label="Registration or serial number" placeholder="Tells two identical pieces of equipment apart"
+              defaultValue={val("identifier", asset?.identifier ?? "")} error={e.identifier} />
           </div>
 
           <div className="form-step" hidden={!shown(1)}>

@@ -1,13 +1,17 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useSafely } from "@/components/app/safely";
 import { FormNotice } from "@/components/app/FormNotice";
 import { saveInspectionAction } from "@/app/(platform)/provider/(app)/requests/quote-actions";
 import type { FormState } from "@/lib/auth-flows";
 
-export type MyInspection = { status: "required" | "scheduled" | "completed"; scheduledFor: string; findings: string; openQuestions: string } | null;
+export type MyInspection = {
+  status: "required" | "scheduled" | "completed"; scheduledFor: string; findings: string; openQuestions: string;
+  /** A day the farmer put forward, waiting on this provider to confirm it. */
+  proposedFor: string;
+} | null;
 
 const CHOICES = [
   { id: "none", label: "No inspection needed" },
@@ -29,11 +33,32 @@ function Save() {
  * Whether this provider needs to see the farm first (UC08). Kept on the request, above the quote,
  * because the quote cannot be sent while it is open.
  */
-export function InspectionForm({ requestId, existing }: { requestId: string; existing: MyInspection }) {
+export function InspectionForm({ requestId, existing, onChange }: {
+  requestId: string; existing: MyInspection;
+  /** Told what was saved, so the screen around this can drop the price fields at once. */
+  onChange?: (next: MyInspection) => void;
+}) {
   const [state, action] = useActionState(useSafely(saveInspectionAction), {} as FormState);
   const v = state.values ?? {};
   const [status, setStatus] = useState<string>(v.status ?? existing?.status ?? "none");
   const e = state.fieldErrors ?? {};
+
+  // Whether a quote may be sent turns on what was just saved here, so the answer is passed up
+  // rather than waiting for the next page load to reveal it.
+  useEffect(() => {
+    if (!state.notice || !onChange) return;
+    const saved = state.values ?? {};
+    onChange(
+      saved.status === "none" || !saved.status ? null : {
+        status: saved.status as NonNullable<MyInspection>["status"],
+        scheduledFor: saved.scheduledFor ?? "",
+        findings: saved.findings ?? "",
+        openQuestions: saved.openQuestions ?? "",
+        proposedFor: saved.status === "required" ? existing?.proposedFor ?? "" : "",
+      },
+    );
+  }, [state.notice, state.values, onChange, existing?.proposedFor]);
+
   return (
     <details className="inspection" open={status !== "none"}>
       <summary>Farm inspection{existing ? `: ${CHOICES.find((c) => c.id === existing.status)?.label}` : ""}</summary>
@@ -47,11 +72,21 @@ export function InspectionForm({ requestId, existing }: { requestId: string; exi
             </select>
           </div>
         </div>
+        {/* What the farmer suggested, where the provider is deciding the date. Confirming it is
+            the ordinary "Inspection booked" save, so there is one way to set a date, not two. */}
+        {existing?.proposedFor && status !== "completed" ? (
+          <p className="notice notice--success" role="status">
+            The farmer suggested {existing.proposedFor}. Choose <strong>Inspection booked</strong> to confirm that day, or set another.
+          </p>
+        ) : null}
         {status === "scheduled" || status === "completed" ? (
           <div className={`field${e.scheduledFor ? " field--invalid" : ""}`}>
             <label className="field__label" htmlFor="i-date">{status === "completed" ? "Inspected on" : "Inspection date"}</label>
             <div className="field__box">
-              <input id="i-date" name="scheduledFor" type="date" className="field__input" defaultValue={v.scheduledFor ?? existing?.scheduledFor} suppressHydrationWarning />
+              {/* Starts on the day the farmer asked for, so confirming it is one click rather
+                  than retyping a date that is already on the screen. */}
+              <input id="i-date" name="scheduledFor" type="date" className="field__input"
+                defaultValue={v.scheduledFor ?? (existing?.scheduledFor || (status === "scheduled" ? existing?.proposedFor : ""))} suppressHydrationWarning />
             </div>
             {e.scheduledFor ? <p className="field__error">{e.scheduledFor}</p> : null}
           </div>

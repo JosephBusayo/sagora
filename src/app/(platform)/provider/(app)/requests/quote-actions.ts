@@ -4,11 +4,11 @@ import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/guard";
 import { parseAmount, formatAmount } from "@/lib/money";
-import { sendQuote, withdrawQuote } from "@/lib/quotes";
+import { RESPONSE_HOURS, sendQuote, withdrawQuote } from "@/lib/quotes";
+import { selectableAssets } from "@/lib/equipment";
 import { getById } from "@/lib/requests";
 import { coverageOf, covers } from "@/lib/coverage";
 import { notify } from "@/lib/outbox";
-import { db } from "@/lib/db";
 import { inspectionBlocksQuote, saveInspection, type InspectionInput } from "@/lib/inspections";
 import type { FormState } from "@/lib/auth-flows";
 
@@ -20,33 +20,42 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   if (permission === "view_jobs") return { error: "You do not have permission to send quotes." };
 
   const requestId = str(fd, "requestId");
+  // Equipment is chosen with the price now, so the farmer sees the machines and the days along
+  // with the figure, and the job arrives ready to run (Karim, 22 Nov 2026).
+  const assetIds = fd.getAll("assetIds").filter((v): v is string => typeof v === "string" && v.length > 0);
   const raw = {
     amount: str(fd, "amount"),
     includes: str(fd, "includes"),
     startDate: str(fd, "startDate"),
-    validUntil: str(fd, "validUntil"),
+    days: str(fd, "days"),
     note: str(fd, "note"),
   };
-  const values = { ...raw };
+  const values = { ...raw, assetIds: assetIds.join(",") };
 
   const fieldErrors: Record<string, string> = {};
   const amountMinor = parseAmount(raw.amount);
+  const days = Number(raw.days);
   if (amountMinor === null) fieldErrors.amount = "Enter the total price, for example 1,500.00";
   if (raw.includes.length < 3) fieldErrors.includes = "Say what the price covers";
   if (raw.includes.length > 300) fieldErrors.includes = "Use 300 characters or fewer";
   if (!raw.startDate) fieldErrors.startDate = "Choose the day you can start";
   else if (raw.startDate < today()) fieldErrors.startDate = "Choose a date in the future";
-  if (!raw.validUntil) fieldErrors.validUntil = "Say how long this price holds";
-  else if (raw.validUntil < today()) fieldErrors.validUntil = "Choose a date in the future";
-  else if (raw.startDate && raw.validUntil > raw.startDate) {
-    fieldErrors.validUntil = "The price must hold until the start date at the latest";
-  }
+  if (!raw.days) fieldErrors.days = "Say how many days the work will take";
+  else if (!Number.isInteger(days) || days < 1 || days > 120) fieldErrors.days = "Enter a whole number of days, from 1 to 120";
+  if (assetIds.length === 0) fieldErrors.assetIds = "Choose the equipment you will put on this work";
   if (raw.note.length > 500) fieldErrors.note = "Use 500 characters or fewer";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
   // The list only shows what a business covers. This stops a form posted by hand.
   const target = await getById(requestId);
   if (!target || !covers(await coverageOf(business), target)) return { error: "This request is outside your district or services.", values };
+
+  // Only this business's own working equipment, whatever the form posted.
+  const usable = await selectableAssets(business.id);
+  const chosen = assetIds.filter((id) => usable.some((a) => a.id === id));
+  if (chosen.length !== assetIds.length) {
+    return { error: "Some of that equipment is not on your register, or is not available for work.", values };
+  }
 
   const blocked = await inspectionBlocksQuote(requestId, business.id);
   if (blocked) return { error: blocked, values };
@@ -55,14 +64,16 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
     amountMinor: amountMinor!,
     includes: raw.includes,
     startDate: raw.startDate,
-    validUntil: raw.validUntil,
     note: raw.note,
+    daysToComplete: days,
+    assetIds: chosen,
   });
   if (!result.ok) return { error: result.reason, values };
 
   const request = await getById(requestId);
   if (request?.contactEmail) {
     const isRevision = result.quote.version > 1;
+    const machines = usable.filter((a) => chosen.includes(a.id)).map((a) => a.name).join(", ");
     await notify({
       kind: isRevision ? "quote.revised" : "quote.sent",
       dedupeKey: `quote:${result.quote.id}`,
@@ -71,9 +82,11 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
       text:
         `${business.name} ${isRevision ? "has updated their quote" : "has quoted"} for your ${request.service} request ${request.reference}.\n\n` +
         `Price: ${formatAmount(result.quote.amountMinor)}\nCovers: ${result.quote.includes}\n` +
-        `Can start: ${result.quote.startDate}\nPrice holds until: ${result.quote.validUntil}\n\n` +
-        `Sign in to compare quotes and accept one. Accepting agrees the price; it is not a booking ` +
-        `until payment is arranged.`,
+        `Can start: ${result.quote.startDate}\nDays to finish: ${result.quote.daysToComplete}\nEquipment: ${machines}\n\n` +
+        `This quote holds for ${RESPONSE_HOURS} hours. After that it cannot be accepted and the equipment is released, ` +
+        "so answer it while it stands.\n\n" +
+        "Sign in to compare quotes and accept one. Accepting agrees the price; it is not a booking " +
+        "until payment is arranged.",
     });
   }
 
@@ -107,8 +120,28 @@ export async function saveInspectionAction(_prev: FormState, fd: FormData): Prom
   if (input.findings.length > 500 || input.openQuestions.length > 500) fieldErrors.findings ??= "Use 500 characters or fewer";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
   await saveInspection(requestId, business.id, user.id, input);
+
+  // The farmer has to know, and has to be able to answer: an inspection the provider records
+  // silently is how a request sits untouched for a week (Karim, 22 Nov 2026).
+  if (target.contactEmail && (status === "required" || status === "scheduled")) {
+    await notify({
+      kind: `inspection.${status}`,
+      dedupeKey: `inspection:${requestId}:${business.id}:${status}:${input.scheduledFor}`,
+      to: target.contactEmail,
+      subject: status === "required" ? `${business.name} needs to see your farm first` : `Inspection booked for ${target.reference}`,
+      text: status === "required"
+        ? `${business.name} wants to visit your farm before they price your ${target.service} request ${target.reference}.\n\n` +
+          "Nothing is wrong: for some land a provider has to see the ground before they can quote honestly. " +
+          "Sign in to put a time forward that suits you, and they will confirm it. There is no charge for the visit.\n\n" +
+          "You will not see a price from them until the visit is done."
+        : `${business.name} has booked the inspection of your farm for ${input.scheduledFor} (request ${target.reference}).\n\n` +
+          "Please make sure someone can show them the land that day. They will send you a price after the visit.",
+    });
+  }
+
   revalidatePath("/provider/requests");
-  return { notice: status === "none" ? "No inspection needed." : "Inspection saved.", values };
+  revalidatePath("/farmer/requests");
+  return { notice: status === "none" ? "No inspection needed." : "Inspection saved. The farmer has been told.", values };
 }
 
 export async function withdrawQuoteAction(fd: FormData) {
@@ -120,9 +153,6 @@ export async function withdrawQuoteAction(fd: FormData) {
   revalidatePath("/provider/requests");
 }
 
-/** Used by the modal to show this business's existing quote without exposing other providers'. */
-export async function myQuoteFor(requestId: string) {
-  const { business } = await requireWorkspace();
-  const row = await db.get("SELECT * FROM quote WHERE request_id=? AND business_id=? ORDER BY version DESC LIMIT 1", requestId, business.id) as { amount_minor: number; includes: string; start_date: string; valid_until: string; note: string; status: string; version: number } | undefined;
-  return row ?? null;
-}
+/* myQuoteFor() lived here: nothing called it, and it read a quote row raw, so it would have
+   handed back a quote with neither its days nor its equipment on it. The page builds that shape
+   from lib/quotes.ts instead — see provider/(app)/requests/page.tsx. */

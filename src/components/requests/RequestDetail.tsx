@@ -1,4 +1,6 @@
 import { inspectionsForRequest } from "@/lib/inspections";
+import { kindLabel } from "@/lib/equipment";
+import { proposeInspectionAction } from "@/app/(platform)/farmer/requests/inspection-actions";
 import { placeLine } from "@/lib/chiefdoms";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
@@ -7,7 +9,7 @@ import Link from "next/link";
 import { districtLabel } from "@/lib/business";
 import { formatAmount } from "@/lib/money";
 import { STATUS_LABEL, serviceLabel, type ServiceRequest } from "@/lib/requests";
-import { agreementFor, isExpired, listForRequest } from "@/lib/quotes";
+import { RESPONSE_HOURS, agreementFor, endDateOf, expiresAt, isExpired, listForRequest } from "@/lib/quotes";
 import { db } from "@/lib/db";
 import { acceptQuoteAction, declineQuoteAction } from "@/app/(platform)/farmer/requests/accept-actions";
 import { cancelRequest } from "@/app/(platform)/farmer/book/actions";
@@ -34,6 +36,51 @@ function Detail({ label, value }: { label: string; value: string }) {
 
 const businessName = async (id: string) =>
   ((await db.get("SELECT name FROM provider_business WHERE id=?", id)) as { name: string } | undefined)?.name ?? "A provider";
+
+/**
+ * The machines behind a quote, in words. Karim asked for the detail and no pictures: a farmer
+ * comparing two prices wants to know whether the bigger one brings a bigger tractor.
+ */
+async function machinesOn(assetIds: readonly string[]): Promise<{ name: string; detail: string }[]> {
+  return Promise.all(assetIds.map(async (id) => {
+    const a = await db.get("SELECT name, kind, brand, model, year, horsepower, implements FROM equipment WHERE id=?", id) as
+      { name: string; kind: string; brand: string; model: string; year: string; horsepower: string; implements: string } | undefined;
+    if (!a) return { name: "Equipment", detail: "" };
+    return {
+      name: a.name,
+      detail: [kindLabel(a.kind), [a.brand, a.model].filter(Boolean).join(" "), a.year, a.horsepower ? `${a.horsepower} hp` : "", a.implements]
+        .filter(Boolean).join(" · "),
+    };
+  }));
+}
+
+/** The equipment list on one quote. Its own component so the lookup can be awaited. */
+async function Machines({ assetIds }: { assetIds: readonly string[] }) {
+  if (assetIds.length === 0) return null;
+  const machines = await machinesOn(assetIds);
+  return (
+    <>
+      <p className="offer__label">Equipment for this work</p>
+      <ul className="offer__machines">
+        {machines.map((m) => (
+          <li key={m.name + m.detail}>
+            <strong>{m.name}</strong>
+            {m.detail ? <span>{m.detail}</span> : null}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/** How long is left to answer a quote, said the way a person would say it. */
+function timeLeft(until: Date): string {
+  const ms = until.getTime() - Date.now();
+  if (ms <= 0) return "Expired";
+  const hours = Math.floor(ms / 3600_000);
+  if (hours >= 1) return `${hours} ${hours === 1 ? "hour" : "hours"} left to answer`;
+  return `${Math.max(1, Math.floor(ms / 60_000))} minutes left to answer`;
+}
 
 export type RequestLinks = {
   close: string;
@@ -106,7 +153,7 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
           {extraDetails(request).map((x) => <Detail key={x.label} label={x.label} value={x.value} />)}
           {inspections.map((i) => (
             <Detail key={i.id} label="Farm inspection"
-              value={i.status === "completed" ? `Done${i.findings ? `: ${i.findings}` : ""}` : i.status === "scheduled" ? `Booked for ${fmt(i.scheduledFor)}` : "The provider needs to see the farm before pricing"} />
+              value={i.status === "completed" ? `Done${i.findings ? `: ${i.findings}` : ""}` : i.status === "scheduled" ? `Booked for ${fmt(i.scheduledFor)}` : i.proposedFor ? `You suggested ${fmt(i.proposedFor)} — waiting for the provider to confirm` : "The provider needs to see the farm before pricing"} />
           ))}
           <div className="request-row">
             <dt>Status</dt>
@@ -285,6 +332,44 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
       </section>
     ) : null}
 
+    {/* A provider who needs to walk the land before pricing it. The farmer answers with a day
+        that suits them and the provider confirms it; nothing here books anything on its own. */}
+    {inspections.filter((i) => i.status === "required" || i.status === "scheduled").map((i) => (
+      <section key={i.id} className="panel panel--wide">
+        <h2 className="quotes__heading">Farm visit</h2>
+        {i.status === "scheduled" ? (
+          <p className="offer__text">
+            <strong>{businessName(i.businessId)}</strong> will visit your farm on {fmt(i.scheduledFor)}. Please make sure
+            someone can show them the land that day. Your price comes after the visit.
+          </p>
+        ) : (
+          <>
+            <p className="offer__text">
+              <strong>{businessName(i.businessId)}</strong> would like to see your farm before they give you a price. There is
+              no charge for the visit, and you will not see a price from them until it is done.
+            </p>
+            {i.proposedFor ? (
+              <p className="notice notice--success" role="status">
+                You suggested {fmt(i.proposedFor)}. We have asked them to confirm it. You can suggest a different day below.
+              </p>
+            ) : null}
+            <form action={proposeInspectionAction} className="form-soft">
+              <input type="hidden" name="requestId" value={request.id} />
+              <input type="hidden" name="businessId" value={i.businessId} />
+              <div className="field">
+                <label className="field__label" htmlFor={`visit-${i.id}`}>Which day suits you?</label>
+                <div className="field__box">
+                  <input id={`visit-${i.id}`} name="day" type="date" className="field__input" suppressHydrationWarning />
+                </div>
+                <p className="field__helper">They will confirm it, or ring you to agree another day.</p>
+              </div>
+              <PendingButton className="button button--inline">Suggest this day</PendingButton>
+            </form>
+          </>
+        )}
+      </section>
+    ))}
+
     <h2 className="quotes__heading" id="quotes">Quotes</h2>
     {quotes.length === 0 ? (
       <EmptyState icon="quotes" title="No quotes yet" body={noQuotes} />
@@ -314,16 +399,33 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
                     <p className="offer__text">{q.includes}</p>
                   </>
                 ) : null}
+                {/* The three things Karim asked a farmer be able to compare, not just the price:
+                    how long the work takes, which machines come, and how long the offer stands. */}
+                <p className="offer__label">How long it takes</p>
+                <p className="offer__text">
+                  {q.daysToComplete} {q.daysToComplete === 1 ? "day" : "days"} &mdash; {fmt(q.startDate)} to {fmt(endDateOf(q))}
+                </p>
+                <Machines assetIds={q.assetIds} />
                 {land.length > 0 ? (
                   <ul className="offer__chips">
                     {land.map((l) => <li key={l}><span className="chip__icon" aria-hidden="true" />{l}</li>)}
                   </ul>
                 ) : null}
-                <p className="offer__label">Message from provider</p>
-                <p className="offer__text">
-                  I can start on {fmt(q.startDate)}. Price holds until {fmt(q.validUntil)}{expired ? " (expired)" : ""}.
-                  {q.note ? ` ${q.note}` : ""}
-                </p>
+                {q.note ? (
+                  <>
+                    <p className="offer__label">Message from provider</p>
+                    <p className="offer__text">{q.note}</p>
+                  </>
+                ) : null}
+                {/* One rule for every quote, counted from when it was sent. It replaced the date
+                    each provider used to pick, which farmers had no way to compare. */}
+                {q.status === "sent" ? (
+                  <p className={expired ? "notice notice--error" : "offer__deadline"} role={expired ? "alert" : undefined}>
+                    {expired
+                      ? `This quote was not answered within ${RESPONSE_HOURS} hours, so it can no longer be accepted.`
+                      : timeLeft(expiresAt(q))}
+                  </p>
+                ) : null}
                 {q.status === "accepted" ? (
                   <p className="notice notice--success">You accepted this quote (version {q.version}).</p>
                 ) : q.declinedAt ? (

@@ -7,7 +7,8 @@ import { Shell, PageHead } from "@/components/app/Shell";
 import { FilterPill } from "@/components/app/FilterPill";
 import { DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
 import { DATE_WINDOWS, STATUS_LABEL, browse, serviceLabel, type RequestStatus } from "@/lib/requests";
-import { QUOTE_STATUS_LABEL, activityFor, currentQuote, isExpired, type QuoteStatus } from "@/lib/quotes";
+import { QUOTE_STATUS_LABEL, RESPONSE_HOURS, activityFor, currentQuote, endDateOf, isExpired, quoteClashes, type QuoteStatus } from "@/lib/quotes";
+import { kindLabel, selectableAssets } from "@/lib/equipment";
 import { formatAmount } from "@/lib/money";
 import { jobForRequest } from "@/lib/jobs";
 import { RequestsTable, type RequestRow } from "@/components/requests/RequestsTable";
@@ -51,6 +52,19 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
   const page = Number(sp.page ?? "1") || 1;
   const { rows, pages } = await browse({ service: sp.service, district: sp.district, window: sp.window, reference: sp.open }, page, business);
 
+  // Equipment is chosen with the price now, so the list is fetched once for the whole page rather
+  // than per request. Only machines that can actually go out: retired and faulty ones are not
+  // offered, the same rule scheduling has always used.
+  const quotable = await selectableAssets(business.id);
+  const assets = quotable.map((a) => ({
+    id: a.id,
+    name: a.name,
+    // What tells two machines apart, in the order a provider would say it.
+    detail: [kindLabel(a.kind), [a.brand, a.model].filter(Boolean).join(" "), a.horsepower ? `${a.horsepower} hp` : "", a.identifier]
+      .filter(Boolean).join(" · "),
+  }));
+  const assetName = new Map(quotable.map((a) => [a.id, a.name] as const));
+
   const items: RequestRow[] = await Promise.all(rows.map(async (r) => ({
     id: r.id,
     reference: r.reference,
@@ -73,7 +87,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
     submittedOn: fmt(r.createdAt.slice(0, 10)),
     inspection: await (async () => {
       const i = await inspectionFor(r.id, business.id);
-      return i ? { status: i.status, scheduledFor: i.scheduledFor, findings: i.findings, openQuestions: i.openQuestions } : null;
+      return i ? {
+        status: i.status, scheduledFor: i.scheduledFor, findings: i.findings,
+        openQuestions: i.openQuestions, proposedFor: i.proposedFor,
+      } : null;
     })(),
     activity: (await activityFor(r.id, business.id, r.createdAt)).map((a) => ({ when: fmt(a.at.slice(0, 10)), text: a.text })),
     status: r.status,
@@ -81,6 +98,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
     myQuote: await (async () => {
       const q = await currentQuote(r.id, business.id);
       if (!q) return null;
+      // A machine on this quote that has since gone to other work for those days. Shown here so
+      // the provider finds out from their own screen, not from a farmer who could not accept.
+      const taken = q.status === "sent" ? (await quoteClashes(q))[0] : undefined;
       return {
         version: q.version,
         status: q.status,
@@ -92,6 +112,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
         validUntil: q.validUntil,
         note: q.note,
         expired: isExpired(q),
+        days: q.daysToComplete,
+        endDate: fmt(endDateOf(q)),
+        assetIds: q.assetIds,
+        assetNames: q.assetIds.map((id) => assetName.get(id) ?? "Equipment").join(", "),
+        clash: taken ? `${taken.name} is committed to ${taken.reference} from ${fmt(taken.from)} to ${fmt(taken.to)}.` : null,
       };
     })(),
     // The job this became, so an accepted request can point at the work instead of at a quote
@@ -119,7 +144,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
         subtitle="Browse new requests from farmers and send a quote for the ones you can service"
         action={<Filters current={sp} />}
       />
-      <RequestsTable rows={items} initialOpen={sp.open} filtered={Boolean(sp.service || sp.district || sp.window)} />
+      <RequestsTable rows={items} initialOpen={sp.open} filtered={Boolean(sp.service || sp.district || sp.window)}
+        assets={assets} responseHours={RESPONSE_HOURS} />
       <nav className="pager" aria-label="Pages">
           {Array.from({ length: Math.max(1, pages) }, (_, i) => i + 1).map((p) =>
             p === Math.min(Math.max(1, page), Math.max(1, pages)) ? (

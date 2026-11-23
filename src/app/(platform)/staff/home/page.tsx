@@ -18,6 +18,7 @@ const ACTIONS: { href: string; label: string; body: string; icon: IconName; fina
   { href: "/staff/providers", label: "Review providers", body: "Approve, send back or reject a new business", icon: "store" },
   { href: "/staff/requests", label: "Take a call", body: "Write down a request from a farmer on the phone", icon: "requests" },
   { href: "/staff/follow-ups", label: "Follow-ups", body: "What is waiting, who owns it and when it is due", icon: "jobs" },
+  { href: "/staff/inspections", label: "Farm inspections", body: "Farm visits to arrange, with both sides to ring", icon: "jobs" },
   { href: "/staff/payments", label: "Payments", body: "Cases, disputes and money going out", icon: "payments", finance: true },
   { href: "/staff/outbox", label: "Notification queue", body: "Emails waiting, sent or given up on", icon: "quotes" },
   { href: "/staff/report", label: "Sagora report", body: "How the whole platform is doing", icon: "reports" },

@@ -4,12 +4,17 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { useState } from "react";
 import { Icon, ServiceIcon } from "@/components/app/Icon";
 import { RequestModal, type RequestDetail, type RequestJob } from "./RequestModal";
-import type { MyQuote } from "./QuoteForm";
+import type { MyQuote, QuotableAsset } from "./QuoteForm";
 import { landSize } from "@/lib/land-size";
 
 export type RequestRow = RequestDetail & { statusLabel: string; status: string; myQuote: MyQuote | null; job: RequestJob | null };
 
-export function RequestsTable({ rows, initialOpen, filtered }: { rows: RequestRow[]; initialOpen?: string; filtered?: boolean }) {
+export function RequestsTable({ rows, initialOpen, filtered, assets, responseHours }: {
+  rows: RequestRow[]; initialOpen?: string; filtered?: boolean;
+  /** The provider's working equipment, the same list for every request on the page. */
+  assets: readonly QuotableAsset[];
+  responseHours: number;
+}) {
   const [open, setOpen] = useState<RequestRow | null>(rows.find((r) => r.reference === initialOpen) ?? null);
   if (rows.length === 0) {
     return (
@@ -62,7 +67,10 @@ export function RequestsTable({ rows, initialOpen, filtered }: { rows: RequestRo
           </tbody>
         </table>
       </div>
-      {open ? <RequestModal request={open} myQuote={open.myQuote} job={open.job} onClose={() => setOpen(null)} /> : null}
+      {open ? (
+        <RequestModal request={open} myQuote={open.myQuote} job={open.job} assets={assets} responseHours={responseHours}
+          onClose={() => setOpen(null)} />
+      ) : null}
     </>
   );
 }

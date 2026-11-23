@@ -68,7 +68,7 @@ async function paidJobFixture(label: string) {
   });
   const quote = await quotes.sendQuote(req.id, biz, owner, {
     amountMinor: 150000, includes: "Tractor and plough", startDate: inDays(20),
-    validUntil: inDays(10), note: "",
+    note: "", daysToComplete: 2, assetIds: [],
   });
   if (!quote.ok) throw new Error(`fixture quote failed: ${quote.reason}`);
   const accepted = await quotes.acceptQuote(quote.quote.id, farmer);
@@ -141,7 +141,7 @@ console.log("\nPayment received, booking not confirmed");
     contactName: "Other", contactPhone: "76000002", contactEmail: `${late.farmer}@example.test`,
   });
   const q2 = await quotes.sendQuote(other.id, late.biz, late.owner, {
-    amountMinor: 50000, includes: "Tractor", startDate: inDays(20), validUntil: inDays(10), note: "",
+    amountMinor: 50000, includes: "Tractor", startDate: inDays(20), note: "", daysToComplete: 2, assetIds: [],
   });
   if (!q2.ok) throw new Error(q2.reason);
   await quotes.acceptQuote(q2.quote.id, late.farmer);
@@ -281,7 +281,7 @@ console.log("\nRequest kinds");
 
   const harvest = await requests.createRequest(farmer, { ...base, service: "harvesting", crop: "Rice" });
   await ok("the crop is kept on the request", harvest.crop === "Rice");
-  const quoted = await quotes.sendQuote(harvest.id, biz, owner, { amountMinor: 90000, includes: "Harvest", startDate: inDays(20), validUntil: inDays(10), note: "" });
+  const quoted = await quotes.sendQuote(harvest.id, biz, owner, { amountMinor: 90000, includes: "Harvest", startDate: inDays(20), note: "", daysToComplete: 2, assetIds: [] });
   if (!quoted.ok) throw new Error("harvest quote failed");
   await quotes.acceptQuote(quoted.quote.id, farmer);
   const job = (await jobs.jobForRequest(harvest.id))!;
@@ -295,12 +295,12 @@ console.log("\nRequest kinds");
   const assisted = await requests.createRequest(null, { ...base, contactName: "Fatmata", contactEmail: "",
     assisted: { by: staffA, callerName: "Alie", callerRelation: "Her son", mayAccept: "Fatmata" } });
   await ok("an assisted request records who called", assisted.callerName === "Alie" && assisted.farmerId === null);
-  const q = await quotes.sendQuote(assisted.id, biz, owner, { amountMinor: 80000, includes: "Plough", startDate: inDays(30), validUntil: inDays(20), note: "" });
+  const q = await quotes.sendQuote(assisted.id, biz, owner, { amountMinor: 80000, includes: "Plough", startDate: inDays(30), note: "", daysToComplete: 2, assetIds: [] });
   if (!q.ok) throw new Error("assisted quote failed");
   await ok("nobody can accept it as if it were theirs", !(await quotes.acceptQuote(q.quote.id, farmer)).ok);
   await ok("a coordinator can accept it on the farmer's behalf", (await quotes.acceptQuote(q.quote.id, staffA, true)).ok);
   const own = await requests.createRequest(farmer, base);
-  const q2 = await quotes.sendQuote(own.id, biz, owner, { amountMinor: 70000, includes: "Plough", startDate: inDays(30), validUntil: inDays(20), note: "" });
+  const q2 = await quotes.sendQuote(own.id, biz, owner, { amountMinor: 70000, includes: "Plough", startDate: inDays(30), note: "", daysToComplete: 2, assetIds: [] });
   if (!q2.ok) throw new Error("own quote failed");
   await ok("a coordinator cannot accept for a farmer with an account", !(await quotes.acceptQuote(q2.quote.id, staffA, true)).ok);
   await requests.logContact(staffA, assisted.id, "Called back, no answer");

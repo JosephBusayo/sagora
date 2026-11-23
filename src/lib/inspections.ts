@@ -19,16 +19,20 @@ export const INSPECTION_LABEL: Record<InspectionStatus, string> = {
 export type Inspection = {
   id: string; requestId: string; businessId: string; status: InspectionStatus;
   scheduledFor: string; findings: string; openQuestions: string; updatedAt: string;
+  /** A time the farmer put forward, waiting on the provider. Empty once it is confirmed or dropped. */
+  proposedFor: string; proposedAt: string;
 };
 
 type Row = {
   id: string; request_id: string; business_id: string; status: InspectionStatus; scheduled_for: string;
   findings: string; open_questions: string; updated_at: string;
+  proposed_for?: string | null; proposed_at?: string | null;
 };
 
 const fromRow = (r: Row): Inspection => ({
   id: r.id, requestId: r.request_id, businessId: r.business_id, status: r.status, scheduledFor: r.scheduled_for,
   findings: r.findings, openQuestions: r.open_questions, updatedAt: r.updated_at,
+  proposedFor: r.proposed_for ?? "", proposedAt: r.proposed_at ?? "",
 });
 
 export async function inspectionFor(requestId: string, businessId: string): Promise<Inspection | null> {
@@ -66,5 +70,55 @@ export async function saveInspection(requestId: string, businessId: string, acto
        ON CONFLICT (request_id, business_id) DO UPDATE SET status=excluded.status, scheduled_for=excluded.scheduled_for,
          findings=excluded.findings, open_questions=excluded.open_questions, updated_by=excluded.updated_by, updated_at=excluded.updated_at`,
     randomUUID(), requestId, businessId, input.status, input.scheduledFor, input.findings, input.openQuestions, actorId, now, now);
+  // Confirming a date answers whatever the farmer put forward, so the proposal stops standing.
+  if (input.status !== "required") {
+    await db.run("UPDATE inspection SET proposed_for='', proposed_at='' WHERE request_id=? AND business_id=?", requestId, businessId);
+  }
   await audit(actorId, `inspection.${input.status}`, requestId, input.scheduledFor || undefined);
+}
+
+/**
+ * The farmer puts a time forward for an inspection of their own farm (Karim, 22 Nov 2026).
+ *
+ * It is only ever a proposal: the provider has to travel there, so they confirm it, and
+ * confirming is what sets the date. Keeping the two apart means nothing the farmer types can
+ * read as a booking the provider has not agreed to.
+ */
+export async function proposeInspectionTime(requestId: string, businessId: string, farmerId: string, day: string): Promise<boolean> {
+  const now = new Date().toISOString();
+  const res = await db.run(`UPDATE inspection SET proposed_for=?, proposed_by=?, proposed_at=?, updated_at=?
+       WHERE request_id=? AND business_id=? AND status IN ('required','scheduled')`,
+    day, farmerId, now, now, requestId, businessId);
+  if (res.changes) await audit(farmerId, "inspection.proposed", requestId, day);
+  return res.changes > 0;
+}
+
+/** Every inspection still open, with both sides' contact details, for the coordinators (UC14). */
+export type OpenInspection = {
+  requestId: string; reference: string; status: InspectionStatus; scheduledFor: string; proposedFor: string;
+  updatedAt: string; service: string; district: string; village: string;
+  farmerName: string; farmerPhone: string; farmerEmail: string; hasAccount: boolean; assisted: boolean;
+  businessId: string; businessName: string; businessPhone: string; businessEmail: string; businessTown: string;
+};
+
+export async function openInspections(): Promise<OpenInspection[]> {
+  const rows = await db.all(`SELECT i.request_id, i.status, i.scheduled_for, i.proposed_for, i.updated_at, i.business_id,
+         r.reference, r.service, r.district, r.village, r.contact_name, r.contact_phone, r.contact_email, r.farmer_id, r.assisted_by,
+         b.name AS business_name, b.phone AS business_phone, b.email AS business_email, b.town AS business_town
+       FROM inspection i JOIN service_request r ON r.id = i.request_id JOIN provider_business b ON b.id = i.business_id
+       WHERE i.status IN ('required','scheduled') AND r.status NOT IN ('cancelled','completed')
+       ORDER BY i.updated_at ASC`) as {
+    request_id: string; status: InspectionStatus; scheduled_for: string; proposed_for: string | null; updated_at: string; business_id: string;
+    reference: string; service: string; district: string; village: string;
+    contact_name: string; contact_phone: string; contact_email: string | null; farmer_id: string | null; assisted_by: string | null;
+    business_name: string; business_phone: string; business_email: string; business_town: string;
+  }[];
+  return rows.map((r) => ({
+    requestId: r.request_id, reference: r.reference, status: r.status, scheduledFor: r.scheduled_for,
+    proposedFor: r.proposed_for ?? "", updatedAt: r.updated_at, service: r.service, district: r.district, village: r.village,
+    farmerName: r.contact_name, farmerPhone: r.contact_phone, farmerEmail: r.contact_email ?? "",
+    hasAccount: Boolean(r.farmer_id), assisted: Boolean(r.assisted_by),
+    businessId: r.business_id, businessName: r.business_name, businessPhone: r.business_phone,
+    businessEmail: r.business_email, businessTown: r.business_town,
+  }));
 }
