@@ -132,13 +132,14 @@ export function Hero({ intro }: { intro: boolean }) {
           variants={{ hidden: { opacity: 0, y: 14, scale: 0.97 }, show: { opacity: 1, y: 0, scale: 1 } }}
           transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.98 }}
         >
+          {/* One way in, not two. The hero used to offer "Find a service provider", which went to
+              the sign-in page, beside "Make a quick request", which went to the form — so the more
+              inviting button was the one that asked for an account first. A farmer who lands here
+              wants the form; signing in is already offered in the header, for people who have an
+              account and know they want it. */}
           <div className="hero__ctas">
-            <ButtonLink className="btn--cta" href={LINKS.farmerSignIn}>
+            <ButtonLink className="btn--cta" href={LINKS.findService}>
               Find a service provider
-              <img className="btn__icon" src="/img/arrow-up-right.svg" alt="" width={24} height={24} />
-            </ButtonLink>
-            <ButtonLink variant="secondary" className="btn--cta" href={LINKS.findService}>
-              Make a quick request
               <img className="btn__icon" src="/img/arrow-up-right.svg" alt="" width={24} height={24} />
             </ButtonLink>
           </div>
