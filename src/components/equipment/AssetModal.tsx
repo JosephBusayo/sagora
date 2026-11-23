@@ -7,6 +7,7 @@ import { FormNotice } from "@/components/app/FormNotice";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
+import { specsFor } from "@/lib/specs";
 import { saveAsset } from "@/app/(platform)/provider/(app)/equipment/actions";
 import type { FormState } from "@/lib/auth-flows";
 import type { AssetView } from "./EquipmentList";
@@ -15,7 +16,12 @@ import { PhotoPicker } from "./PhotoPicker";
 type Option = { id: string; label: string };
 
 /** Which step of Add equipment each field is on, so a server error opens the right one. */
-const STEP_OF: Record<string, number> = { kind: 0, brand: 0, model: 0, year: 0, identifier: 0, horsepower: 1, implements: 1, services: 1, availability: 2, photo: 2 };
+const STEP_OF: Record<string, number> = {
+  kind: 0, brand: 0, model: 0, year: 0, identifier: 0, serialStatus: 0, assetRef: 0,
+  lessor: 0, leaseFrom: 0, leaseTo: 0,
+  horsepower: 1, implements: 1, services: 1, location: 1, custodian: 1, specs: 1,
+  availability: 2, photo: 2, condition: 2, conditionNote: 2,
+};
 
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -51,11 +57,19 @@ function Chips({ name, legend, options, checked, type, error }: {
  * one form: the steps only show and hide fields, so nothing typed is lost moving between them,
  * and the server checks everything once at the end.
  */
-export function AssetModal({ asset, kinds, services, availability, onClose }: {
-  asset: AssetView | null; kinds: Option[]; services: Option[]; availability: Option[]; onClose: () => void;
+export function AssetModal({ asset, kinds, services, availability, serialStates, onClose }: {
+  asset: AssetView | null; kinds: Option[]; services: Option[]; availability: Option[];
+  /** Passed in rather than imported: lib/equipment is server-only and this is a client component. */
+  serialStates: Option[]; onClose: () => void;
 }) {
   const [state, action] = useActionState(useSafely(saveAsset), {} as FormState);
   const [step, setStep] = useState(0);
+  // Which specifications to ask for depends on the kind, so the form follows the select.
+  const [kind, setKind] = useState(asset?.kind ?? "");
+  // Lease fields only exist on a leased machine, and the handover says Owned or Leased has no
+  // default — a provider has to say which.
+  const [ownership, setOwnership] = useState(asset?.ownership ?? "");
+  const [serialStatus, setSerialStatus] = useState<string>(asset?.serialStatus ?? "recorded");
   const [stepError, setStepError] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const form = useRef<HTMLFormElement>(null);
@@ -109,7 +123,7 @@ export function AssetModal({ asset, kinds, services, availability, onClose }: {
             <div className={`field${e.kind ? " field--invalid" : ""}`}>
               <label className="field__label" htmlFor="a-kind">Equipment type</label>
               <div className="field__box">
-                <select id="a-kind" name="kind" className="field__input" defaultValue={val("kind", asset?.kind ?? "")}>
+                <select id="a-kind" name="kind" className="field__input" value={kind} onChange={(ev) => setKind(ev.target.value)}>
                   <option value="">Select equipment type</option>
                   {kinds.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
                 </select>
@@ -122,7 +136,74 @@ export function AssetModal({ asset, kinds, services, availability, onClose }: {
             {/* Required now that a quote names specific machines: a farmer accepting one is
                 committing this exact machine, so it has to be identifiable. */}
             <Field name="identifier" label="Registration or serial number" placeholder="Tells two identical pieces of equipment apart"
+              required={serialStatus === "recorded"}
               defaultValue={val("identifier", asset?.identifier ?? "")} error={e.identifier} />
+
+            {/* "Missing or unreadable machine serials permit draft saving and review only."
+                Saying so is allowed; it just means the machine cannot be quoted until somebody at
+                Sagora has looked at it. */}
+            <div className={`field${e.serialStatus ? " field--invalid" : ""}`}>
+              <label className="field__label" htmlFor="a-serial-status">Is that number readable on the machine?</label>
+              <div className="field__box">
+                <select id="a-serial-status" name="serialStatus" className="field__input"
+                  value={serialStatus} onChange={(ev) => setSerialStatus(ev.target.value)}>
+                  {serialStates.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+                </select>
+              </div>
+              {e.serialStatus ? <p className="field__error">{e.serialStatus}</p> : serialStatus !== "recorded" ? (
+                <p className="field__helper">
+                  You can register it and we will review it. Until then this machine cannot be put on a quote.
+                </p>
+              ) : null}
+            </div>
+
+            <Field name="assetRef" label="Your own reference for it (optional)" placeholder="eg: FFSL-014"
+              required={false} defaultValue={val("assetRef", asset?.assetRef ?? "")} error={e.assetRef} />
+
+            {/* Owned or Leased with no default, per the handover. On an edit the existing value is
+                posted by the hidden field above, so this only appears when registering. */}
+            {!asset ? (
+              <div className={`field${e.ownership ? " field--invalid" : ""}`}>
+                <label className="field__label" htmlFor="a-ownership">Do you own it or lease it?</label>
+                <div className="field__box">
+                  <select id="a-ownership" name="ownership" className="field__input"
+                    value={ownership} onChange={(ev) => setOwnership(ev.target.value)}>
+                    <option value="">Choose one</option>
+                    <option value="owned">Owned</option>
+                    <option value="leased">Leased</option>
+                  </select>
+                </div>
+                {e.ownership ? <p className="field__error">{e.ownership}</p> : null}
+              </div>
+            ) : null}
+
+            {ownership === "leased" ? (
+              <>
+                <Field name="lessor" label="Who owns it" placeholder="The lessor, where that is not you"
+                  required={false} defaultValue={val("lessor", asset?.lessor ?? "")} error={e.lessor} />
+                <div className="form-row">
+                  <div className={`field${e.leaseFrom ? " field--invalid" : ""}`}>
+                    <label className="field__label" htmlFor="a-lease-from">You can use it from</label>
+                    <div className="field__box">
+                      <input id="a-lease-from" name="leaseFrom" type="date" className="field__input"
+                        defaultValue={val("leaseFrom", asset?.leaseFrom ?? "")} suppressHydrationWarning />
+                    </div>
+                    {e.leaseFrom ? <p className="field__error">{e.leaseFrom}</p> : null}
+                  </div>
+                  <div className={`field${e.leaseTo ? " field--invalid" : ""}`}>
+                    <label className="field__label" htmlFor="a-lease-to">until</label>
+                    <div className="field__box">
+                      <input id="a-lease-to" name="leaseTo" type="date" className="field__input"
+                        defaultValue={val("leaseTo", asset?.leaseTo ?? "")} suppressHydrationWarning />
+                    </div>
+                    {e.leaseTo ? <p className="field__error">{e.leaseTo}</p>
+                      : <p className="field__helper">Work cannot be quoted past this day.</p>}
+                  </div>
+                </div>
+                <Field name="leaseNotes" label="Any restrictions (optional)" placeholder="eg: not for hire outside Bombali"
+                  required={false} defaultValue={val("leaseNotes", asset?.leaseNotes ?? "")} error={e.leaseNotes} />
+              </>
+            ) : null}
           </div>
 
           <div className="form-step" hidden={!shown(1)}>
@@ -131,6 +212,47 @@ export function AssetModal({ asset, kinds, services, availability, onClose }: {
               defaultValue={val("implements", asset?.implements ?? "")} error={e.implements} />
             <Chips name="services" legend="Services" type="checkbox" options={services}
               checked={(v.services ?? asset?.services.join(",") ?? "").split(",").filter(Boolean)} error={e.services} />
+
+            {/* Only the specifications this kind actually has. A drum seeder is never asked for a
+                PTO speed, and a tractor is never asked for a working width. */}
+            {kind ? (
+              <fieldset className="field asset-specs">
+                <legend className="field__label">Specifications</legend>
+                {specsFor(kind).map((spec) => (
+                  <div key={spec.id} className={`field${e[`spec_${spec.id}`] ? " field--invalid" : ""}`}>
+                    <label className="field__label" htmlFor={`a-spec-${spec.id}`}>
+                      {spec.label}{spec.unit ? ` (${spec.unit})` : ""}{spec.critical ? "" : " (optional)"}
+                    </label>
+                    <div className="field__box">
+                      {spec.kind === "choice" ? (
+                        <select id={`a-spec-${spec.id}`} name={`spec_${spec.id}`} className="field__input"
+                          defaultValue={val(`spec_${spec.id}`, asset?.specs?.[spec.id] ?? "")}>
+                          <option value="">Not known</option>
+                          {(spec.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      ) : (
+                        <input id={`a-spec-${spec.id}`} name={`spec_${spec.id}`} className="field__input"
+                          inputMode={spec.kind === "number" ? "decimal" : undefined}
+                          defaultValue={val(`spec_${spec.id}`, asset?.specs?.[spec.id] ?? "")} />
+                      )}
+                    </div>
+                    {e[`spec_${spec.id}`] ? <p className="field__error">{e[`spec_${spec.id}`]}</p>
+                      : spec.hint ? <p className="field__helper">{spec.hint}</p> : null}
+                  </div>
+                ))}
+                <p className="field__helper">
+                  Anything marked without &ldquo;optional&rdquo; has to be recorded before this machine can go on a quote:
+                  without it nobody can check what it fits.
+                </p>
+              </fieldset>
+            ) : null}
+
+            {/* "Last confirmed physical location, timestamp and updater. Coverage districts are
+                separate" — this is the yard, not where the business works. */}
+            <Field name="location" label="Where it is kept (optional)" placeholder="eg: Makeni yard"
+              required={false} defaultValue={val("location", asset?.location ?? "")} error={e.location} />
+            <Field name="custodian" label="Who has it (optional)" placeholder="The person it is with right now"
+              required={false} defaultValue={val("custodian", asset?.custodian ?? "")} error={e.custodian} />
           </div>
 
           <div className="form-step" hidden={!(editing || step === 2)}>

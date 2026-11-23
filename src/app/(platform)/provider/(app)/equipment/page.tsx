@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { requireWorkspace } from "@/lib/guard";
 import { Shell, PageHead } from "@/components/app/Shell";
 import { SERVICES } from "@/lib/business";
-import { AVAILABILITY, KINDS, MAX_GALLERY_PHOTOS, kindLabel, listAssets, listPhotos, unavailableReason } from "@/lib/equipment";
+import {
+  AVAILABILITY, KINDS, MAX_GALLERY_PHOTOS, SERIAL_STATES, conditionLabel, kindLabel, limitedUseNote,
+  listAssets, listPhotos, locationAgeDays, unavailableReason,
+} from "@/lib/equipment";
+import { describeSpecs } from "@/lib/specs";
 import { EquipmentList, type AssetView } from "@/components/equipment/EquipmentList";
 
 export const metadata: Metadata = { title: "Equipment" };
@@ -33,6 +37,25 @@ export default async function Page() {
       gallery: gallery.map((p) => ({ id: p.id, src: `/provider/equipment/gallery/${p.id}` })),
       galleryFull: gallery.length >= MAX_GALLERY_PHOTOS,
       unavailable: unavailableReason(a),
+      assetRef: a.assetRef,
+      serialStatus: a.serialStatus,
+      serialExceptionBy: a.serialExceptionBy,
+      condition: a.condition,
+      conditionLabel: conditionLabel(a.condition),
+      conditionNote: limitedUseNote(a) ?? a.conditionNote,
+      location: a.location,
+      custodian: a.custodian,
+      locationAgeDays: locationAgeDays(a),
+      lessor: a.lessor,
+      leaseFrom: a.leaseFrom,
+      leaseTo: a.leaseTo,
+      leaseNotes: a.leaseNotes,
+      specs: a.specs,
+      specRows: describeSpecs(a.kind, a.specs),
+      acquiredOn: a.acquiredOn,
+      supplier: a.supplier,
+      donor: a.donor,
+      useRestrictions: a.useRestrictions,
       faults: a.openFaults.map((f) => ({
         id: f.id, severity: f.severity, description: f.description, reportedAt: f.reportedAt,
       })),
@@ -50,6 +73,7 @@ export default async function Page() {
         kinds={KINDS.map((k) => ({ ...k }))}
         services={SERVICES.map((s) => ({ ...s }))}
         availability={AVAILABILITY.map((a) => ({ ...a }))}
+        serialStates={SERIAL_STATES.map((x) => ({ ...x }))}
         canEdit={permission !== "view_jobs"}
       />
     </Shell>

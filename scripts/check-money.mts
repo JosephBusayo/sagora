@@ -311,10 +311,19 @@ console.log("\nRequest kinds");
   if (!quoted.ok) throw new Error("harvest quote failed");
   await quotes.acceptQuote(quoted.quote.id, farmer);
   const job = (await jobs.jobForRequest(harvest.id))!;
-  const tractor = await equipment.addAsset(biz, owner, { name: "Only a tractor", kind: "tractor", identifier: "", ownership: "owned", notes: "" });
+  // Since migration 026 a machine missing a critical specification is blocked on its own, so
+  // these fixtures carry theirs — otherwise this would test the wrong refusal.
+  const tractor = await equipment.addAsset(biz, owner, {
+    name: "Only a tractor", kind: "tractor", identifier: "SN-ONLY", ownership: "owned", notes: "",
+    specs: { power: "90", hitch: "Three-point category 2", lift: "2500" },
+  });
   const refused = await jobs.scheduleJob(biz, owner, job.id, { startDate: inDays(20), endDate: inDays(21), operatorId: null, assetIds: [tractor.id] });
   await ok("a harvest cannot run without a harvester", !refused.ok);
-  const harvester = await equipment.addAsset(biz, owner, { name: "Harvester", kind: "harvester", identifier: "", ownership: "owned", notes: "" });
+  await ok("and that is why, not a missing specification", !refused.ok && refused.reason.includes("harvester"));
+  const harvester = await equipment.addAsset(biz, owner, {
+    name: "Harvester", kind: "harvester", identifier: "SN-HARV", ownership: "owned", notes: "",
+    specs: { ownEngine: "Own engine", power: "120", header: "3" },
+  });
   const allowed = await jobs.scheduleJob(biz, owner, job.id, { startDate: inDays(20), endDate: inDays(21), operatorId: null, assetIds: [harvester.id] });
   await ok("a harvester can take the job", allowed.ok);
 

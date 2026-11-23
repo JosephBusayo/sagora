@@ -24,7 +24,8 @@
     "db:delete-demo": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/delete-demo-accounts.mts",
     "db:why-no-match": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/why-no-match.mts",
     "db:repair-023": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/repair-migration-023.mts",
-    "check:admin": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-admin.mts"
+    "check:admin": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-admin.mts",
+    "check:assets": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-assets.mts"
   },
   "dependencies": {
     "@central-icons-react/round-filled-radius-2-stroke-2": "^1.2.22",

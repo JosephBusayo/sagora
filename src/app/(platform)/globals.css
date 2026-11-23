@@ -1771,3 +1771,21 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 /* Two radio options, not a dropdown: the first question a provider answers about a farm. */
 .inspection__decide { display: grid; gap: 6px; border: 0; margin: 0 0 4px; padding: 0; }
 .inspection__decide legend { padding: 0; margin-bottom: 4px; }
+
+/* ---- Asset identity, from Karim's handover (23 Nov 2026) ---- */
+
+/* The facts a register has to know about one machine. A plain list, not cards: these are read
+   top to bottom when somebody is deciding whether this is the right tractor. */
+.asset__facts { display: grid; gap: 7px; margin: 14px 0; padding: 0; }
+.asset__facts > div { display: grid; grid-template-columns: 124px 1fr; gap: 12px; align-items: baseline; }
+.asset__facts dt { font: 500 12px/18px var(--font-sans); color: #808080; text-transform: uppercase; letter-spacing: 0.04em; }
+.asset__facts dd { margin: 0; font: 400 14px/20px var(--font-sans); color: #191919; }
+
+/* Specifications on the registration form, grouped so they read as one question about the kind
+   of machine rather than a run of unrelated fields. */
+.asset-specs { border: 1px solid #e5e5e5; border-radius: 12px; padding: 14px; margin: 0; display: grid; gap: 10px; }
+.asset-specs > legend { padding: 0 6px; }
+
+@media (max-width: 560px) {
+  .asset__facts > div { grid-template-columns: 1fr; gap: 1px; }
+}

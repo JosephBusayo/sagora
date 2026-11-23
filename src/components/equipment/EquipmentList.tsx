@@ -15,6 +15,26 @@ import { PhotoPicker } from "./PhotoPicker";
 
 export type FaultView = { id: string; severity: "blocking" | "minor"; description: string; reportedAt: string };
 export type AssetView = {
+  /* Added with Karim's handover of 23 Nov 2026 — identity, condition, lease and specifications. */
+  assetRef: string;
+  serialStatus: "recorded" | "unreadable" | "none";
+  serialExceptionBy: string;
+  condition: "working" | "limited" | "repair" | "retired";
+  conditionLabel: string;
+  conditionNote: string;
+  location: string;
+  custodian: string;
+  locationAgeDays: number | null;
+  lessor: string;
+  leaseFrom: string;
+  leaseTo: string;
+  leaseNotes: string;
+  specs: Record<string, string>;
+  specRows: { label: string; value: string }[];
+  acquiredOn: string;
+  supplier: string;
+  donor: string;
+  useRestrictions: string;
   id: string; kind: string; kindLabel: string; name: string; identifier: string;
   ownership: "owned" | "leased"; status: "active" | "retired"; notes: string; retiredReason: string;
   brand: string; model: string; year: string; horsepower: string; implements: string; services: string[];
@@ -94,6 +114,52 @@ function DetailsModal({ a, canEdit, availability, onClose, onEdit, onFault, onDe
           <h3>{a.name}</h3>
           <Kind a={a} />
         </div>
+
+        {/* What the handover asks a register to know about one machine. Each line is omitted when
+            there is nothing recorded, so a sparse asset reads as sparse rather than as a wall of
+            "Not known". */}
+        <dl className="asset__facts">
+          {a.assetRef ? <div><dt>Your reference</dt><dd>{a.assetRef}</dd></div> : null}
+          {a.identifier ? <div><dt>Serial</dt><dd>{a.identifier}</dd></div> : null}
+          {a.serialStatus !== "recorded" ? (
+            <div>
+              <dt>Serial</dt>
+              <dd>
+                {a.serialStatus === "unreadable" ? "Plate unreadable" : "Never had one"}
+                {a.serialExceptionBy ? " — allowed by review" : " — cannot be quoted until reviewed"}
+              </dd>
+            </div>
+          ) : null}
+          <div><dt>Condition</dt><dd>{a.conditionLabel}{a.conditionNote ? ` — ${a.conditionNote}` : ""}</dd></div>
+          {a.ownership === "leased" ? (
+            <div>
+              <dt>Leased</dt>
+              <dd>
+                {a.lessor ? `from ${a.lessor}` : "from another owner"}
+                {a.leaseFrom || a.leaseTo ? `, ${a.leaseFrom || "any time"} to ${a.leaseTo || "no end date"}` : ""}
+                {a.leaseNotes ? ` — ${a.leaseNotes}` : ""}
+              </dd>
+            </div>
+          ) : null}
+          {a.location || a.custodian ? (
+            <div>
+              <dt>Last seen</dt>
+              <dd>
+                {[a.location, a.custodian].filter(Boolean).join(", ")}
+                {/* The age is the honest part: Sagora cannot know it has moved since. */}
+                {a.locationAgeDays === null ? "" : a.locationAgeDays === 0 ? " — confirmed today"
+                  : ` — confirmed ${a.locationAgeDays} ${a.locationAgeDays === 1 ? "day" : "days"} ago`}
+              </dd>
+            </div>
+          ) : null}
+          {a.specRows.map((r) => <div key={r.label}><dt>{r.label}</dt><dd>{r.value}</dd></div>)}
+          {a.acquiredOn || a.supplier || a.donor || a.useRestrictions ? (
+            <div>
+              <dt>Acquired</dt>
+              <dd>{[a.acquiredOn, a.supplier, a.donor, a.useRestrictions].filter(Boolean).join(" · ")}</dd>
+            </div>
+          ) : null}
+        </dl>
 
         {a.status === "retired" ? (
           <p className="asset__state"><span className="pill pill--cancelled">Retired</span>{a.retiredReason ? <span className="field__helper">{a.retiredReason}</span> : null}</p>
@@ -192,8 +258,9 @@ function DeleteModal({ a, onClose }: { a: AssetView; onClose: () => void }) {
   );
 }
 
-export function EquipmentList({ assets, kinds, services, availability, canEdit }: {
-  assets: AssetView[]; kinds: Option[]; services: Option[]; availability: Option[]; canEdit: boolean;
+export function EquipmentList({ assets, kinds, services, availability, serialStates, canEdit }: {
+  assets: AssetView[]; kinds: Option[]; services: Option[]; availability: Option[];
+  serialStates: Option[]; canEdit: boolean;
 }) {
   const [editing, setEditing] = useState<AssetView | null | "new">(null);
   const [faulting, setFaulting] = useState<AssetView | null>(null);
@@ -246,7 +313,8 @@ export function EquipmentList({ assets, kinds, services, availability, canEdit }
           onEdit={() => setEditing(open)} onFault={() => setFaulting(open)} onDelete={() => setDeleting(open)} />
       ) : null}
       {editing ? (
-        <AssetModal asset={editing === "new" ? null : editing} kinds={kinds} services={services} availability={availability} onClose={() => setEditing(null)} />
+        <AssetModal asset={editing === "new" ? null : editing} kinds={kinds} services={services} availability={availability}
+          serialStates={serialStates} onClose={() => setEditing(null)} />
       ) : null}
       {faulting ? <FaultModal asset={faulting} onClose={() => setFaulting(null)} /> : null}
       {deleting ? <DeleteModal a={deleting} onClose={() => { setDeleting(null); setOpenId(null); }} /> : null}

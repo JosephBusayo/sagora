@@ -8,12 +8,15 @@ import {
   resolveFault, restoreAsset, retireAsset, setAvailability, updateAsset, type Availability,
 } from "@/lib/equipment";
 import { SERVICES } from "@/lib/business";
+import { SERIAL_STATES, type SerialStatus } from "@/lib/equipment";
+import { specsFor } from "@/lib/specs";
 import type { FormState } from "@/lib/auth-flows";
 
 const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String(fd.get(k)).trim() : "");
 const kindIds = KINDS.map((k) => k.id) as string[];
 
 const serviceIds = SERVICES.map((s) => s.id) as string[];
+const serialStates = SERIAL_STATES.map((x) => x.id) as string[];
 const availabilityIds = AVAILABILITY.map((a) => a.id) as string[];
 
 /**
@@ -30,9 +33,25 @@ function parse(fd: FormData) {
   const identifier = str(fd, "identifier");
   const services = fd.getAll("services").map(String).filter((s) => serviceIds.includes(s));
   const availability = str(fd, "availability") || "available";
-  const ownership = str(fd, "ownership") || "owned";
+  const ownership = str(fd, "ownership");
   const notes = str(fd, "notes");
   const name = `${brand} ${model}`.trim();
+
+  /* Everything below arrived with Karim's handover of 23 November 2026. */
+  const serialStatus = str(fd, "serialStatus") || "recorded";
+  const assetRef = str(fd, "assetRef");
+  const lessor = str(fd, "lessor");
+  const leaseFrom = str(fd, "leaseFrom");
+  const leaseTo = str(fd, "leaseTo");
+  const leaseNotes = str(fd, "leaseNotes");
+  const location = str(fd, "location");
+  const custodian = str(fd, "custodian");
+  // The specifications that apply to this kind, read off the form by their prefixed names.
+  const specs: Record<string, string> = {};
+  for (const spec of specsFor(kind)) {
+    const value = str(fd, `spec_${spec.id}`);
+    if (value) specs[spec.id] = value;
+  }
 
   const fieldErrors: Record<string, string> = {};
   if (!kindIds.includes(kind)) fieldErrors.kind = "Choose the equipment type";
@@ -48,19 +67,55 @@ function parse(fd: FormData) {
   // Required since the review with Karim (22 Nov 2026). A quote now names specific machines and
   // accepting one commits them, so "the tractor" has to mean one identifiable tractor: without
   // this, two identical machines on a register cannot be told apart on a job sheet or a dispute.
-  if (!identifier) fieldErrors.identifier = "Enter the registration or serial number";
+  // Required when there is one to record. The handover allows registering a machine whose plate
+  // is unreadable or which never had a number — it just cannot be quoted until Sagora reviews it.
+  if (!identifier && serialStatus === "recorded") fieldErrors.identifier = "Enter the registration or serial number";
   else if (identifier.length > 60) fieldErrors.identifier = "Use 60 characters or fewer";
   if (services.length === 0) fieldErrors.services = "Choose what this equipment is used for";
   if (!availabilityIds.includes(availability)) fieldErrors.availability = "Choose whether it can be booked";
+  // "Owned or Leased with no default" — so an empty value is an unanswered question, not an
+  // assumption that the provider owns it.
   if (ownership !== "owned" && ownership !== "leased") fieldErrors.ownership = "Say whether you own or lease it";
   if (notes.length > 400) fieldErrors.notes = "Use 400 characters or fewer";
 
+  if (!serialStates.includes(serialStatus)) fieldErrors.serialStatus = "Say whether the number is readable";
+  if (assetRef.length > 40) fieldErrors.assetRef = "Use 40 characters or fewer";
+
+  if (ownership === "leased") {
+    if (lessor.length > 80) fieldErrors.lessor = "Use 80 characters or fewer";
+    const dated = (v: string) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v);
+    if (!dated(leaseFrom)) fieldErrors.leaseFrom = "Enter a date, or leave it empty";
+    if (!dated(leaseTo)) fieldErrors.leaseTo = "Enter a date, or leave it empty";
+    else if (leaseFrom && leaseTo && leaseTo < leaseFrom) fieldErrors.leaseTo = "The lease cannot end before it starts";
+    if (leaseNotes.length > 200) fieldErrors.leaseNotes = "Use 200 characters or fewer";
+  }
+  if (location.length > 80) fieldErrors.location = "Use 80 characters or fewer";
+  if (custodian.length > 80) fieldErrors.custodian = "Use 80 characters or fewer";
+
+  // A number field that is not a number helps nobody later, when a pairing is being checked
+  // against it. Said here rather than silently stored.
+  for (const spec of specsFor(kind)) {
+    const value = specs[spec.id];
+    if (!value) continue;
+    if (value.length > 80) fieldErrors[`spec_${spec.id}`] = "Use 80 characters or fewer";
+    else if (spec.kind === "number" && !/^\d+(\.\d+)?$/.test(value)) fieldErrors[`spec_${spec.id}`] = "Enter a number";
+    else if (spec.kind === "choice" && !(spec.options ?? []).includes(value)) fieldErrors[`spec_${spec.id}`] = "Choose one of the options";
+  }
+
+  const specValues: Record<string, string> = {};
+  for (const [k, v] of Object.entries(specs)) specValues[`spec_${k}`] = v;
+
   return {
     fieldErrors,
-    values: { kind, brand, model, year, horsepower, implements: implements_, identifier, services: services.join(","), availability },
+    values: {
+      kind, brand, model, year, horsepower, implements: implements_, identifier, services: services.join(","), availability,
+      serialStatus, assetRef, lessor, leaseFrom, leaseTo, leaseNotes, location, custodian, ...specValues,
+    },
     input: {
       kind, name, identifier, ownership: ownership as "owned" | "leased", notes,
       brand, model, year, horsepower, implements: implements_, services, availability: availability as Availability,
+      serialStatus: serialStatus as SerialStatus, assetRef,
+      lessor, leaseFrom, leaseTo, leaseNotes, location, custodian, specs,
     },
   };
 }
