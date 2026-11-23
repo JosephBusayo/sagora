@@ -1736,3 +1736,38 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 /* Both sides' details on one line each, so a coordinator can read a number off the screen while
    holding a phone. */
 .inspections-list li { display: grid; gap: 4px; }
+
+/* ---- Who to ring, on each follow-up (Karim, 23 Nov 2026) ---- */
+
+/* One party per row, wrapping on a phone. The role is what tells a coordinator which of two
+   numbers they are looking at, so it leads and never wraps away from the name. */
+.queue__parties { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.queue__parties li {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+  padding: 7px 10px; border-radius: 10px; background: #f5f5f5;
+  font: 400 13px/20px var(--font-sans); color: #808080;
+}
+.queue__party-role {
+  flex: none; min-width: 64px; font-weight: 500; color: #567621; text-transform: uppercase;
+  font-size: 11px; letter-spacing: 0.04em;
+}
+.queue__party-name { font-weight: 500; color: #191919; }
+/* Dialling is the point, so the number is the thing that looks tappable, and is big enough to hit. */
+.queue__parties a { color: #024321; text-decoration: underline; padding: 2px 0; }
+.queue__parties .field__helper { margin: 0; font-size: 12px; }
+
+/* ---- Quote breakdown and the inspection decision (handover, 23 Nov 2026) ---- */
+
+/* The three figures a farmer agrees to: price, fee, total. The total is the one they pay, so it
+   is the one that carries weight, with a rule above it rather than a box around it. */
+.offer__breakdown { margin: 6px 0 14px; padding: 0; display: grid; gap: 4px; }
+.offer__breakdown > div { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
+.offer__breakdown dt { font: 400 14px/22px var(--font-sans); color: #808080; margin: 0; }
+.offer__breakdown dd { margin: 0; font: 400 14px/22px var(--font-sans); color: #191919; font-variant-numeric: tabular-nums; }
+.offer__breakdown-total { margin-top: 4px; padding-top: 7px; border-top: 1px solid #e5e5e5; }
+.offer__breakdown-total dt { font-weight: 500; color: #191919; }
+.offer__breakdown-total dd { font-weight: 600; font-size: 16px; }
+
+/* Two radio options, not a dropdown: the first question a provider answers about a farm. */
+.inspection__decide { display: grid; gap: 6px; border: 0; margin: 0 0 4px; padding: 0; }
+.inspection__decide legend { padding: 0; margin-bottom: 4px; }

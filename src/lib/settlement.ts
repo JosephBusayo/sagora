@@ -21,17 +21,30 @@ import { bookingFor } from "./payments";
  */
 
 /**
- * The pilot fee policy from the brief: 10%, waived for a provider's first 20 paid jobs. Joseph
- * approved it on 6 Nov 2026 (§6.3 asked for the policy to be signed off before any fee is taken).
- * Setting `approved` back to false stops the fee without touching anything already paid.
+ * How a release splits the money held against a job.
+ *
+ * Reversed on 23 November 2026 to follow Karim's handover. The fee used to be taken out of the
+ * provider's payout, and it is now added to the farmer's total instead (see lib/fee.ts), so the
+ * provider receives the price they quoted and Sagora's share comes from the extra the farmer paid.
+ * The first-twenty-jobs waiver went with it: there is nothing to waive on the provider's side any
+ * more, and the farmer is shown the fee on every quote from the first one.
+ *
+ * The ledger posting is unchanged, because the identity it relies on still holds:
+ * `gross = fee + net`. Only the three numbers differ — gross is now what the farmer paid rather
+ * than what the provider quoted.
+ *
+ * On a partial payment the two shares move together. A farmer who has paid half of 2,200 has paid
+ * half the service and half the fee, so a payout prepared against it carries 1,000 to the provider
+ * and 100 to Sagora. The fee rounds down, so a rounding remainder always favours the provider.
  */
-export const FEE_POLICY = { approved: true, pilotPercent: 10, freeJobs: 20 };
+export type Split = { grossMinor: number; feeMinor: number; netMinor: number };
 
-/** The fee on one release. Rounds down to whole minor units so the provider is never short-paid. */
-export function feeFor(grossMinor: number, completedJobsSoFar: number): number {
-  if (!FEE_POLICY.approved) return 0;
-  if (completedJobsSoFar < FEE_POLICY.freeJobs) return 0;
-  return Math.floor((grossMinor * FEE_POLICY.pilotPercent) / 100);
+export function splitHeld(heldMinor: number, agreement: { amountMinor: number; feeMinor: number }): Split {
+  const total = agreement.amountMinor + agreement.feeMinor;
+  const gross = Math.max(0, Math.min(heldMinor, total));
+  if (total <= 0 || gross <= 0) return { grossMinor: gross, feeMinor: 0, netMinor: gross };
+  const fee = Math.floor((gross * agreement.feeMinor) / total);
+  return { grossMinor: gross, feeMinor: fee, netMinor: gross - fee };
 }
 
 export type Destination = { method: string; accountName: string; accountRef: string; bank: string; updatedAt: string };
@@ -178,12 +191,13 @@ export async function preparePayout(preparerId: string, requestId: string): Prom
     | { name: string }
     | undefined;
 
-  const gross = Math.min(held, agreement.amountMinor);
-  const fee = feeFor(gross, await paidJobCount(agreement.businessId));
+  // The farmer's total, not the provider's price: the fee they paid on top is part of this money
+  // and has to leave the funds account too, or it would sit there for ever.
+  const { grossMinor: gross, feeMinor: fee, netMinor: net } = splitHeld(held, agreement);
   const id = randomUUID();
   try {
     await db.run(`INSERT INTO release (id, kind, request_id, beneficiary, beneficiary_label, gross_minor, fee_minor, net_minor, prepared_by, prepared_at)
-       VALUES (?,'payout',?,?,?,?,?,?,?,?)`, id, requestId, agreement.businessId, business?.name ?? "Provider", gross, fee, gross - fee, preparerId, new Date().toISOString());
+       VALUES (?,'payout',?,?,?,?,?,?,?,?)`, id, requestId, agreement.businessId, business?.name ?? "Provider", gross, fee, net, preparerId, new Date().toISOString());
   } catch {
     return { ok: false, reason: "A payout for this job has already been prepared." };
   }
@@ -269,7 +283,10 @@ export async function reviseAmount(actorId: string, id: string, amountMinor: num
   if (release.status === "void") return { ok: false, reason: "That release was cancelled." };
   if (!Number.isSafeInteger(amountMinor) || amountMinor <= 0) return { ok: false, reason: "Enter an amount." };
 
-  const fee = release.kind === "payout" ? feeFor(amountMinor, await paidJobCount(release.beneficiary)) : 0;
+  // A revised payout is still a slice of the same agreement, so the fee keeps the same proportion
+  // the farmer actually paid. A refund carries no fee.
+  const agreement = release.kind === "payout" ? await agreementFor(release.requestId) : null;
+  const fee = agreement ? splitHeld(amountMinor, agreement).feeMinor : 0;
   await db.tx(async (t) => {
     // An approved release already posted what it owes; undo that posting before the amount moves.
     if (release.status === "approved") {

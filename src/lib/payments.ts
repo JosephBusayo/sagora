@@ -162,15 +162,16 @@ export async function recordPayment(staffId: string, input: RecordInput): Promis
       await openCase(t, input.requestId, "payment_after_booking", `${formatAmount(input.amountMinor)} arrived after the job was already paid and booked.`);
       return { ok: true, outcome: "case_opened", message: "This job was already paid. The extra money is held and a case has been opened." };
     }
-    if (held > agreement.amountMinor) {
-      await openCase(t, input.requestId, "overpaid", `${formatAmount(held)} received against ${formatAmount(agreement.amountMinor)} agreed.`);
+    if (held > agreement.farmerTotalMinor) {
+      await openCase(t, input.requestId, "overpaid", `${formatAmount(held)} received against ${formatAmount(agreement.farmerTotalMinor)} agreed.`);
     }
-    const required = depositRequired(agreement.amountMinor);
+    // Half of what the farmer owes, fee included — they are paying one total, not two bills.
+    const required = depositRequired(agreement.farmerTotalMinor);
     if (held < required) {
       return {
         ok: true,
         outcome: "part_paid",
-        message: `Recorded. ${formatAmount(held)} of ${formatAmount(agreement.amountMinor)} received; the booking is not confirmed yet (${formatAmount(required)} needed).`,
+        message: `Recorded. ${formatAmount(held)} of ${formatAmount(agreement.farmerTotalMinor)} received; the booking is not confirmed yet (${formatAmount(required)} needed).`,
       };
     }
 
@@ -209,7 +210,7 @@ export async function recordPayment(staffId: string, input: RecordInput): Promis
   // The audit trail is written after the decision has actually committed.
   if (!outcome.ok) return outcome;
   if (outcome.outcome === "part_paid") {
-    await audit(staffId, "payment.recorded", input.requestId, `${input.amountMinor} of ${agreement.amountMinor}`);
+    await audit(staffId, "payment.recorded", input.requestId, `${input.amountMinor} of ${agreement.farmerTotalMinor}`);
   } else if (outcome.outcome === "case_opened") {
     await audit(staffId, "payment.case_opened", input.requestId, outcome.message);
   } else {

@@ -4,7 +4,12 @@ import { db, type Queries } from "./db";
 import { audit } from "./business";
 import { formatAmount } from "./money";
 import { getById as getRequest, ownedBy } from "./requests";
-import { clashesFor, ensureJobForAgreement } from "./jobs";
+import { ensureJobForAgreement } from "./jobs";
+import { serviceFeeOn } from "./fee";
+import {
+  convert as convertHolds, forQuote as holdsForQuote, place,
+  release as releaseHolds, releaseOthers, type Requested,
+} from "./holds";
 
 /**
  * Quotes are versioned, and accepting one freezes the exact version that was accepted into an
@@ -31,14 +36,23 @@ export type Quote = {
   note: string; status: QuoteStatus; declinedAt: string | null; createdAt: string;
   /** How many days the provider says the work takes, counting the start day. Never below 1. */
   daysToComplete: number;
-  /** The machines the provider has put behind this price. Committed only once it is accepted. */
+  /** The rate per working day. Zero on a quote sent before the handover asked for it. */
+  dailyRateMinor: number;
+  /** The machines held against this price from the moment it was sent. */
   assetIds: string[];
+  /** The named operator held with them. */
+  operatorId: string | null;
+  /** The exact moment this stops being acceptable. Empty on rows written before migration 025. */
+  expiresAt: string;
 };
 
 type Row = {
   id: string; request_id: string; business_id: string; version: number; amount_minor: number;
   includes: string; start_date: string; valid_until: string; note: string; status: QuoteStatus; declined_at: string | null; created_at: string;
   days_to_complete?: number | null;
+  daily_rate_minor?: number | null;
+  operator_id?: string | null;
+  expires_at?: string | null;
 };
 
 async function fromRow(r: Row, t: Queries = db): Promise<Quote> {
@@ -48,29 +62,46 @@ async function fromRow(r: Row, t: Queries = db): Promise<Quote> {
     amountMinor: r.amount_minor, includes: r.includes, startDate: r.start_date,
     validUntil: r.valid_until, note: r.note, status: r.status, declinedAt: r.declined_at, createdAt: r.created_at,
     daysToComplete: Math.max(1, Number(r.days_to_complete ?? 1)),
+    dailyRateMinor: Number(r.daily_rate_minor ?? 0),
+    operatorId: r.operator_id ?? null,
+    expiresAt: r.expires_at ?? "",
     assetIds: ids.map((i) => i.equipment_id),
   };
 }
 
 /**
- * How long a farmer has to answer a quote (Karim, 22 Nov 2026). It replaced the provider's own
- * "price holds until" date: one rule everybody knows beats a date each provider picks differently.
+ * How long a farmer has to answer a quote. Karim set 48 hours on 22 November and the handover of
+ * 23 November keeps it: "the discussed starting hold is 48 hours, with the exact expiry shown".
  */
 export const RESPONSE_HOURS = 48;
 
 const addDays = (iso: string, n: number) => new Date(Date.parse(iso + "T00:00:00Z") + n * 86400_000).toISOString().slice(0, 10);
 
-/** A stored date as the screens around it write one: 16 Nov 2026, not 2026-11-16. */
-const onDay = (iso: string) =>
-  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+/**
+ * The exact moment a quote stops being acceptable: 48 hours, or the start of the day the work was
+ * meant to begin, whichever comes first.
+ *
+ * The cap is the handover's — "never let it run past the proposed start" — and it matters because
+ * a flat 48 hours can outlive the work. A quote sent this evening for tomorrow's ploughing would
+ * otherwise still be live tomorrow night, holding a tractor for a day that has already gone.
+ *
+ * Sierra Leone keeps UTC+0 all year, so midnight UTC is midnight in Freetown and no conversion is
+ * needed anywhere in this calculation.
+ */
+export function expiryFor(sentAtIso: string, startDate: string): string {
+  const window = Date.parse(sentAtIso) + RESPONSE_HOURS * 3600_000;
+  const start = Date.parse(startDate + "T00:00:00Z");
+  return new Date(Math.min(window, start)).toISOString();
+}
 
-/** The last moment this quote can be accepted. */
-export const expiresAt = (q: Pick<Quote, "createdAt">) => new Date(Date.parse(q.createdAt) + RESPONSE_HOURS * 3600_000);
+/** The last moment this quote can be accepted. Older rows have no stored instant; they get 48 hours. */
+export const expiresAt = (q: Pick<Quote, "createdAt" | "expiresAt">) =>
+  new Date(q.expiresAt ? Date.parse(q.expiresAt) : Date.parse(q.createdAt) + RESPONSE_HOURS * 3600_000);
 
 /**
- * A quote nobody answered inside the window can be read back but never accepted, and the machines
- * it named are free again. Worked out from the clock rather than from a swept status column, so
- * it is true the moment it becomes true and never waits on the nightly sweep to catch up.
+ * A quote nobody answered inside the window can be read back but never accepted, and everything it
+ * held is free again. Worked out from the clock rather than from a swept status column, so it is
+ * true the moment it becomes true and never waits on the nightly sweep to catch up.
  */
 export const isExpired = (q: Quote) => q.status === "sent" && Date.now() > expiresAt(q).getTime();
 
@@ -79,7 +110,13 @@ export const endDateOf = (q: Pick<Quote, "startDate" | "daysToComplete">) => add
 
 export type QuoteInput = {
   amountMinor: number; includes: string; startDate: string; note: string;
-  daysToComplete: number; assetIds: string[];
+  daysToComplete: number;
+  /** The provider's rate per working day. The service total is still amount_minor. */
+  dailyRateMinor: number;
+  /** Actual machines, never a type. The handover requires at least one. */
+  assetIds: string[];
+  /** The actual person who will run it, from this business's team. */
+  operatorId: string;
 };
 
 /** This business's current quote on a request, whatever its state. */
@@ -122,50 +159,108 @@ export async function sendQuote(requestId: string, businessId: string, actorId: 
     return { ok: false, reason: existing.declinedAt ? "The farmer declined your quote." : "The farmer has chosen another provider." };
   }
 
+  // The handover's opening rule: no quotation without capacity, and capacity means actual things.
+  if (input.assetIds.length === 0) {
+    return { ok: false, reason: "Choose the actual equipment this price is for. A quote cannot be sent without it." };
+  }
+  if (!input.operatorId) {
+    return { ok: false, reason: "Choose the operator who will do the work. A quote cannot be sent without one." };
+  }
+
   const now = new Date().toISOString();
   const id = randomUUID();
   const version = (existing?.version ?? 0) + 1;
-  // valid_until is no longer asked of the provider; the 48-hour window is the rule. It is still
-  // written, as the day that window closes, so the column keeps meaning the thing its name says.
-  const validUntil = new Date(Date.parse(now) + RESPONSE_HOURS * 3600_000).toISOString().slice(0, 10);
+  const expires = expiryFor(now, input.startDate);
+  // Already past, because the work starts today or sooner. Holding nothing for no time is not a
+  // quote, so it is refused here rather than sent and expired in the same breath.
+  if (Date.parse(expires) <= Date.parse(now)) {
+    return { ok: false, reason: "The start date is too soon to quote: a price has to hold until the work begins." };
+  }
+  // valid_until predates the 48-hour rule. It is kept as the day the window closes so the column
+  // still means what its name says, but expires_at is the instant everything now reads.
+  const validUntil = expires.slice(0, 10);
+  const endDate = endDateOf({ startDate: input.startDate, daysToComplete: input.daysToComplete });
 
-  await db.tx(async (t) => {
-    // Anything this business sent before is replaced, never edited.
+  const requested: Requested[] = [
+    ...input.assetIds.map((resourceId) => ({ kind: "equipment" as const, resourceId, label: "Equipment" })),
+    { kind: "operator" as const, resourceId: input.operatorId, label: "Operator" },
+  ];
+
+  // One transaction for the clash check, the quote and every hold. "If any resource conflicts,
+  // send nothing and leave no partial holds."
+  const placed = await db.tx<{ ok: true } | { ok: false; reason: string }>(async (t) => {
+    // Anything this business sent before is replaced, never edited; its holds move with it.
     await t.run("UPDATE quote SET status='superseded' WHERE request_id=? AND business_id=? AND status='sent'", requestId, businessId);
-    await t.run(`INSERT INTO quote (id, request_id, business_id, version, amount_minor, includes, start_date, valid_until, note, days_to_complete, created_by, created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, id, requestId, businessId, version, input.amountMinor, input.includes, input.startDate, validUntil, input.note, input.daysToComplete, actorId, now);
-    // Named, not committed: the machines are held only once the farmer accepts (see acceptQuote).
+    if (existing) await releaseHolds(existing.id, "Quote replaced by a newer version", t);
+
+    await t.run(`INSERT INTO quote (id, request_id, business_id, version, amount_minor, includes, start_date, valid_until, note,
+         days_to_complete, daily_rate_minor, operator_id, expires_at, created_by, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      id, requestId, businessId, version, input.amountMinor, input.includes, input.startDate, validUntil, input.note,
+      input.daysToComplete, input.dailyRateMinor, input.operatorId, expires, actorId, now);
     for (const assetId of input.assetIds) await t.run("INSERT INTO quote_asset (quote_id, equipment_id) VALUES (?,?)", id, assetId);
+
+    const held = await place(id, requestId, businessId, requested, input.startDate, endDate, expires, t);
+    if (!held.ok) {
+      // Naming what is in the way, because "each case blocks Send quotation with a specific
+      // reason". Throwing rolls the quote back with the holds, leaving no trace of either.
+      const names = new Map<string, string>();
+      for (const c of held.clashes) {
+        const row = c.kind === "equipment"
+          ? await t.get("SELECT name FROM equipment WHERE id=?", c.resourceId) as { name: string } | undefined
+          : await t.get("SELECT name FROM team_member WHERE id=?", c.resourceId) as { name: string } | undefined;
+        names.set(c.resourceId, row?.name ?? (c.kind === "equipment" ? "That equipment" : "That operator"));
+      }
+      throw new HoldConflict(held.clashes.map((c) => `${names.get(c.resourceId)} is ${c.why}`).join("; "));
+    }
+
     // Once anyone has quoted, the farmer's request says so.
     await t.run("UPDATE service_request SET status='quotes_sent', updated_at=? WHERE id=? AND status='awaiting_quotes'", now, requestId);
+    return { ok: true };
+  }).catch((err: unknown) => {
+    if (err instanceof HoldConflict) return { ok: false as const, reason: err.message };
+    throw err;
   });
+  if (!placed.ok) return { ok: false, reason: placed.reason };
+
   await audit(actorId, version === 1 ? "quote.sent" : "quote.revised", id, `v${version} ${input.amountMinor}`);
+  await audit(actorId, "hold.placed", id, `${requested.length} resources to ${expires}`);
   return { ok: true, quote: (await getQuote(id))! };
 }
 
 /**
- * Which of a quote's machines are already committed elsewhere for the days it would run.
+ * Carries a clash out of the transaction that found it.
  *
- * Called before accepting, and shown to the provider on their own quotes so they learn about a
- * clash from their screen rather than from a farmer who could not accept. Open quotes never
- * appear here: only accepted work holds a machine.
+ * The clash check and the writes have to be one transaction, and the only way to abandon a
+ * transaction is to throw. This turns that throw back into the ordinary refusal the caller
+ * expects, so a busy tractor reads as a message rather than a crash.
  */
-export async function quoteClashes(q: Quote, t: Queries = db): Promise<{ name: string; reference: string; from: string; to: string }[]> {
-  if (q.assetIds.length === 0) return [];
-  const end = endDateOf(q);
-  const out: { name: string; reference: string; from: string; to: string }[] = [];
-  for (const assetId of q.assetIds) {
-    const clash = (await clashesFor(assetId, q.startDate, end, null, t))[0];
-    if (!clash) continue;
-    const asset = await t.get("SELECT name FROM equipment WHERE id=?", assetId) as { name: string } | undefined;
-    out.push({ name: asset?.name ?? "That equipment", reference: clash.reference, from: clash.start_date, to: clash.end_date });
-  }
-  return out;
+class HoldConflict extends Error {}
+
+/**
+ * Whether a quote's own holds are still standing.
+ *
+ * Since the handover, sending a quote reserves everything it names, so a live quote cannot be
+ * clashing with anyone: whatever it holds, it holds. What can happen is that its holds lapsed,
+ * or were released, and then there is nothing behind the price. That is what this reports, and
+ * it is why acceptance checks it.
+ */
+export async function holdsIntact(q: Quote, t: Queries = db): Promise<boolean> {
+  const holds = await holdsForQuote(q.id, t);
+  const live = holds.filter((h) => h.status === "held" && Date.now() <= Date.parse(h.expiresAt || q.createdAt));
+  // One per machine, plus the operator. Anything fewer means something let go.
+  const wanted = q.assetIds.length + (q.operatorId ? 1 : 0);
+  return wanted === 0 ? true : live.length >= wanted;
 }
 
 export async function withdrawQuote(requestId: string, businessId: string, actorId: string): Promise<boolean> {
+  const quote = await currentQuote(requestId, businessId);
   const res = await db.run("UPDATE quote SET status='withdrawn' WHERE request_id=? AND business_id=? AND status='sent'", requestId, businessId);
-  if (res.changes) await audit(actorId, "quote.withdrawn", requestId);
+  if (res.changes) {
+    // Withdrawing frees the machines at once: "release unused capacity".
+    if (quote) await releaseHolds(quote.id, "Provider withdrew the quote");
+    await audit(actorId, "quote.withdrawn", requestId);
+  }
   return res.changes > 0;
 }
 
@@ -199,25 +294,34 @@ export async function acceptQuote(quoteId: string, farmerId: string, onBehalf = 
     // Nothing has been written yet, so returning here commits an empty transaction.
     if (already) return { ok: false, reason: "You have already accepted a quote on this request." };
 
-    // Accepting is what commits the machines (Karim, 22 Nov 2026). Two farmers may hold quotes
-    // naming the same tractor; the first to accept gets it for those days, and the second is told
-    // why they cannot. The check sits inside this transaction so two accepts racing for one
-    // machine cannot both pass it and then both write.
-    const taken = (await quoteClashes(quote, t))[0];
-    if (taken) {
+    // Since the handover, the machines were reserved when the quote was sent, so accepting does
+    // not have to win a race for them — but it does have to check they are still there. A hold
+    // that lapsed, or was released, leaves a price with nothing behind it.
+    if (!(await holdsIntact(quote, t))) {
       return {
         ok: false,
-        reason: `${taken.name} is already committed to other work from ${onDay(taken.from)} to ${onDay(taken.to)}. ` +
-          "Ask the provider for a new quote with different dates or equipment.",
+        reason: "The equipment this quote reserved is no longer held for those dates. " +
+          "Ask the provider for a new quote.",
       };
     }
 
+    // Sagora's 10% is added to the provider's price, never taken out of it (handover, 23 Nov 2026):
+    // provider 2,000 + fee 200 = farmer 2,200. Frozen here with the rest of the agreement so a
+    // later change to the fee policy cannot alter what this farmer owes.
+    const feeMinor = serviceFeeOn(quote.amountMinor);
+
     // The agreement is a frozen copy: later edits to the quote cannot change what was agreed.
-    await t.run(`INSERT INTO agreement (id, request_id, quote_id, business_id, version, amount_minor, includes, start_date, accepted_by, accepted_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`, randomUUID(), quote.requestId, quote.id, quote.businessId, quote.version, quote.amountMinor, quote.includes, quote.startDate, farmerId, now);
+    await t.run(`INSERT INTO agreement (id, request_id, quote_id, business_id, version, amount_minor, fee_minor, includes, start_date, accepted_by, accepted_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`, randomUUID(), quote.requestId, quote.id, quote.businessId, quote.version, quote.amountMinor, feeMinor, quote.includes, quote.startDate, farmerId, now);
     await t.run("UPDATE quote SET status='accepted' WHERE id=?", quote.id);
     await t.run("UPDATE quote SET status='not_selected' WHERE request_id=? AND id<>? AND status='sent'", quote.requestId, quote.id);
     await t.run("UPDATE service_request SET status='in_progress', updated_at=? WHERE id=?", now, quote.requestId);
+
+    // "Selecting one quote closes competing quotes for the same request and releases their holds."
+    // The losing providers get their machines back the moment the farmer chooses.
+    await releaseOthers(quote.requestId, quote.id, "The farmer chose another provider", t);
+    // This quote's own holds become the booking's commitment rather than a second reservation.
+    await convertHolds(quote.id, t);
 
     // The work, with the dates and machines the farmer accepted already on it. A quote that named
     // no equipment still makes an unscheduled job, exactly as every quote did before this change.
@@ -227,9 +331,13 @@ export async function acceptQuote(quoteId: string, farmerId: string, onBehalf = 
       await t.run("INSERT INTO job (id, request_id, business_id, created_at, updated_at) VALUES (?,?,?,?,?)",
         jobId, quote.requestId, quote.businessId, now, now);
     }
+    // Everything the quote held becomes the job's own commitment: the dates, the machines and the
+    // named operator. Nothing is chosen again here, which is the point — "do not create a second
+    // reservation".
     if (quote.assetIds.length > 0) {
-      await t.run(`UPDATE job SET start_date=?, end_date=?, status=CASE WHEN status='unscheduled' THEN 'scheduled' ELSE status END, updated_at=?
-         WHERE id=?`, quote.startDate, endDate, now, jobId);
+      await t.run(`UPDATE job SET start_date=?, end_date=?, operator_id=?,
+           status=CASE WHEN status='unscheduled' THEN 'scheduled' ELSE status END, updated_at=?
+         WHERE id=?`, quote.startDate, endDate, quote.operatorId, now, jobId);
       for (const assetId of quote.assetIds) {
         await t.run("INSERT INTO job_asset (job_id, equipment_id) VALUES (?,?) ON CONFLICT DO NOTHING", jobId, assetId);
       }
@@ -256,9 +364,27 @@ export async function declineQuote(quoteId: string, farmerId: string): Promise<b
   return res.changes > 0;
 }
 
-export async function agreementFor(requestId: string): Promise<{ businessId: string; amountMinor: number; version: number; includes: string; startDate: string } | null> {
-  const r = await db.get("SELECT business_id, amount_minor, version, includes, start_date FROM agreement WHERE request_id=?", requestId) as { business_id: string; amount_minor: number; version: number; includes: string; start_date: string } | undefined;
-  return r ? { businessId: r.business_id, amountMinor: r.amount_minor, version: r.version, includes: r.includes, startDate: r.start_date } : null;
+export type Agreement = {
+  businessId: string; amountMinor: number; version: number; includes: string; startDate: string;
+  /** Sagora's fee, frozen when the farmer accepted. */
+  feeMinor: number;
+  /** What the farmer owes: the provider's price plus that fee. */
+  farmerTotalMinor: number;
+};
+
+export async function agreementFor(requestId: string): Promise<Agreement | null> {
+  const r = await db.get(`SELECT business_id, amount_minor, fee_minor, version, includes, start_date
+       FROM agreement WHERE request_id=?`, requestId) as
+    { business_id: string; amount_minor: number; fee_minor: number | null; version: number; includes: string; start_date: string } | undefined;
+  if (!r) return null;
+  const amountMinor = Number(r.amount_minor);
+  // Agreements accepted before migration 025 carry no fee. They were charged the provider price
+  // and had the fee taken out of the payout, so their farmer total is still that price.
+  const feeMinor = Number(r.fee_minor ?? 0);
+  return {
+    businessId: r.business_id, amountMinor, feeMinor, farmerTotalMinor: amountMinor + feeMinor,
+    version: r.version, includes: r.includes, startDate: r.start_date,
+  };
 }
 
 export type ActivityItem = { at: string; text: string };

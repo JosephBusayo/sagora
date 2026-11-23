@@ -15,6 +15,8 @@ import * as requests from "../src/lib/requests";
 import * as quotes from "../src/lib/quotes";
 import * as jobs from "../src/lib/jobs";
 import * as equipment from "../src/lib/equipment";
+import * as fee from "../src/lib/fee";
+import { machine, operator, provider as providerFixture, quoteInput } from "./fixtures.mjs";
 
 
 const fail: string[] = [];
@@ -59,29 +61,22 @@ async function business(ownerId: string, name: string) {
 // A whole job, from request to agreement to a scheduled machine.
 async function paidJobFixture(label: string) {
   const farmer = await user(`Farmer ${label}`);
-  const owner = await user(`Owner ${label}`, "provider");
-  const biz = await business(owner, `Business ${label}`);
+  // The machine and the driver have to exist before the quote now: sending one holds them.
+  const p = await providerFixture(label);
   const req = await requests.createRequest(farmer, {
     service: "ploughing", acres: 4, landAccess: "easy", landCondition: "", landClearance: "cleared", district: "Bo", village: "Testville",
     preferredDate: inDays(20), alternateDate: null, notes: "",
     contactName: `Farmer ${label}`, contactPhone: "76000001", contactEmail: `${farmer}@example.test`,
   });
-  const quote = await quotes.sendQuote(req.id, biz, owner, {
-    amountMinor: 150000, includes: "Tractor and plough", startDate: inDays(20),
-    note: "", daysToComplete: 2, assetIds: [],
-  });
+  const quote = await quotes.sendQuote(req.id, p.biz, p.owner, quoteInput(p, inDays(20)));
   if (!quote.ok) throw new Error(`fixture quote failed: ${quote.reason}`);
   const accepted = await quotes.acceptQuote(quote.quote.id, farmer);
   if (!accepted.ok) throw new Error(`fixture accept failed: ${accepted.reason}`);
-  const asset = await equipment.addAsset(biz, owner, {
-    name: `Tractor ${label}`, kind: "machine", identifier: "", ownership: "owned", notes: "",
-  });
+  // Accepting now schedules the work from the quote's own hold, so there is nothing to schedule
+  // by hand. The job already owns the dates, the machine and the operator.
   const job = (await jobs.jobForRequest(req.id))!;
-  const sched = await jobs.scheduleJob(biz, owner, job.id, {
-    startDate: inDays(20), endDate: inDays(21), operatorId: null, assetIds: [asset.id],
-  });
-  if (!sched.ok) throw new Error(`fixture schedule failed: ${sched.reason}`);
-  return { farmer, owner, biz, req, asset, jobId: job.id };
+  if (!job.startDate || job.assetIds.length === 0) throw new Error("fixture: accepting did not commit the resources");
+  return { farmer, owner: p.owner, biz: p.biz, req, asset: { id: p.machine }, jobId: job.id, provider: p };
 }
 
 console.log("\nLedger");
@@ -118,11 +113,17 @@ const staffB = await user("Staff B", "staff");
   await ok("the same receipt reference cannot be recorded twice", !again.ok);
   await ok("the duplicate added no money", await payments.fundsFor(paid.req.id) === 50000);
 
+  // The farmer owes the provider's 150,000 plus Sagora's 10%, so 165,000 is the balance — the
+  // reversal of 23 Nov 2026 in one number.
+  const owed = (await quotes.agreementFor(paid.req.id))!;
+  await ok("the farmer owes the price plus the fee", owed.amountMinor === 150000 && owed.feeMinor === 15000 && owed.farmerTotalMinor === 165000);
   const rest = await payments.recordPayment(staffA, {
-    requestId: paid.req.id, amountMinor: 100000, method: "bank", externalRef: "BK-0002", note: "",
+    requestId: paid.req.id, amountMinor: 115000, method: "bank", externalRef: "BK-0002", note: "",
   });
   await ok("paying the balance books the job", rest.ok && rest.outcome === "booked");
+  // The booking records what the provider is owed, which is their price, not the farmer's total.
   await ok("the booking exists", (await payments.bookingFor(paid.req.id))?.amountMinor === 150000);
+  await ok("all of it is held against the job", await payments.fundsFor(paid.req.id) === 165000);
 
   const third = await payments.recordPayment(staffA, {
     requestId: paid.req.id, amountMinor: 1000, method: "cash", externalRef: "CA-0003", note: "",
@@ -140,8 +141,13 @@ console.log("\nPayment received, booking not confirmed");
     preferredDate: inDays(20), alternateDate: null, notes: "",
     contactName: "Other", contactPhone: "76000002", contactEmail: `${late.farmer}@example.test`,
   });
+  // A second machine for the competing job: the first is already held by the fixture's own quote,
+  // which is exactly the rule being relied on here.
+  const mach2 = await machine(late.biz, "Late tractor two");
+  const driver2 = await operator(late.biz, "Late driver two");
   const q2 = await quotes.sendQuote(other.id, late.biz, late.owner, {
-    amountMinor: 50000, includes: "Tractor", startDate: inDays(20), note: "", daysToComplete: 2, assetIds: [],
+    amountMinor: 50000, includes: "Tractor", startDate: inDays(20), note: "", daysToComplete: 2,
+    dailyRateMinor: 25000, assetIds: [mach2], operatorId: driver2,
   });
   if (!q2.ok) throw new Error(q2.reason);
   await quotes.acceptQuote(q2.quote.id, late.farmer);
@@ -200,7 +206,11 @@ console.log("\nPayout");
   await ok("the preparer cannot approve their own payout", !selfApprove.ok);
 
   await ok("approval by a second person works", (await settlement.approveRelease(staffB, id)).ok);
-  await ok("the provider is owed the net", await ledger.balance(`payable:${paid.biz}`) === 150000);
+  // The whole point of the reversal: the provider's figure is untouched and Sagora's comes from
+  // the extra the farmer paid, so 2,000 + 200 = 2,200 at this job's scale.
+  await ok("the provider is owed their full quoted price", await ledger.balance(`payable:${paid.biz}`) === 150000);
+  await ok("Sagora's fee came from the farmer, not the provider", await ledger.balance("fee:platform") === 15000);
+  await ok("the job's funds are fully distributed", await payments.fundsFor(paid.req.id) === 0);
 
   // Changing the amount must invalidate the approval.
   await ok("the amount can be revised", (await settlement.reviseAmount(staffB, id, 140000)).ok);
@@ -211,22 +221,32 @@ console.log("\nPayout");
   await settlement.approveRelease(staffB, id);
   await ok("sending works once re-approved", (await settlement.markSent(staffB, id, "bank", "BK-OUT-1")).ok);
   await ok("nothing is left owed", await ledger.balance(`payable:${paid.biz}`) === 0);
-  await ok("10,000 is still held after a 140,000 payout", await payments.fundsFor(paid.req.id) === 10000);
+  // The farmer paid 165,000, so a 140,000 payout leaves 25,000 against the job.
+  await ok("the balance stays held after a reduced payout", await payments.fundsFor(paid.req.id) === 25000);
   await ok("the ledger still balances", await ledger.ledgerIsBalanced());
 }
 
 console.log("\nFees and reconciliation");
 {
-  await ok("the pilot fee is approved at 10% after 20 free jobs",
-    settlement.FEE_POLICY.approved && settlement.FEE_POLICY.pilotPercent === 10 && settlement.FEE_POLICY.freeJobs === 20);
-  const live = { ...settlement.FEE_POLICY };
-  settlement.FEE_POLICY.approved = false;
-  await ok("switching the policy off charges no fee", settlement.feeFor(150000, 50) === 0);
-  settlement.FEE_POLICY.approved = true;
-  await ok("the first 20 jobs are free", settlement.feeFor(150000, 3) === 0);
-  await ok("10% applies after that", settlement.feeFor(150000, 20) === 15000);
-  await ok("the fee rounds down", settlement.feeFor(1005, 20) === 100);
-  settlement.FEE_POLICY.approved = live.approved;
+  // The handover's own worked example: provider 2,000, fee 200, farmer 2,200 — and explicitly
+  // not 2,020, which is what taking 10% of the farmer's total would give.
+  await ok("the pilot fee is approved at 10%", fee.FEE_POLICY.approved && fee.FEE_POLICY.percent === 10);
+  await ok("the fee is 10% of the provider's price", fee.serviceFeeOn(200000) === 20000);
+  await ok("the farmer's total is the price plus the fee", fee.farmerTotal(200000, fee.serviceFeeOn(200000)) === 220000);
+  await ok("the provider's amount is never reduced", fee.farmerTotal(200000, fee.serviceFeeOn(200000)) - fee.serviceFeeOn(200000) === 200000);
+  await ok("it is not 10% of the farmer's total", fee.serviceFeeOn(200000) !== 20200 - 18200);
+  const live = { ...fee.FEE_POLICY };
+  fee.FEE_POLICY.approved = false;
+  await ok("switching the policy off charges no fee", fee.serviceFeeOn(150000) === 0);
+  fee.FEE_POLICY.approved = live.approved;
+  await ok("there is no first-twenty-jobs waiver any more", fee.serviceFeeOn(150000) === 15000);
+
+  // A part payment carries a proportional share of each, and the remainder favours the provider.
+  const half = settlement.splitHeld(110000, { amountMinor: 200000, feeMinor: 20000 });
+  await ok("half the farmer's total splits in half", half.grossMinor === 110000 && half.feeMinor === 10000 && half.netMinor === 100000);
+  await ok("a split always reconciles", half.netMinor + half.feeMinor === half.grossMinor);
+  const capped = settlement.splitHeld(999999, { amountMinor: 200000, feeMinor: 20000 });
+  await ok("a split never exceeds the farmer's total", capped.grossMinor === 220000 && capped.netMinor === 200000);
 
   const r = await settlement.reconcile();
   await ok("reconciliation reports a balanced ledger", r.balanced);
@@ -267,6 +287,12 @@ console.log("\nRequest kinds");
 {
   const owner = await user("Owner direct", "provider");
   const biz = await business(owner, "Direct Business");
+  // A quote now holds actual resources, so this business needs some before it can send one.
+  const mach = await machine(biz, "Direct tractor");
+  const driver = await operator(biz, "Direct driver");
+  const kit = (over: {
+    amountMinor: number; includes: string; startDate: string; assetIds?: string[]; operatorId?: string;
+  }) => ({ note: "", daysToComplete: 2, dailyRateMinor: 10000, assetIds: [mach], operatorId: driver, ...over });
   const other = await user("Owner other", "provider");
   const otherBiz = await business(other, "Other Business");
   const coverage = (id: string) => ({ id, district: "Bo", services: ["ploughing"] });
@@ -281,7 +307,7 @@ console.log("\nRequest kinds");
 
   const harvest = await requests.createRequest(farmer, { ...base, service: "harvesting", crop: "Rice" });
   await ok("the crop is kept on the request", harvest.crop === "Rice");
-  const quoted = await quotes.sendQuote(harvest.id, biz, owner, { amountMinor: 90000, includes: "Harvest", startDate: inDays(20), note: "", daysToComplete: 2, assetIds: [] });
+  const quoted = await quotes.sendQuote(harvest.id, biz, owner, kit({ amountMinor: 90000, includes: "Harvest", startDate: inDays(20) }));
   if (!quoted.ok) throw new Error("harvest quote failed");
   await quotes.acceptQuote(quoted.quote.id, farmer);
   const job = (await jobs.jobForRequest(harvest.id))!;
@@ -295,12 +321,16 @@ console.log("\nRequest kinds");
   const assisted = await requests.createRequest(null, { ...base, contactName: "Fatmata", contactEmail: "",
     assisted: { by: staffA, callerName: "Alie", callerRelation: "Her son", mayAccept: "Fatmata" } });
   await ok("an assisted request records who called", assisted.callerName === "Alie" && assisted.farmerId === null);
-  const q = await quotes.sendQuote(assisted.id, biz, owner, { amountMinor: 80000, includes: "Plough", startDate: inDays(30), note: "", daysToComplete: 2, assetIds: [] });
+  // Different dates from the harvest above, so the same tractor is free to be held again.
+  const q = await quotes.sendQuote(assisted.id, biz, owner, kit({ amountMinor: 80000, includes: "Plough", startDate: inDays(30) }));
   if (!q.ok) throw new Error("assisted quote failed");
   await ok("nobody can accept it as if it were theirs", !(await quotes.acceptQuote(q.quote.id, farmer)).ok);
   await ok("a coordinator can accept it on the farmer's behalf", (await quotes.acceptQuote(q.quote.id, staffA, true)).ok);
   const own = await requests.createRequest(farmer, base);
-  const q2 = await quotes.sendQuote(own.id, biz, owner, { amountMinor: 70000, includes: "Plough", startDate: inDays(30), note: "", daysToComplete: 2, assetIds: [] });
+  // A second machine, because the first is held for these dates by the quote just above.
+  const mach2 = await machine(biz, "Direct tractor two");
+  const driver2 = await operator(biz, "Direct driver two");
+  const q2 = await quotes.sendQuote(own.id, biz, owner, kit({ amountMinor: 70000, includes: "Plough", startDate: inDays(30), assetIds: [mach2], operatorId: driver2 }));
   if (!q2.ok) throw new Error("own quote failed");
   await ok("a coordinator cannot accept for a farmer with an account", !(await quotes.acceptQuote(q2.quote.id, staffA, true)).ok);
   await requests.logContact(staffA, assisted.id, "Called back, no answer");

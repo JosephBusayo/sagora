@@ -20,6 +20,9 @@ const CHOICES = [
   { id: "completed", label: "Inspection done" },
 ] as const;
 
+/** Where the visit has got to, once the provider has said one is needed. */
+const PROGRESS = CHOICES.filter((c) => c.id !== "none");
+
 function Save() {
   const { pending } = useFormStatus();
   return (
@@ -64,14 +67,39 @@ export function InspectionForm({ requestId, existing, onChange }: {
       <summary>Farm inspection{existing ? `: ${CHOICES.find((c) => c.id === existing.status)?.label}` : ""}</summary>
       <form action={action} className="form-soft inspection__form">
         <input type="hidden" name="requestId" value={requestId} />
-        <div className="field">
-          <label className="field__label" htmlFor="i-status">Do you need to see the farm before pricing?</label>
-          <div className="field__box">
-            <select id="i-status" name="status" className="field__input" value={status} onChange={(ev) => setStatus(ev.target.value)}>
-              {CHOICES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
+        {/* The decision and the progress through it are two questions, not one dropdown. Karim's
+            handover puts it plainly — "provider chooses inspection: record Needed or Not needed" —
+            and a provider answering the first question should not have to scroll past "Inspection
+            done" to say they do not need one. */}
+        <fieldset className="field inspection__decide">
+          <legend className="field__label">Do you need to see the farm before pricing?</legend>
+          <label className="readiness__item">
+            <input type="radio" name="decision" value="not_needed" checked={status === "none"}
+              onChange={() => setStatus("none")} />
+            <span>No, I can price it from the request</span>
+          </label>
+          <label className="readiness__item">
+            <input type="radio" name="decision" value="needed" checked={status !== "none"}
+              onChange={() => setStatus(status === "none" ? "required" : status)} />
+            <span>Yes, an inspection is needed</span>
+          </label>
+        </fieldset>
+
+        {/* Only once they have said yes: where the visit has got to. */}
+        {status !== "none" ? (
+          <div className="field">
+            <label className="field__label" htmlFor="i-status">Where has the visit got to?</label>
+            <div className="field__box">
+              <select id="i-status" name="status" className="field__input" value={status} onChange={(ev) => setStatus(ev.target.value)}>
+                {PROGRESS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+            <p className="field__helper">You cannot send a price until the visit is done.</p>
           </div>
-        </div>
+        ) : (
+          // The server reads `status`, so the answer still posts when the progress select is hidden.
+          <input type="hidden" name="status" value="none" />
+        )}
         {/* What the farmer suggested, where the provider is deciding the date. Confirming it is
             the ordinary "Inspection booked" save, so there is one way to set a date, not two. */}
         {existing?.proposedFor && status !== "completed" ? (

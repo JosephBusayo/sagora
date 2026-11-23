@@ -4,15 +4,16 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { useState } from "react";
 import { Icon, ServiceIcon } from "@/components/app/Icon";
 import { RequestModal, type RequestDetail, type RequestJob } from "./RequestModal";
-import type { MyQuote, QuotableAsset } from "./QuoteForm";
+import type { MyQuote, QuotableAsset, QuotableOperator } from "./QuoteForm";
 import { landSize } from "@/lib/land-size";
 
 export type RequestRow = RequestDetail & { statusLabel: string; status: string; myQuote: MyQuote | null; job: RequestJob | null };
 
-export function RequestsTable({ rows, initialOpen, filtered, assets, responseHours }: {
+export function RequestsTable({ rows, initialOpen, filtered, assets, operators, responseHours }: {
   rows: RequestRow[]; initialOpen?: string; filtered?: boolean;
   /** The provider's working equipment, the same list for every request on the page. */
   assets: readonly QuotableAsset[];
+  operators: readonly QuotableOperator[];
   responseHours: number;
 }) {
   const [open, setOpen] = useState<RequestRow | null>(rows.find((r) => r.reference === initialOpen) ?? null);
@@ -68,7 +69,7 @@ export function RequestsTable({ rows, initialOpen, filtered, assets, responseHou
         </table>
       </div>
       {open ? (
-        <RequestModal request={open} myQuote={open.myQuote} job={open.job} assets={assets} responseHours={responseHours}
+        <RequestModal request={open} myQuote={open.myQuote} job={open.job} assets={assets} operators={operators} responseHours={responseHours}
           onClose={() => setOpen(null)} />
       ) : null}
     </>

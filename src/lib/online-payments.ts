@@ -39,7 +39,8 @@ export async function startCheckout(farmerId: string, requestId: string, back = 
   // Paying books the work, which needs dates and equipment: before then there is nothing to book.
   const job = await jobForRequest(requestId);
   if (!job?.startDate || !job.assetIds.length) return { ok: false, reason: "You can pay once the provider has scheduled the work." };
-  const due = agreement.amountMinor - (await fundsFor(requestId));
+  // The farmer pays the provider's price plus Sagora's fee, so that is what Monime collects.
+  const due = agreement.farmerTotalMinor - (await fundsFor(requestId));
   if (due <= 0) return { ok: false, reason: "The full amount has already been received." };
 
   const recent = await db.get(`SELECT * FROM monime_checkout WHERE request_id=? AND status='pending' AND amount_minor=? AND created_at >= ?

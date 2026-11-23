@@ -3,7 +3,7 @@
 import { useModal } from "@/components/app/useModal";
 import { useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/app/Icon";
-import { QuoteForm, type MyQuote, type QuotableAsset } from "./QuoteForm";
+import { QuoteForm, type MyQuote, type QuotableAsset, type QuotableOperator } from "./QuoteForm";
 import { InspectionForm, type MyInspection } from "./InspectionForm";
 import { landSize } from "@/lib/land-size";
 
@@ -62,9 +62,10 @@ function LandRows({ request }: { request: RequestDetail }) {
 /** The job this request became, once a quote was accepted. Where the work is run from. */
 export type RequestJob = { reference: string; scheduled: boolean };
 
-export function RequestModal({ request, myQuote, job, assets, responseHours, onClose }: {
+export function RequestModal({ request, myQuote, job, assets, operators, responseHours, onClose }: {
   request: RequestDetail; myQuote: MyQuote | null; job?: RequestJob | null;
   assets: readonly QuotableAsset[];
+  operators: readonly QuotableOperator[];
   responseHours: number;
   onClose: () => void;
 }) {
@@ -169,7 +170,7 @@ export function RequestModal({ request, myQuote, job, assets, responseHours, onC
               </div>
             ) : (
               <QuoteForm requestId={request.id} service={request.service} existing={myQuote}
-                assets={assets} responseHours={responseHours} onDone={onClose} />
+                assets={assets} operators={operators} responseHours={responseHours} onDone={onClose} />
             )}
           </>
         ) : (

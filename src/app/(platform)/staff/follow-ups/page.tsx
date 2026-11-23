@@ -43,6 +43,23 @@ export default async function Page() {
                     {i.overdue ? <span className="pill pill--cancelled">Overdue</span> : null}
                   </div>
                   <p className="field__helper">{i.detail} · last activity {when(i.since)}</p>
+                  {/* Who to ring, on the item itself. A queue exists to be chased, and chasing
+                      happens off the platform — a reference with no number behind it meant
+                      opening three more screens to find one (Karim, 23 Nov 2026). The phone and
+                      email are links so a click dials or opens a message. */}
+                  {i.parties.length > 0 ? (
+                    <ul className="queue__parties">
+                      {i.parties.map((p, n) => (
+                        <li key={`${p.role}-${n}`}>
+                          <span className="queue__party-role">{p.role}</span>
+                          <span className="queue__party-name">{p.name}</span>
+                          {p.phone ? <a href={`tel:${p.phone.replace(/\s+/g, "")}`}>{p.phone}</a> : <span className="field__helper">no number</span>}
+                          {p.email ? <a href={`mailto:${p.email}`}>{p.email}</a> : null}
+                          {p.note ? <span className="field__helper">{p.note}</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                   {i.followUp ? (
                     <p className="field__helper">
                       Owner: {i.followUp.ownerId ? names.get(i.followUp.ownerId) ?? "Former staff" : "nobody yet"}

@@ -7,8 +7,9 @@ import { Shell, PageHead } from "@/components/app/Shell";
 import { FilterPill } from "@/components/app/FilterPill";
 import { DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
 import { DATE_WINDOWS, STATUS_LABEL, browse, serviceLabel, type RequestStatus } from "@/lib/requests";
-import { QUOTE_STATUS_LABEL, RESPONSE_HOURS, activityFor, currentQuote, endDateOf, isExpired, quoteClashes, type QuoteStatus } from "@/lib/quotes";
+import { QUOTE_STATUS_LABEL, RESPONSE_HOURS, activityFor, currentQuote, endDateOf, expiresAt, holdsIntact, isExpired, type QuoteStatus } from "@/lib/quotes";
 import { kindLabel, selectableAssets } from "@/lib/equipment";
+import { listMembers } from "@/lib/team";
 import { formatAmount } from "@/lib/money";
 import { jobForRequest } from "@/lib/jobs";
 import { RequestsTable, type RequestRow } from "@/components/requests/RequestsTable";
@@ -65,6 +66,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
   }));
   const assetName = new Map(quotable.map((a) => [a.id, a.name] as const));
 
+  // The handover wants an actual operator on the quote, not a role, so the team comes with it.
+  // Only active people: an invitation nobody has accepted cannot be committed to work.
+  const team = (await listMembers(business.id)).filter((m) => m.status === "active");
+  const operators = team.map((m) => ({
+    id: m.id,
+    name: m.name,
+    detail: [m.role, m.skills, m.awayFrom && m.awayTo ? `away ${m.awayFrom} to ${m.awayTo}` : ""]
+      .filter(Boolean).join(" · "),
+  }));
+  const operatorName = new Map(team.map((m) => [m.id, m.name] as const));
+
   const items: RequestRow[] = await Promise.all(rows.map(async (r) => ({
     id: r.id,
     reference: r.reference,
@@ -98,9 +110,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
     myQuote: await (async () => {
       const q = await currentQuote(r.id, business.id);
       if (!q) return null;
-      // A machine on this quote that has since gone to other work for those days. Shown here so
-      // the provider finds out from their own screen, not from a farmer who could not accept.
-      const taken = q.status === "sent" ? (await quoteClashes(q))[0] : undefined;
+      // Since the handover, sending a quote reserves everything it names, so a live quote cannot
+      // clash with anybody — what can go wrong is that its reservation lapsed or was let go,
+      // leaving a price with nothing behind it. Said here so the provider finds out from their own
+      // screen rather than from a farmer who could not accept.
+      const lost = q.status === "sent" && !isExpired(q) && !(await holdsIntact(q));
       return {
         version: q.version,
         status: q.status,
@@ -116,7 +130,18 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
         endDate: fmt(endDateOf(q)),
         assetIds: q.assetIds,
         assetNames: q.assetIds.map((id) => assetName.get(id) ?? "Equipment").join(", "),
-        clash: taken ? `${taken.name} is committed to ${taken.reference} from ${fmt(taken.from)} to ${fmt(taken.to)}.` : null,
+        dailyRate: q.dailyRateMinor > 0 ? formatAmount(q.dailyRateMinor) : "",
+        dailyRateInput: q.dailyRateMinor > 0 ? (q.dailyRateMinor / 100).toFixed(2) : "",
+        operatorId: q.operatorId ?? "",
+        operatorName: q.operatorId ? operatorName.get(q.operatorId) ?? "An operator" : "",
+        expiresAt: q.status === "sent" ? expiresAt(q).toISOString() : "",
+        // Shown to the provider in Sierra Leone time, which is UTC, so no conversion is needed.
+        expiresAtLabel: q.status === "sent"
+          ? expiresAt(q).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Freetown" })
+          : "",
+        clash: lost
+          ? "The equipment and operator this quote reserved are no longer held for those dates. Send a new quote to reserve them again."
+          : null,
       };
     })(),
     // The job this became, so an accepted request can point at the work instead of at a quote
@@ -145,7 +170,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
         action={<Filters current={sp} />}
       />
       <RequestsTable rows={items} initialOpen={sp.open} filtered={Boolean(sp.service || sp.district || sp.window)}
-        assets={assets} responseHours={RESPONSE_HOURS} />
+        assets={assets} operators={operators} responseHours={RESPONSE_HOURS} />
       <nav className="pager" aria-label="Pages">
           {Array.from({ length: Math.max(1, pages) }, (_, i) => i + 1).map((p) =>
             p === Math.min(Math.max(1, page), Math.max(1, pages)) ? (

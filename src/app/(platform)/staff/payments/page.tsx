@@ -8,8 +8,9 @@ import { requireFinance } from "@/lib/session";
 import { formatAmount } from "@/lib/money";
 import { METHODS, awaitingPayment, methodLabel, openCases, paymentsFor } from "@/lib/payments";
 import {
-  FEE_POLICY, RELEASE_STATUS_LABEL, openDisputes, openPayoutRequests, pendingReleases, reconcile, releasesFor,
+  RELEASE_STATUS_LABEL, openDisputes, openPayoutRequests, pendingReleases, reconcile, releasesFor,
 } from "@/lib/settlement";
+import { FEE_POLICY } from "@/lib/fee";
 import { jobForRequest, JOB_STATUS_LABEL, type JobStatus } from "@/lib/jobs";
 import {
   approveReleaseAction, closePayoutRequestAction, markSentAction, prepareRefundAction, resolveDisputeAction, preparePayoutAction,
@@ -90,7 +91,7 @@ export default async function Page({
         <p className="pagehead__sub staff-page__lead">
           Every amount here was recorded by hand from a receipt — <strong>manual, not verified by a
           payment provider</strong>. {FEE_POLICY.approved
-            ? `The platform fee is ${FEE_POLICY.pilotPercent}% after a provider's first ${FEE_POLICY.freeJobs} jobs.`
+            ? `Sagora's fee is ${FEE_POLICY.percent}%, added to what the farmer pays. The provider receives their quoted price in full.`
             : "No platform fee is being charged: the pilot fee sheet is not approved yet."}
         </p>
 

@@ -2,6 +2,7 @@ import { drain } from "@/lib/outbox";
 import { monimeConfigured } from "@/lib/monime";
 import { sweepCheckouts } from "@/lib/online-payments";
 import { purgeExpiredDocuments } from "@/lib/business-documents";
+import { sweepExpired } from "@/lib/holds";
 import { sweepExpiredQuotes } from "@/lib/quotes";
 
 /**

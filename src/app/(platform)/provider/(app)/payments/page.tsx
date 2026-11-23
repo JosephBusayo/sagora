@@ -6,11 +6,12 @@ import Link from "next/link";
 import { requireWorkspace } from "@/lib/guard";
 import { Shell, PageHead } from "@/components/app/Shell";
 import { Icon } from "@/components/app/Icon";
+import { FEE_POLICY } from "@/lib/fee";
 import { formatAmount } from "@/lib/money";
 import { serviceLabel } from "@/lib/requests";
 import { JOB_STATUS_LABEL, type JobStatus } from "@/lib/jobs";
 import {
-  FEE_POLICY, RELEASE_STATUS_LABEL, destinationFor, earningsFor, feeFor, paidJobCount, getPayoutRequest, latestPayoutRequest, openPayoutRequest, walletBalance,
+  RELEASE_STATUS_LABEL, destinationFor, earningsFor, paidJobCount, getPayoutRequest, latestPayoutRequest, openPayoutRequest, walletBalance,
   type Destination,
 } from "@/lib/settlement";
 import { requestPayoutAction } from "./actions";
@@ -47,9 +48,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
   const latest = sp.payout ? await latestPayoutRequest(business.id) : null;
   const rows = await earningsFor(business.id);
   const destination = await destinationFor(business.id);
-  // UC10: what Sagora takes is shown, not left to be worked out from a smaller payout.
   const paidJobs = await paidJobCount(business.id);
-  const freeLeft = Math.max(0, FEE_POLICY.freeJobs - paidJobs);
 
   return (
     <Shell crumb={{ label: "Payments", icon: "payments" }} user={{ name: user.name }}>
@@ -121,11 +120,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
       ) : (
         <>
         <p className="field__helper fee-note">
+          {/* The fee stopped being a deduction on 23 Nov 2026: the farmer pays it on top, so a
+              provider's own figures no longer need explaining away. */}
           {!FEE_POLICY.approved
             ? "Sagora takes no fee at the moment."
-            : freeLeft > 0
-              ? `Sagora's fee is ${FEE_POLICY.pilotPercent}% of each job's agreed price, after your first ${FEE_POLICY.freeJobs} paid jobs. You have ${freeLeft} fee-free ${freeLeft === 1 ? "job" : "jobs"} left.`
-              : `Sagora's fee is ${FEE_POLICY.pilotPercent}% of each job's agreed price. It is taken from the payment before it is sent to you.`}
+            : `You receive the price you quote, in full. Sagora's ${FEE_POLICY.percent}% is added to what the farmer pays and never taken out of your money.`}
         </p>
         <div className="table-card">
           <table className="table">
@@ -165,7 +164,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
                         {formatAmount(r.release.netMinor)}
                         <br />
                         <span className="field__helper">
-                          {r.release.feeMinor > 0 ? `${formatAmount(r.release.grossMinor)} less Sagora fee ${formatAmount(r.release.feeMinor)}` : "No Sagora fee on this job"}
+                          {r.release.feeMinor > 0
+                            ? `Your full price. The farmer also paid Sagora ${formatAmount(r.release.feeMinor)} on top.`
+                            : "Your full price."}
                         </span>
                         <br />
                         <span className="field__helper">
@@ -177,9 +178,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ w
                       <span className="field__helper">
                         {r.jobStatus === "completed" ? "Being prepared" : "After the farmer confirms the work"}
                         <br />
-                        {feeFor(r.amountMinor, paidJobs) > 0
-                          ? `About ${formatAmount(r.amountMinor - feeFor(r.amountMinor, paidJobs))} after Sagora's fee of ${formatAmount(feeFor(r.amountMinor, paidJobs))}`
-                          : `${formatAmount(r.amountMinor)}, no Sagora fee`}
+                        {/* Sagora's fee is added to what the farmer pays, so nothing is taken
+                            out of this (Karim's handover, 23 Nov 2026). */}
+                        {`${formatAmount(r.amountMinor)} — your price in full`}
                       </span>
                     )}
                   </span></td>

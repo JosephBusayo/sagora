@@ -1,5 +1,6 @@
 "use server";
 
+import { db } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/guard";
@@ -28,6 +29,8 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
     includes: str(fd, "includes"),
     startDate: str(fd, "startDate"),
     days: str(fd, "days"),
+    dailyRate: str(fd, "dailyRate"),
+    operatorId: str(fd, "operatorId"),
     note: str(fd, "note"),
   };
   const values = { ...raw, assetIds: assetIds.join(",") };
@@ -42,7 +45,16 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   else if (raw.startDate < today()) fieldErrors.startDate = "Choose a date in the future";
   if (!raw.days) fieldErrors.days = "Say how many days the work will take";
   else if (!Number.isInteger(days) || days < 1 || days > 120) fieldErrors.days = "Enter a whole number of days, from 1 to 120";
+  // The handover asks for the rate as well as the total: "capture numeric working days, daily rate
+  // and service total". It is checked against the total rather than used to compute it, because
+  // the total is what the farmer agrees to and a provider may round it.
+  const dailyRateMinor = parseAmount(raw.dailyRate);
+  if (dailyRateMinor === null) fieldErrors.dailyRate = "Enter your rate for one working day";
+  else if (amountMinor !== null && days >= 1 && dailyRateMinor * days !== amountMinor) {
+    fieldErrors.amount = `The total should be ${days} × your daily rate. Change the rate, the days or the total.`;
+  }
   if (assetIds.length === 0) fieldErrors.assetIds = "Choose the equipment you will put on this work";
+  if (!raw.operatorId) fieldErrors.operatorId = "Choose the operator who will do the work";
   if (raw.note.length > 500) fieldErrors.note = "Use 500 characters or fewer";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
@@ -57,6 +69,11 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
     return { error: "Some of that equipment is not on your register, or is not available for work.", values };
   }
 
+  // The operator has to be this business's own, whatever the form posted.
+  const operator = await db.get(`SELECT id FROM team_member WHERE id=? AND business_id=? AND status='active'`,
+    raw.operatorId, business.id) as { id: string } | undefined;
+  if (!operator) return { error: "That operator is not on your team.", values };
+
   const blocked = await inspectionBlocksQuote(requestId, business.id);
   if (blocked) return { error: blocked, values };
 
@@ -66,7 +83,9 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
     startDate: raw.startDate,
     note: raw.note,
     daysToComplete: days,
+    dailyRateMinor: dailyRateMinor!,
     assetIds: chosen,
+    operatorId: operator.id,
   });
   if (!result.ok) return { error: result.reason, values };
 

@@ -27,12 +27,23 @@ export type MyQuote = {
   /** The machines this quote names, as ids for the form and as text for reading back. */
   assetIds: string[];
   assetNames: string;
-  /** Set when a machine on this quote has since been committed elsewhere for those days. */
+  /** The rate behind the total: days times rate is amount. */
+  dailyRate: string;
+  dailyRateInput: string;
+  /** The operator held with the machines. */
+  operatorId: string;
+  operatorName: string;
+  /** When this quote stops being acceptable, as an instant and as words. */
+  expiresAt: string;
+  expiresAtLabel: string;
+  /** Set when what this quote reserved is no longer held for those dates. */
   clash: string | null;
 };
 
 /** One of the provider's machines, as the quote form offers it. */
 export type QuotableAsset = { id: string; name: string; detail: string };
+/** Somebody on the team who can actually be committed to the dates. */
+export type QuotableOperator = { id: string; name: string; detail: string };
 
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -64,9 +75,10 @@ const COVERS_EXAMPLE: Record<string, string> = {
   planting: "Tractor, planter and operator",
 };
 
-export function QuoteForm({ requestId, service, existing, assets, responseHours, onDone }: {
+export function QuoteForm({ requestId, service, existing, assets, operators, responseHours, onDone }: {
   requestId: string; service: string; existing: MyQuote | null;
   assets: readonly QuotableAsset[];
+  operators: readonly QuotableOperator[];
   /** How long the farmer has to answer, so the form says the same number the rules enforce. */
   responseHours: number;
   onDone: () => void;
@@ -133,6 +145,12 @@ export function QuoteForm({ requestId, service, existing, assets, responseHours,
         </div>
       </div>
 
+      {/* Days times rate is the total. Karim's handover asks for all three on the record —
+          "numeric working days, daily rate and service total" — and for the unit to stay
+          explicit, so hectares per day is never assumed anywhere. */}
+      <Field name="dailyRate" label="Your rate for one working day (Le)" type="text" inputMode="numeric" placeholder="750.00"
+        defaultValue={v.dailyRate ?? existing?.dailyRateInput} error={e.dailyRate} />
+
       {/* Chosen with the price, not after the farmer has committed: the farmer compares machines
           as well as figures, and the job starts out already carrying them. */}
       <fieldset className={`field quote-assets${e.assetIds ? " field--invalid" : ""}`}>
@@ -158,11 +176,30 @@ export function QuoteForm({ requestId, service, existing, assets, responseHours,
         )}
         {e.assetIds ? <p className="field__error">{e.assetIds}</p> : (
           <p className="field__helper">
-            Naming a machine here holds nothing: you can quote it on several jobs. It is committed to these dates
-            only once a farmer accepts.
+            Sending this quote reserves what you pick here, for these dates, until the quote expires. You cannot
+            quote the same machine on overlapping dates somewhere else.
           </p>
         )}
       </fieldset>
+      <div className={`field${e.operatorId ? " field--invalid" : ""}`}>
+        <label className="field__label" htmlFor="q-operator">Operator who will do the work</label>
+        <div className="field__box">
+          <select id="q-operator" name="operatorId" className="field__input"
+            defaultValue={v.operatorId ?? existing?.operatorId ?? ""}>
+            <option value="">Choose an operator</option>
+            {operators.map((o) => (
+              <option key={o.id} value={o.id}>{o.name}{o.detail ? ` — ${o.detail}` : ""}</option>
+            ))}
+          </select>
+        </div>
+        {e.operatorId ? <p className="field__error">{e.operatorId}</p> : operators.length === 0 ? (
+          <p className="field__helper">
+            You have nobody on your team yet. Add an operator under Team before quoting — a quote has to name
+            the person who will run the machine.
+          </p>
+        ) : <p className="field__helper">They are held for these dates as soon as you send.</p>}
+      </div>
+
       <div className={`field${e.note ? " field--invalid" : ""}`}>
         <label className="field__label" htmlFor="q-note">Anything the farmer should know</label>
         <div className="field__box" style={{ height: "auto", alignItems: "flex-start" }}>
@@ -173,9 +210,14 @@ export function QuoteForm({ requestId, service, existing, assets, responseHours,
       </div>
       {/* Said before they send, not discovered afterwards: the window is short and it is theirs
           to plan around. It replaced the "price holds until" date they used to pick themselves. */}
+      {/* Said before they send, not discovered afterwards: the window is short, their machine is
+          tied up for it, and the deadline can be shorter than {responseHours} hours when the work
+          starts sooner than that. */}
       <p className="field__helper">
-        The farmer has {responseHours} hours to answer. After that the quote cannot be accepted and your
-        equipment is free again.
+        Sending holds your equipment and operator for {responseHours} hours, or until the work was due to start,
+        whichever comes first. {existing?.expiresAtLabel
+          ? `Your current quote expires ${existing.expiresAtLabel}.`
+          : "If the farmer does not answer by then, the quote cannot be accepted and everything is free again."}
       </p>
       {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
       <FormNotice state={state} />

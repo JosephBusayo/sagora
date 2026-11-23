@@ -80,8 +80,15 @@ export const NAV: Record<Audience, { home: string; groups: NavGroup[]; personal:
         ],
       },
       {
-        title: "Team",
-        items: [{ href: "/staff/team", label: "Staff", icon: "team", adminOnly: true }],
+        // Everything here reaches into somebody else's record, so it is kept apart from the
+        // coordinating screens above and shown to administrators only.
+        title: "Administration",
+        items: [
+          { href: "/staff/team", label: "Staff", icon: "team", adminOnly: true },
+          { href: "/staff/admin/requests", label: "All requests", icon: "requests", adminOnly: true },
+          { href: "/staff/admin/providers", label: "All providers", icon: "store", adminOnly: true },
+          { href: "/staff/admin/farmers", label: "All farmers", icon: "account", adminOnly: true },
+        ],
       },
     ],
     personal: [

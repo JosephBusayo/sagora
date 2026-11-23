@@ -10,6 +10,7 @@ import { districtLabel } from "@/lib/business";
 import { formatAmount } from "@/lib/money";
 import { STATUS_LABEL, serviceLabel, type ServiceRequest } from "@/lib/requests";
 import { RESPONSE_HOURS, agreementFor, endDateOf, expiresAt, isExpired, listForRequest } from "@/lib/quotes";
+import { serviceFeeOn } from "@/lib/fee";
 import { db } from "@/lib/db";
 import { acceptQuoteAction, declineQuoteAction } from "@/app/(platform)/farmer/requests/accept-actions";
 import { cancelRequest } from "@/app/(platform)/farmer/book/actions";
@@ -119,7 +120,7 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
     request.landClearance && landLabel(LAND_CLEARANCE, request.landClearance),
   ].filter(Boolean) as string[];
   const refunds = (await releasesFor(id)).filter((r) => r.kind === "refund" && r.status !== "void");
-  const due = agreement ? agreement.amountMinor - received : 0;
+  const due = agreement ? agreement.farmerTotalMinor - received : 0;
   const scheduled = Boolean(job?.startDate && job.assetIds.length);
 
   return (
@@ -203,19 +204,28 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
             <h3>Payment</h3>
             <p>
               {booking
-                ? `${formatAmount(received)} of ${formatAmount(agreement.amountMinor)} received and booked.`
+                ? `${formatAmount(received)} of ${formatAmount(agreement.farmerTotalMinor)} received and booked.`
                 : received === 0
                   ? "Nothing received yet."
-                  : `${formatAmount(received)} of ${formatAmount(agreement.amountMinor)} received.`}
+                  : `${formatAmount(received)} of ${formatAmount(agreement.farmerTotalMinor)} received.`}
             </p>
           </div>
-          <p className="quote-card__price">{formatAmount(agreement.amountMinor)}</p>
+          {/* What the farmer owes, which is the provider's price with Sagora's fee on top. */}
+          <p className="quote-card__price">{formatAmount(agreement.farmerTotalMinor)}</p>
         </div>
+
+        {agreement.feeMinor > 0 ? (
+          <dl className="offer__breakdown">
+            <div><dt>Service price</dt><dd>{formatAmount(agreement.amountMinor)}</dd></div>
+            <div><dt>Sagora service fee</dt><dd>{formatAmount(agreement.feeMinor)}</dd></div>
+            <div className="offer__breakdown-total"><dt>Total</dt><dd>{formatAmount(agreement.farmerTotalMinor)}</dd></div>
+          </dl>
+        ) : null}
 
         {/* The brief keeps these two apart on purpose: money in is not a booking. */}
         <p className="asset__state">
-          <span className={`pill pill--${received >= agreement.amountMinor ? "completed" : received > 0 ? "in_progress" : "awaiting_quotes"}`}>
-            {received >= agreement.amountMinor ? "Payment complete" : received > 0 ? "Part paid" : "Not paid"}
+          <span className={`pill pill--${received >= agreement.farmerTotalMinor ? "completed" : received > 0 ? "in_progress" : "awaiting_quotes"}`}>
+            {received >= agreement.farmerTotalMinor ? "Payment complete" : received > 0 ? "Part paid" : "Not paid"}
           </span>
           <span className={`pill pill--${booking ? "completed" : "awaiting_quotes"}`}>
             {booking ? "Booking confirmed" : "Booking not confirmed"}
@@ -413,7 +423,24 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
                 ) : null}
                 {q.note ? (
                   <>
-                    <p className="offer__label">Message from provider</p>
+                    {/* The breakdown, before they accept and before they pay. Sagora's 10% is added
+                    to the provider's price, so the farmer sees all three figures and the total is
+                    never a surprise at the payment screen (Karim's handover, 23 Nov 2026). */}
+                <p className="offer__label">What you pay</p>
+                <dl className="offer__breakdown">
+                  <div><dt>{businessName(q.businessId)}&rsquo;s price</dt><dd>{formatAmount(q.amountMinor)}</dd></div>
+                  <div><dt>Sagora service fee</dt><dd>{formatAmount(serviceFeeOn(q.amountMinor))}</dd></div>
+                  <div className="offer__breakdown-total">
+                    <dt>Total</dt><dd>{formatAmount(q.amountMinor + serviceFeeOn(q.amountMinor))}</dd>
+                  </div>
+                </dl>
+                {q.dailyRateMinor > 0 ? (
+                  <p className="offer__text">
+                    {q.daysToComplete} working {q.daysToComplete === 1 ? "day" : "days"} at {formatAmount(q.dailyRateMinor)} a day,
+                    finishing by {fmt(endDateOf(q))}.
+                  </p>
+                ) : null}
+                <p className="offer__label">Message from provider</p>
                     <p className="offer__text">{q.note}</p>
                   </>
                 ) : null}
