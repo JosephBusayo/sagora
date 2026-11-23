@@ -3,6 +3,32 @@
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
 each one is a swap, not a rewrite. Updated 23 Nov 2026.
 
+## 23 Nov 2026: when should an unconfirmed pairing stop a quote?
+
+**A default is in place. Karim decides when to switch it on.**
+
+The handover is clear that it should: "wrong or unknown compatibility blocks quotation" (A12), and
+equally clear that the shortcut is forbidden — "a catalogue match does not prove compatibility",
+and "developers must verify the actual model pairing rather than treating a generic type as an
+engineering approval".
+
+Both of those together mean the rule cannot simply be switched on. No provider on Sagora has
+recorded a pairing yet, so enforcing it today would stop every quote on the platform, and
+auto-approving every pairing of the right type to avoid that is exactly what the handover forbids.
+
+So it is a setting, `pairing_enforced`, and it is **off**:
+
+- **Off** (today) — a quote with an unconfirmed pairing still sends, and the provider is told, on
+  the quote and on their equipment screen, that nobody has confirmed the two pieces fit.
+- **On** — the same case is refused, naming the implement and the machine.
+
+Readiness is shown either way: a provider sees "Ploughing ready" or "Harrowing missing a harrow"
+across the top of their register, so the gap is visible before it costs them a job.
+
+**What Karim needs to decide:** when providers have had long enough to record their pairings, and
+whether that is a date or a judgement call per provider. Until then the honest position is that
+Sagora knows which pairings are unverified and says so, rather than pretending to have checked.
+
 ## 23 Nov 2026: do providers specialise, or does everyone do everything?
 
 **Open. Nothing has been changed while it is open — matching works as the brief specifies.**

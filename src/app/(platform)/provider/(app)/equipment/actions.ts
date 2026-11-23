@@ -9,6 +9,7 @@ import {
 } from "@/lib/equipment";
 import { SERVICES } from "@/lib/business";
 import { SERIAL_STATES, type SerialStatus } from "@/lib/equipment";
+import { VERDICTS, savePairing, type Verdict } from "@/lib/pairing";
 import { specsFor } from "@/lib/specs";
 import type { FormState } from "@/lib/auth-flows";
 
@@ -232,4 +233,39 @@ export async function resolveFaultAction(fd: FormData) {
   await resolveFault(business.id, user.id, str(fd, "faultId"), str(fd, "resolution") || "Fixed");
   await flash("Fault marked as fixed.");
   revalidatePath("/provider/equipment");
+}
+
+/**
+ * Records that a machine and an implement do or do not go together for one service.
+ *
+ * The handover will not let a type match stand in for this — "developers must verify the actual
+ * model pairing rather than treating a generic type as an engineering approval" — so it is a
+ * person's judgement, with their name and the day on it, and the basis they decided it on.
+ */
+export async function savePairingAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return { error: "You do not have permission to change equipment." };
+
+  const machineId = str(fd, "machineId");
+  const implementId = str(fd, "implementId");
+  const service = str(fd, "service");
+  const verdict = str(fd, "verdict");
+  const basis = str(fd, "basis");
+
+  if (!implementId) return { error: "Choose the implement this is about." };
+  if (!serviceIds.includes(service)) return { error: "Choose the service this pairing is for." };
+  if (!VERDICTS.some((v) => v.id === verdict)) return { error: "Say whether they are compatible." };
+  // A verdict with nothing behind it is the thing the handover is trying to prevent.
+  if (verdict === "compatible" && basis.trim().length < 3) {
+    return { error: "Say what you checked — the hitch, the manual, the power it needs." };
+  }
+  if (basis.length > 300) return { error: "Use 300 characters or fewer." };
+
+  const saved = await savePairing(business.id, user.id, {
+    machineId, implementId, service, verdict: verdict as Verdict, basis,
+  });
+  if (!saved) return { error: "That equipment is not on your register." };
+  revalidatePath("/provider/equipment");
+  revalidatePath("/provider/requests");
+  return { notice: "Pairing recorded." };
 }

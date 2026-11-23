@@ -17,21 +17,18 @@ import { cleanSpecs, missingCritical, parseSpecs, type SpecValues } from "./spec
  */
 
 /** Kinds come from the services on offer: something that pulls, and something it pulls. */
-export const KINDS = [
-  { id: "tractor", label: "Tractor" },
-  { id: "plough", label: "Plough" },
-  { id: "harrow", label: "Harrow" },
-  { id: "harvester", label: "Harvester" },
-  { id: "trailer", label: "Trailer" },
-  { id: "other", label: "Other attachment" },
-] as const;
+/**
+ * Re-exported from the catalogue, which grew from six kinds to match the handover's implement
+ * reference. The original six keep their ids, so nothing already on a register changes meaning.
+ */
+export { KINDS } from "./catalogue";
 
 export const OWNERSHIP = [
   { id: "owned", label: "Owned" },
   { id: "leased", label: "Leased" },
 ] as const;
 
-export const kindLabel = (id: string) => KINDS.find((k) => k.id === id)?.label ?? id;
+export { kindLabelOf as kindLabel } from "./catalogue";
 
 /** The provider's own say on whether a machine can be booked, as the design's three chips put it. */
 export const AVAILABILITY = [

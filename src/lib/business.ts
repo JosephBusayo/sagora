@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { db } from "./db";
+import { activeServices } from "./catalogue";
 
 export const DISTRICTS = [
   "Bo", "Bombali", "Bonthe", "Falaba", "Kailahun", "Kambia", "Karene", "Kenema",
@@ -8,11 +9,16 @@ export const DISTRICTS = [
   "Western Area Rural", "Western Area Urban",
 ] as const;
 
-export const SERVICES = [
-  { id: "ploughing", label: "Ploughing" },
-  { id: "harvesting", label: "Harvesting" },
-  { id: "planting", label: "Planting" },
-] as const;
+/**
+ * What a farmer may ask for and a provider may cover: the active half of the catalogue.
+ *
+ * The full list of twenty lives in lib/catalogue.ts, which is pure data so the forms can read it
+ * too. Only the switched-on ones appear here, because "keep services outside the approved
+ * deployment inactive" — every existing consumer of SERVICES is a form, a filter or a validator,
+ * and none of them should offer work Sagora has not agreed to sell.
+ */
+export const SERVICES: readonly { id: string; label: string }[] =
+  activeServices().map((s) => ({ id: s.id, label: s.label }));
 
 /** The design writes "Bombali District". The two Western Area names already read as places. */
 export const districtLabel = (d: string) => (d.startsWith("Western Area") ? d : `${d} District`);

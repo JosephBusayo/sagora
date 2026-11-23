@@ -4,6 +4,7 @@ import { db, type Queries } from "./db";
 import { audit } from "./business";
 import { getAsset, unavailableReason } from "./equipment";
 import { OWNED_BY, getById as getRequest, nextReference } from "./requests";
+import { canPower, isSelfContainedFor, kindLabelOf, kitFor } from "./catalogue";
 
 /**
  * A job is the work itself: an accepted agreement, scheduled, with specific machines and a
@@ -179,10 +180,30 @@ export async function scheduleJob(businessId: string, actorId: string, jobId: st
     }
   }
 
-  // The equipment has to suit the work: a harvest cannot run without a harvester.
+  // The equipment has to suit the work. This used to be one hardcoded rule — a harvest needs a
+  // harvester — and is now read from the catalogue, so every service the handover added carries
+  // its own requirement rather than silently accepting anything.
   const request = await getRequest(job.requestId);
-  if (request?.service === "harvesting" && !kinds.has("harvester")) {
-    return { ok: false, reason: "A harvesting job needs a harvester. Choose one from your register." };
+  if (request) {
+    const kit = kitFor(request.service);
+    const hasPower = [...kinds].some((k) => canPower(request.service, k));
+    if (!hasPower) {
+      const wanted = [...kit.power, ...(kit.selfContained ?? [])].map(kindLabelOf).join(" or ");
+      return { ok: false, reason: `This job needs ${wanted.toLowerCase() || "a suitable machine"}. Choose one from your register.` };
+    }
+    // A unit that does the work alone needs nothing hitched to it: "do not require a separate
+    // tractor or thresher for a self-contained unit".
+    const solo = [...kinds].some((k) => isSelfContainedFor(request.service, k));
+    if (!solo) {
+      for (const group of kit.implements) {
+        if (![...kinds].some((k) => group.includes(k))) {
+          return {
+            ok: false,
+            reason: `This job needs ${group.map(kindLabelOf).join(" or ").toLowerCase()}. Choose one from your register.`,
+          };
+        }
+      }
+    }
   }
 
   // The clash check and the commitment are one decision: two schedules racing for the same

@@ -11,6 +11,7 @@ import { getById } from "@/lib/requests";
 import { coverageOf, covers } from "@/lib/coverage";
 import { notify } from "@/lib/outbox";
 import { inspectionBlocksQuote, saveInspection, type InspectionInput } from "@/lib/inspections";
+import { kitProblem, pairingEnforced } from "@/lib/pairing";
 import type { FormState } from "@/lib/auth-flows";
 
 const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String(fd.get(k)).trim() : "");
@@ -77,6 +78,12 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   const blocked = await inspectionBlocksQuote(requestId, business.id);
   if (blocked) return { error: blocked, values };
 
+  // Does the chosen kit actually suit the work, and has somebody confirmed the pieces fit each
+  // other? While pairing_enforced is off this is said rather than enforced, because switching it
+  // on before providers have recorded their pairings would stop every quote on the platform.
+  const kitIssue = await kitProblem(business.id, target.service, chosen);
+  if (kitIssue && (await pairingEnforced())) return { error: kitIssue, values };
+
   const result = await sendQuote(requestId, business.id, user.id, {
     amountMinor: amountMinor!,
     includes: raw.includes,
@@ -111,7 +118,9 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
 
   revalidatePath("/provider/requests");
   revalidatePath("/provider/quotes");
-  return { notice: result.quote.version > 1 ? `Quote updated (version ${result.quote.version}).` : "Quote sent to the farmer." };
+  const sent = result.quote.version > 1 ? `Quote updated (version ${result.quote.version}).` : "Quote sent to the farmer.";
+  // Sent, but worth knowing: the pairing behind it has not been confirmed by anybody yet.
+  return { notice: kitIssue ? `${sent} ${kitIssue}` : sent };
 }
 
 /** UC08: the provider's inspection of one farm, kept on the request. */

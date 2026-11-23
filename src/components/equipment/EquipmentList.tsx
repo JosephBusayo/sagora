@@ -4,17 +4,27 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
 import { FilterMenu } from "@/components/app/FilterMenu";
 import { useModal } from "@/components/app/useModal";
-import { useRef, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { Icon } from "@/components/app/Icon";
 import { AssetModal } from "./AssetModal";
 import { FaultModal } from "./FaultModal";
 import {
-  addGalleryPhotoAction, removeGalleryPhotoAction, restoreAssetAction, retireAssetAction, resolveFaultAction, setAvailabilityAction, setPhotoAction,
+  addGalleryPhotoAction, removeGalleryPhotoAction, restoreAssetAction, retireAssetAction, resolveFaultAction,
+  savePairingAction, setAvailabilityAction, setPhotoAction,
 } from "@/app/(platform)/provider/(app)/equipment/actions";
 import { PhotoPicker } from "./PhotoPicker";
+import { Field } from "@/components/auth/Field";
+import { FormNotice } from "@/components/app/FormNotice";
+import { useSafely } from "@/components/app/safely";
+import type { FormState } from "@/lib/auth-flows";
 
 export type FaultView = { id: string; severity: "blocking" | "minor"; description: string; reportedAt: string };
+export type Readiness = { service: string; summary: string; ready: boolean };
+export type PairableService = { id: string; label: string; kinds: string[] };
+export type PairingView = { implementId: string; service: string; verdict: string; basis: string; decidedAt: string };
+
 export type AssetView = {
+  pairings: PairingView[];
   /* Added with Karim's handover of 23 Nov 2026 — identity, condition, lease and specifications. */
   assetRef: string;
   serialStatus: "recorded" | "unreadable" | "none";
@@ -70,8 +80,67 @@ function Photo({ size = "card", src }: { size?: "card" | "large" | "small"; src:
 }
 
 /** One machine, as the design's details window shows it, with its faults and the ways to change it. */
-function DetailsModal({ a, canEdit, availability, onClose, onEdit, onFault, onDelete }: {
+/**
+ * Records one verdict about one machine and one implement, for one service.
+ *
+ * The service comes first because it decides which implements are even candidates: a plough is
+ * offered for ploughing and not for spraying, which saves a provider from recording pairings that
+ * could never matter.
+ */
+function PairingForm({ a, assets, verdicts, services }: {
+  a: AssetView; assets: AssetView[]; verdicts: Option[]; services: PairableService[];
+}) {
+  const [state, action] = useActionState(useSafely(savePairingAction), {} as FormState);
+  const [service, setService] = useState(services[0]?.id ?? "");
+  const kinds = services.find((x) => x.id === service)?.kinds ?? [];
+  const candidates = assets.filter((x) => x.id !== a.id && kinds.includes(x.kind) && x.status !== "retired");
+
+  return (
+    <details className="pairings__add">
+      <summary>Record a pairing</summary>
+      <form action={action} className="form-soft">
+        <input type="hidden" name="machineId" value={a.id} />
+        <div className="field">
+          <label className="field__label" htmlFor={`p-service-${a.id}`}>For which service</label>
+          <div className="field__box">
+            <select id={`p-service-${a.id}`} name="service" className="field__input"
+              value={service} onChange={(ev) => setService(ev.target.value)}>
+              {services.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="field">
+          <label className="field__label" htmlFor={`p-impl-${a.id}`}>With which implement</label>
+          <div className="field__box">
+            <select id={`p-impl-${a.id}`} name="implementId" className="field__input" defaultValue="">
+              <option value="">Choose one</option>
+              {candidates.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </div>
+          {candidates.length === 0 ? (
+            <p className="field__helper">You have nothing on the register that could do this work. Add it first.</p>
+          ) : null}
+        </div>
+        <div className="field">
+          <label className="field__label" htmlFor={`p-verdict-${a.id}`}>Do they fit?</label>
+          <div className="field__box">
+            <select id={`p-verdict-${a.id}`} name="verdict" className="field__input" defaultValue="compatible">
+              {verdicts.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <Field name="basis" label="What you checked" placeholder="eg: Cat 2 hitch measured, needs 70 hp against 90 available" />
+        {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
+        <FormNotice state={state} />
+        <PendingButton className="button button--inline">Record it</PendingButton>
+      </form>
+    </details>
+  );
+}
+
+function DetailsModal({ a, canEdit, availability, assets, verdicts, pairableServices, onClose, onEdit, onFault, onDelete }: {
   a: AssetView; canEdit: boolean; availability: Option[];
+  assets: AssetView[]; verdicts: Option[]; pairableServices: PairableService[];
   onClose: () => void; onEdit: () => void; onFault: () => void; onDelete: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -181,6 +250,40 @@ function DetailsModal({ a, canEdit, availability, onClose, onEdit, onFault, onDe
           </fieldset>
         )}
 
+        {/* What this machine has been confirmed to work with. A type match is not an approval —
+            somebody has to have checked the hitch and the power — so this is where that judgement
+            is recorded, with what it rests on. */}
+        {a.status === "retired" ? null : (
+          <section className="pairings">
+            <h4 className="field__label">What this works with</h4>
+            {a.pairings.length === 0 ? (
+              <p className="field__helper">Nothing recorded yet. Until a pairing is confirmed, the service it belongs to is not ready.</p>
+            ) : (
+              <ul className="pairings__list">
+                {a.pairings.map((p) => {
+                  const other = assets.find((x) => x.id === p.implementId);
+                  const service = pairableServices.find((x) => x.id === p.service);
+                  return (
+                    <li key={`${p.implementId}-${p.service}`}>
+                      <span className={`pill pill--${p.verdict === "compatible" ? "completed" : p.verdict === "incompatible" ? "cancelled" : "in_progress"}`}>
+                        {verdicts.find((v) => v.id === p.verdict)?.label ?? p.verdict}
+                      </span>
+                      <span className="pairings__text">
+                        <strong>{other?.name ?? "Equipment"}</strong>
+                        <span className="field__helper">
+                          for {(service?.label ?? p.service).toLowerCase()}
+                          {p.basis ? ` — ${p.basis}` : ""}
+                        </span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {canEdit ? <PairingForm a={a} assets={assets} verdicts={verdicts} services={pairableServices} /> : null}
+          </section>
+        )}
+
         {a.faults.length > 0 ? (
           <ul className="asset__faults">
             {a.faults.map((f) => (
@@ -258,9 +361,12 @@ function DeleteModal({ a, onClose }: { a: AssetView; onClose: () => void }) {
   );
 }
 
-export function EquipmentList({ assets, kinds, services, availability, serialStates, canEdit }: {
+export function EquipmentList({
+  assets, kinds, services, availability, serialStates, readiness, verdicts, pairableServices, canEdit,
+}: {
   assets: AssetView[]; kinds: Option[]; services: Option[]; availability: Option[];
-  serialStates: Option[]; canEdit: boolean;
+  serialStates: Option[]; readiness: Readiness[]; verdicts: Option[]; pairableServices: PairableService[];
+  canEdit: boolean;
 }) {
   const [editing, setEditing] = useState<AssetView | null | "new">(null);
   const [faulting, setFaulting] = useState<AssetView | null>(null);
@@ -272,6 +378,20 @@ export function EquipmentList({ assets, kinds, services, availability, serialSta
 
   return (
     <>
+      {/* "Show readiness per service: Ploughing ready, Harrowing missing a harrow, or
+          Compatibility needs checking." Worked out from the register, so a provider who has ticked
+          a service but owns nothing for it finds out here rather than when a quote is refused. */}
+      {readiness.length > 0 ? (
+        <ul className="readiness-strip" aria-label="What you are ready for">
+          {readiness.map((r) => (
+            <li key={r.service} className={r.ready ? "readiness-strip__ok" : "readiness-strip__gap"}>
+              <span className="readiness-strip__dot" aria-hidden="true" />
+              {r.summary}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       <div className="equipment__top">
         <FilterMenu name="show" label="Availability" icon="/icons/funnel.svg" value={show} onChange={setShow}
           options={[{ value: "", label: "Filter" }, { value: "available", label: "Available" }, { value: "unavailable", label: "Not available" }]} />
@@ -310,6 +430,7 @@ export function EquipmentList({ assets, kinds, services, availability, serialSta
 
       {open && !editing && !faulting && !deleting ? (
         <DetailsModal a={open} canEdit={canEdit} availability={availability} onClose={() => setOpenId(null)}
+          assets={assets} verdicts={verdicts} pairableServices={pairableServices}
           onEdit={() => setEditing(open)} onFault={() => setFaulting(open)} onDelete={() => setDeleting(open)} />
       ) : null}
       {editing ? (

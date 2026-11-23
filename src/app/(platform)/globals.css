@@ -1789,3 +1789,26 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 @media (max-width: 560px) {
   .asset__facts > div { grid-template-columns: 1fr; gap: 1px; }
 }
+
+/* ---- Readiness and pairings (handover, 23 Nov 2026) ---- */
+
+/* What a provider is actually ready for, across the top of the register. A row of plain
+   statements rather than cards: it is read at a glance to find the gap, not studied. */
+.readiness-strip { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; padding: 0; }
+.readiness-strip li {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border-radius: 999px; border: 1px solid #e5e5e5;
+  font: 400 13px/18px var(--font-sans); background: #fff;
+}
+.readiness-strip__dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.readiness-strip__ok { border-color: #c5dcc9; color: #024321; }
+.readiness-strip__ok .readiness-strip__dot { background: #2f8a4f; }
+.readiness-strip__gap { border-color: #e7d7bc; color: #7a5618; }
+.readiness-strip__gap .readiness-strip__dot { background: #c98a1f; }
+
+/* The verdicts recorded against one machine. */
+.pairings { margin: 16px 0; display: grid; gap: 8px; }
+.pairings__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.pairings__list li { display: flex; align-items: flex-start; gap: 10px; }
+.pairings__text { display: grid; gap: 1px; font: 400 14px/20px var(--font-sans); }
+.pairings__add > summary { font: 500 14px/20px var(--font-sans); cursor: pointer; padding: 4px 0; }

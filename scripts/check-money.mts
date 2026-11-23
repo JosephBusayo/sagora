@@ -318,8 +318,10 @@ console.log("\nRequest kinds");
     specs: { power: "90", hitch: "Three-point category 2", lift: "2500" },
   });
   const refused = await jobs.scheduleJob(biz, owner, job.id, { startDate: inDays(20), endDate: inDays(21), operatorId: null, assetIds: [tractor.id] });
-  await ok("a harvest cannot run without a harvester", !refused.ok);
-  await ok("and that is why, not a missing specification", !refused.ok && refused.reason.includes("harvester"));
+  await ok("a harvest cannot run with a bare tractor", !refused.ok);
+  // Since the catalogue replaced the hardcoded rule, the refusal names what would actually do the
+  // job rather than one machine: a tractor can harvest, with a reaper on the back.
+  await ok("and it names what is missing", !refused.ok && /reaper|thresher/i.test(refused.reason));
   const harvester = await equipment.addAsset(biz, owner, {
     name: "Harvester", kind: "harvester", identifier: "SN-HARV", ownership: "owned", notes: "",
     specs: { ownEngine: "Own engine", power: "120", header: "3" },
