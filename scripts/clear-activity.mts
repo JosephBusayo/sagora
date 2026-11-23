@@ -60,9 +60,14 @@ if (unknown.length > 0) {
 }
 
 const present = CLEAR.filter((t) => found.includes(t));
-const counts = await Promise.all(
-  present.map(async (t) => ({ table: t, rows: Number((await db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM "${t}"`))?.n ?? 0) })),
-);
+// Counted one at a time, not with Promise.all. Neon's direct endpoint - the one these tools
+// deliberately use - allows far fewer concurrent connections than the pooler, and twenty-two
+// at once resets the connection before anything has been read.
+const counts: { table: string; rows: number }[] = [];
+for (const t of present) {
+  const r = await db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM "${t}"`);
+  counts.push({ table: t, rows: Number(r?.n ?? 0) });
+}
 const total = counts.reduce((s, c) => s + c.rows, 0);
 
 console.log("\nRows to delete:");
