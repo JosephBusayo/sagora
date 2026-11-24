@@ -252,12 +252,68 @@ export async function saveReadiness(businessId: string, actorId: string, jobId: 
   return res.changes > 0;
 }
 
+/**
+ * Everything standing between this job and the yard gate, beyond the readiness checklist.
+ *
+ * Karim's handover, 23 November 2026: "recheck before dispatch. Capacity that has gone stale stays
+ * blocked until it is confirmed again", and "a new blocking fault must flag existing bookings for
+ * action rather than cancelling them silently". Both of those have to bite somewhere, and this is
+ * the somewhere: the moment a machine would actually leave.
+ *
+ * Deliberately not at acceptance. A farmer who has accepted a price should not lose it because the
+ * provider has not clicked a button since yesterday — but a machine should not go out on a week-old
+ * assurance either.
+ */
+export async function dispatchBlockers(businessId: string, jobId: string): Promise<string[]> {
+  const out: string[] = [];
+  const { flagsForJob, blockedByFlags } = await import("./flags");
+  const stopped = blockedByFlags(await flagsForJob(jobId));
+  if (stopped) out.push(stopped);
+
+  const job = await getJob(businessId, jobId);
+  if (!job) return ["That job is not yours."];
+
+  // Machines that cannot work today, whatever the register said when the quote went out.
+  for (const risk of await atRiskAssets(businessId, job)) out.push(`${risk.name}: ${risk.why.toLowerCase()}`);
+
+  const { capacityStale, capacityFreshHours, currentQuote } = await import("./quotes");
+  const quote = await currentQuote(job.requestId, businessId);
+  if (quote && capacityStale(quote, await capacityFreshHours())) {
+    out.push("Confirm again that the machines are working and free: the last check has gone stale.");
+  }
+  return out;
+}
+
+export type DispatchResult = { ok: true } | { ok: false; reason: string };
+
 /** The equipment has left for the farm. Needs every readiness check: a planned date is not a dispatch. */
-export async function markMobilised(businessId: string, actorId: string, jobId: string): Promise<boolean> {
+export async function markMobilised(businessId: string, actorId: string, jobId: string): Promise<DispatchResult> {
+  const blockers = await dispatchBlockers(businessId, jobId);
+  // Said rather than swallowed: a provider stopped at the gate has to know by what.
+  if (blockers.length) return { ok: false, reason: blockers.join(" ") };
+
   const now = new Date().toISOString();
   const res = await db.run(`UPDATE job SET mobilised_at=?, mobilised_by=?, updated_at=?
        WHERE id=? AND business_id=? AND status='scheduled' AND ready_at IS NOT NULL AND mobilised_at IS NULL`, now, actorId, now, jobId, businessId);
-  if (res.changes) await audit(actorId, "job.mobilised", jobId);
+  if (!res.changes) return { ok: false, reason: "Finish the readiness checks first." };
+  await audit(actorId, "job.mobilised", jobId);
+  return { ok: true };
+}
+
+/**
+ * The provider says again that the machines are fit and free, which clears a stale check.
+ *
+ * It rewrites the moment of the statement on the live quote rather than storing a second one,
+ * because what matters at the gate is how recently somebody looked and the old answer is of no
+ * further use. Who said it and when is in the audit log either way.
+ */
+export async function reconfirmCapacity(businessId: string, actorId: string, jobId: string): Promise<boolean> {
+  const job = await getJob(businessId, jobId);
+  if (!job) return false;
+  const res = await db.run(`UPDATE quote SET capacity_confirmed_at=?, capacity_confirmed_by=?
+       WHERE request_id=? AND business_id=? AND status='accepted'`,
+    new Date().toISOString(), actorId, job.requestId, businessId);
+  if (res.changes) await audit(actorId, "job.capacity_reconfirmed", jobId);
   return res.changes > 0;
 }
 

@@ -1722,6 +1722,33 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .quote-assets__list .readiness__item strong { font: 500 15px/22px var(--font-sans); color: #191919; }
 .quote-assets__list .field__helper { margin: 0; }
 
+/* A package, priced stage by stage. Each stage is boxed because the dates and the price inside it
+   belong together: a provider reading back a three-stage plan has to be able to see at a glance
+   which price goes with which window. */
+.quote-stages { border: 0; margin: 0; padding: 0; display: grid; gap: 12px; }
+.quote-stages__stage {
+  display: grid; gap: 10px; padding: 12px; border-radius: 12px;
+  background: #f5f5f5; border: 1px solid #e6e6e6;
+}
+.quote-stages__name { margin: 0; font: 600 14px/20px var(--font-sans); color: #191919; }
+.quote-stages .field__helper { margin: 0; }
+
+/* A booking something has put in doubt. Warm rather than red: the work is still on, and the only
+   thing being asked for is an answer. */
+.flags { display: grid; gap: 10px; }
+.flags__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.flags__list li { display: grid; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #fff8e6; border: 1px solid #f0dca8; }
+.flags__list strong { font: 500 14px/21px var(--font-sans); color: #191919; }
+.flags__resolve { display: grid; gap: 6px; }
+.flags__confirm { display: grid; gap: 8px; justify-items: start; }
+
+/* One machine, two providers. The owner's side of it. */
+.shares { display: grid; gap: 10px; }
+.shares__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.shares__list li { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
+.shares__who { display: grid; gap: 2px; }
+.shares__who strong { font: 500 14px/21px var(--font-sans); color: #191919; }
+
 /* The same machines as the farmer reads them, in the quote card. No photographs: Karim asked for
    the detail only, and a farmer on a slow connection should not wait on pictures to compare prices. */
 .offer__machines { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -1812,3 +1839,4 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .pairings__list li { display: flex; align-items: flex-start; gap: 10px; }
 .pairings__text { display: grid; gap: 1px; font: 400 14px/20px var(--font-sans); }
 .pairings__add > summary { font: 500 14px/20px var(--font-sans); cursor: pointer; padding: 4px 0; }
+.shares__add > summary { font: 500 14px/20px var(--font-sans); cursor: pointer; padding: 4px 0; }

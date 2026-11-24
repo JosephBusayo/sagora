@@ -40,6 +40,13 @@ export type MyQuote = {
   clash: string | null;
 };
 
+/** One stage of the request, for a package. A single-service request has one of these. */
+export type QuotableStage = {
+  id: string; service: string; serviceLabel: string; sequence: number;
+  /** What this quote already said about this stage, when replacing one. */
+  startDate?: string; days?: number; amountInput?: string; dailyRateInput?: string;
+};
+
 /** One of the provider's machines, as the quote form offers it. */
 export type QuotableAsset = { id: string; name: string; detail: string };
 /** Somebody on the team who can actually be committed to the dates. */
@@ -75,8 +82,16 @@ const COVERS_EXAMPLE: Record<string, string> = {
   planting: "Tractor, planter and operator",
 };
 
-export function QuoteForm({ requestId, service, existing, assets, operators, responseHours, onDone }: {
+export function QuoteForm({ requestId, service, stages, existing, assets, operators, responseHours, onDone }: {
   requestId: string; service: string; existing: MyQuote | null;
+  /**
+   * Every stage the farmer asked for, in the order the work has to happen.
+   *
+   * One stage and the form is exactly what it was: one price, one start, one number of days. More
+   * than one and each gets its own window and its own price — "plan each operation and reserve its
+   * resources for its own window" (Karim's handover, 23 November 2026).
+   */
+  stages: readonly QuotableStage[];
   assets: readonly QuotableAsset[];
   operators: readonly QuotableOperator[];
   /** How long the farmer has to answer, so the form says the same number the rules enforce. */
@@ -93,6 +108,7 @@ export function QuoteForm({ requestId, service, existing, assets, operators, res
   const locked = existing && (existing.status === "accepted" || existing.status === "not_selected");
   // A rejected post hands back the ids it had; otherwise start from the quote being replaced.
   const chosen = new Set(v.assetIds !== undefined ? v.assetIds.split(",").filter(Boolean) : existing?.assetIds ?? []);
+  const pack = stages.length > 1;
 
   if (locked) {
     return (
@@ -129,27 +145,73 @@ export function QuoteForm({ requestId, service, existing, assets, operators, res
       {existing?.clash ? (
         <p className="notice notice--error" role="alert">{existing.clash} Change the dates or the equipment before the farmer tries to accept.</p>
       ) : null}
-      <Field name="amount" label="Total price (Le)" type="text" inputMode="numeric" placeholder="1,500.00"
-        defaultValue={v.amount ?? existing?.amountInput} error={e.amount} />
       <Field name="includes" label="What the price covers" placeholder={COVERS_EXAMPLE[service] ?? "Equipment, operator and fuel"}
         defaultValue={v.includes ?? existing?.includes} error={e.includes} />
-      <div className="form-row">
-        <DateField name="startDate" label="Can start on" defaultValue={v.startDate ?? existing?.startDate} error={e.startDate} />
-        <div className={`field${e.days ? " field--invalid" : ""}`}>
-          <label className="field__label" htmlFor="q-days">Days to finish the work</label>
-          <div className="field__box">
-            <input id="q-days" name="days" type="number" min={1} max={120} step={1} inputMode="numeric" className="field__input"
-              defaultValue={v.days ?? (existing ? String(existing.days) : "")} />
-          </div>
-          {e.days ? <p className="field__error">{e.days}</p> : <p className="field__helper">Counting the start day. The farmer sees this.</p>}
-        </div>
-      </div>
 
-      {/* Days times rate is the total. Karim's handover asks for all three on the record —
-          "numeric working days, daily rate and service total" — and for the unit to stay
-          explicit, so hectares per day is never assumed anywhere. */}
-      <Field name="dailyRate" label="Your rate for one working day (Le)" type="text" inputMode="numeric" placeholder="750.00"
-        defaultValue={v.dailyRate ?? existing?.dailyRateInput} error={e.dailyRate} />
+      {pack ? (
+        /* A package: every stage priced and dated on its own. The farmer sees that harrowing is one
+           day and ploughing three rather than one opaque total, and the server holds the machines
+           for each window separately. */
+        <fieldset className="field quote-stages">
+          <legend className="field__label">Plan each stage</legend>
+          <p className="field__helper">
+            The farmer asked for {stages.length} operations on the same land, in this order. Leave real gaps
+            between them — your equipment and operator are held for every stage, travel included.
+          </p>
+          {stages.map((stage) => (
+            <div key={stage.id} className="quote-stages__stage">
+              <h4 className="quote-stages__name">{stage.sequence}. {stage.serviceLabel}</h4>
+              <div className="form-row">
+                <DateField name={`stage-${stage.id}-start`} label="Starts on"
+                  defaultValue={v[`stage-${stage.id}-start`] ?? stage.startDate}
+                  error={e[`stage-${stage.id}-start`]} />
+                <div className={`field${e[`stage-${stage.id}-days`] ? " field--invalid" : ""}`}>
+                  <label className="field__label" htmlFor={`q-days-${stage.id}`}>Days</label>
+                  <div className="field__box">
+                    <input id={`q-days-${stage.id}`} name={`stage-${stage.id}-days`} type="number" min={1} max={120}
+                      step={1} inputMode="numeric" className="field__input"
+                      defaultValue={v[`stage-${stage.id}-days`] ?? (stage.days ? String(stage.days) : "1")} />
+                  </div>
+                  {e[`stage-${stage.id}-days`] ? <p className="field__error">{e[`stage-${stage.id}-days`]}</p> : null}
+                </div>
+              </div>
+              <div className="form-row">
+                <Field name={`stage-${stage.id}-rate`} label="Rate for one day (Le)" type="text" inputMode="numeric"
+                  placeholder="750.00" defaultValue={v[`stage-${stage.id}-rate`] ?? stage.dailyRateInput}
+                  error={e[`stage-${stage.id}-rate`]} />
+                <Field name={`stage-${stage.id}-amount`} label="Price for this stage (Le)" type="text" inputMode="numeric"
+                  placeholder="1,500.00" defaultValue={v[`stage-${stage.id}-amount`] ?? stage.amountInput}
+                  error={e[`stage-${stage.id}-amount`]} />
+              </div>
+            </div>
+          ))}
+          <p className="field__helper">
+            The farmer is quoted the stages added up, plus Sagora&rsquo;s service fee. You keep every stage price in full.
+          </p>
+        </fieldset>
+      ) : (
+        <>
+          <Field name="amount" label="Total price (Le)" type="text" inputMode="numeric" placeholder="1,500.00"
+            defaultValue={v.amount ?? existing?.amountInput} error={e.amount} />
+          <div className="form-row">
+            <DateField name="startDate" label="Can start on" defaultValue={v.startDate ?? existing?.startDate} error={e.startDate} />
+            <div className={`field${e.days ? " field--invalid" : ""}`}>
+              <label className="field__label" htmlFor="q-days">Days to finish the work</label>
+              <div className="field__box">
+                <input id="q-days" name="days" type="number" min={1} max={120} step={1} inputMode="numeric" className="field__input"
+                  defaultValue={v.days ?? (existing ? String(existing.days) : "")} />
+              </div>
+              {e.days ? <p className="field__error">{e.days}</p> : <p className="field__helper">Counting the start day. The farmer sees this.</p>}
+            </div>
+          </div>
+
+          {/* Days times rate is the total. Karim's handover asks for all three on the record —
+              "numeric working days, daily rate and service total" — and for the unit to stay
+              explicit, so hectares per day is never assumed anywhere. */}
+          <Field name="dailyRate" label="Your rate for one working day (Le)" type="text" inputMode="numeric" placeholder="750.00"
+            defaultValue={v.dailyRate ?? existing?.dailyRateInput} error={e.dailyRate} />
+        </>
+      )}
 
       {/* Chosen with the price, not after the farmer has committed: the farmer compares machines
           as well as figures, and the job starts out already carrying them. */}
@@ -208,6 +270,36 @@ export function QuoteForm({ requestId, service, existing, assets, operators, res
         </div>
         {e.note ? <p className="field__error">{e.note}</p> : null}
       </div>
+      {/* "Require confirmation of machine condition and outside commitments at quotation, and
+          recheck before dispatch." Sagora cannot see a tractor break or a neighbour borrow it, so
+          the only thing standing behind a reservation is somebody having just looked — and because
+          this is a statement at a known moment by a named person, it can go stale, which is what
+          blocks a dispatch on a week-old assurance. */}
+      <div className={`field${e.outsideCommitments ? " field--invalid" : ""}`}>
+        <label className="field__label" htmlFor="q-outside">Work you have on outside Sagora, over these dates</label>
+        <div className="field__box" style={{ height: "auto", alignItems: "flex-start" }}>
+          <textarea id="q-outside" name="outsideCommitments" className="field__input" rows={2} maxLength={300}
+            placeholder="eg: two days on my own farm the week before, nothing else"
+            defaultValue={v.outsideCommitments} style={{ resize: "vertical" }} />
+        </div>
+        {e.outsideCommitments ? <p className="field__error">{e.outsideCommitments}</p> : (
+          <p className="field__helper">Leave it empty if there is nothing. Sagora cannot see private work, so it has to ask.</p>
+        )}
+      </div>
+      <fieldset className={`field${e.confirmCapacity ? " field--invalid" : ""}`}>
+        <label className="readiness__item">
+          <input type="checkbox" name="confirmCapacity" value="yes" defaultChecked={v.confirmCapacity === "yes"} />
+          <span>
+            <strong>I have checked these machines are in working order and free for these dates.</strong>
+            <span className="field__helper">
+              Confirmed {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })}.
+              You will be asked again before the work goes out.
+            </span>
+          </span>
+        </label>
+        {e.confirmCapacity ? <p className="field__error">{e.confirmCapacity}</p> : null}
+      </fieldset>
+
       {/* Said before they send, not discovered afterwards: the window is short and it is theirs
           to plan around. It replaced the "price holds until" date they used to pick themselves. */}
       {/* Said before they send, not discovered afterwards: the window is short, their machine is

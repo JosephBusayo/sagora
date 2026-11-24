@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireWorkspace } from "@/lib/guard";
-import { createPrivateJob, getJob, markMobilised, reportNoReplacement, reportWork, saveReadiness, scheduleJob, startWork } from "@/lib/jobs";
+import { createPrivateJob, getJob, markMobilised, reconfirmCapacity, reportNoReplacement, reportWork, saveReadiness, scheduleJob, startWork } from "@/lib/jobs";
 import { getAsset } from "@/lib/equipment";
 import { audit, DISTRICTS, SERVICES } from "@/lib/business";
 import { notify } from "@/lib/outbox";
@@ -72,8 +72,39 @@ export async function readinessAction(fd: FormData) {
 export async function mobiliseAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
-  const ok = await markMobilised(business.id, user.id, str(fd, "jobId"));
-  await flash(ok ? "Recorded: the equipment is on the way." : "Finish the readiness checks first.");
+  const result = await markMobilised(business.id, user.id, str(fd, "jobId"));
+  // The reason comes from the server rather than a guess here, because since the handover there are
+  // four different ways a dispatch can be stopped and "finish the readiness checks" is only one.
+  await flash(result.ok ? "Recorded: the equipment is on the way." : result.reason);
+  revalidatePath("/provider/jobs");
+}
+
+/**
+ * The provider looks at the machines again and says they are fit and free.
+ *
+ * "Capacity that has gone stale stays blocked until it is confirmed again." This is the confirming.
+ */
+/**
+ * Says what was done about a flagged booking.
+ *
+ * The text is required, because "resolved" with no account of what happened is indistinguishable
+ * from making the problem go away quietly — which is the thing the flag exists to prevent.
+ */
+export async function resolveFlagAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return { error: "You do not have permission to change bookings." };
+  const { resolveFlag } = await import("@/lib/flags");
+  const result = await resolveFlag(business.id, user.id, str(fd, "flagId"), str(fd, "resolution"));
+  if (!result.ok) return { error: result.reason };
+  revalidatePath("/provider/jobs");
+  return { notice: "Recorded. The booking is clear." };
+}
+
+export async function reconfirmCapacityAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return;
+  const ok = await reconfirmCapacity(business.id, user.id, str(fd, "jobId"));
+  await flash(ok ? "Confirmed. You can dispatch now." : "That job cannot be confirmed.");
   revalidatePath("/provider/jobs");
 }
 

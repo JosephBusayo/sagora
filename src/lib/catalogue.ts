@@ -29,6 +29,15 @@ export type Service = {
    * can be covered by a provider.
    */
   active: boolean;
+  /**
+   * Where this falls in the farming year. Lower happens first.
+   *
+   * It exists because a request can now ask for several operations at once and they are not
+   * interchangeable: you cannot harrow a field you have not ploughed. The farmer ticks what they
+   * want and this decides the order, so nobody has to drag rows into sequence and nobody can get
+   * it wrong. The numbers are spaced so a service can be slotted between two without renumbering.
+   */
+  order: number;
 };
 
 /**
@@ -38,39 +47,39 @@ export type Service = {
  */
 export const SERVICES: readonly Service[] = [
   // Live.
-  { id: "ploughing", label: "Ploughing", active: true },
-  { id: "harvesting", label: "Harvesting", active: true },
-  { id: "planting", label: "Planting", active: true },
+  { id: "ploughing", label: "Ploughing", active: true, order: 20 },
+  { id: "harvesting", label: "Harvesting", active: true, order: 80 },
+  { id: "planting", label: "Planting", active: true, order: 50 },
 
   // Land preparation.
-  { id: "harrowing", label: "Harrowing", active: false },
-  { id: "cultivation", label: "Cultivation or rotavating", active: false },
-  { id: "deep_loosening", label: "Deep loosening", active: false },
-  { id: "ridging", label: "Ridging", active: false },
-  { id: "levelling", label: "Levelling", active: false },
-  { id: "rice_puddling", label: "Rice puddling", active: false },
+  { id: "harrowing", label: "Harrowing", active: false, order: 30 },
+  { id: "cultivation", label: "Cultivation or rotavating", active: false, order: 35 },
+  { id: "deep_loosening", label: "Deep loosening", active: false, order: 10 },
+  { id: "ridging", label: "Ridging", active: false, order: 45 },
+  { id: "levelling", label: "Levelling", active: false, order: 40 },
+  { id: "rice_puddling", label: "Rice puddling", active: false, order: 38 },
 
   // Planting and seeding.
-  { id: "drilling", label: "Drilling or row planting", active: false },
-  { id: "rice_direct_seeding", label: "Direct seeding of rice", active: false },
-  { id: "rice_transplanting", label: "Rice transplanting", active: false },
+  { id: "drilling", label: "Drilling or row planting", active: false, order: 52 },
+  { id: "rice_direct_seeding", label: "Direct seeding of rice", active: false, order: 54 },
+  { id: "rice_transplanting", label: "Rice transplanting", active: false, order: 56 },
 
   // Crop care.
-  { id: "fertiliser_spreading", label: "Fertiliser spreading", active: false },
-  { id: "spraying", label: "Spraying", active: false },
-  { id: "slashing", label: "Slashing or mowing", active: false },
+  { id: "fertiliser_spreading", label: "Fertiliser spreading", active: false, order: 60 },
+  { id: "spraying", label: "Spraying", active: false, order: 65 },
+  { id: "slashing", label: "Slashing or mowing", active: false, order: 70 },
 
   // Harvest and after.
-  { id: "combine_harvesting", label: "Rice combine harvesting", active: false },
-  { id: "rice_cutting", label: "Rice cutting only", active: false },
-  { id: "threshing", label: "Threshing or maize shelling", active: false },
-  { id: "grain_cleaning", label: "Grain cleaning", active: false },
-  { id: "baling", label: "Straw or hay baling", active: false },
+  { id: "combine_harvesting", label: "Rice combine harvesting", active: false, order: 82 },
+  { id: "rice_cutting", label: "Rice cutting only", active: false, order: 84 },
+  { id: "threshing", label: "Threshing or maize shelling", active: false, order: 90 },
+  { id: "grain_cleaning", label: "Grain cleaning", active: false, order: 95 },
+  { id: "baling", label: "Straw or hay baling", active: false, order: 97 },
 
   // Moving things about. The handover keeps these two apart on purpose.
-  { id: "transport", label: "Farm transport", active: false },
-  { id: "loading", label: "Loading", active: false },
-  { id: "post_hole_digging", label: "Post hole digging", active: false },
+  { id: "transport", label: "Farm transport", active: false, order: 100 },
+  { id: "loading", label: "Loading", active: false, order: 102 },
+  { id: "post_hole_digging", label: "Post hole digging", active: false, order: 110 },
 ];
 
 /** Only what is switched on: what a farmer may ask for and a provider may cover. */
@@ -79,6 +88,20 @@ export const activeServices = (): readonly Service[] => SERVICES.filter((s) => s
 export const serviceLabelOf = (id: string) => SERVICES.find((s) => s.id === id)?.label ?? id;
 export const isService = (id: string) => SERVICES.some((s) => s.id === id);
 export const isActiveService = (id: string) => SERVICES.some((s) => s.id === id && s.active);
+
+/** Where one service falls in the year. Unknown ids sort last rather than first. */
+export const orderOf = (id: string) => SERVICES.find((s) => s.id === id)?.order ?? 999;
+
+/**
+ * The same services, in the order the work has to happen.
+ *
+ * Used wherever a farmer has chosen more than one: the request stores them in this order, the
+ * provider plans them in this order, and the holds are placed in this order. Sorting here rather
+ * than trusting the form means a request assembled by voice intake, by a coordinator or by the
+ * API all come out the same way.
+ */
+export const inFieldOrder = (ids: readonly string[]): string[] =>
+  [...new Set(ids)].sort((a, b) => orderOf(a) - orderOf(b) || a.localeCompare(b));
 
 /* ---------------------------------------------------------------------- kinds */
 

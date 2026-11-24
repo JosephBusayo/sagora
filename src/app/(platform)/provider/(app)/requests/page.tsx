@@ -7,6 +7,7 @@ import { Shell, PageHead } from "@/components/app/Shell";
 import { FilterPill } from "@/components/app/FilterPill";
 import { DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
 import { DATE_WINDOWS, STATUS_LABEL, browse, serviceLabel, type RequestStatus } from "@/lib/requests";
+import { describeOperations, operationsFor } from "@/lib/operations";
 import { QUOTE_STATUS_LABEL, RESPONSE_HOURS, activityFor, currentQuote, endDateOf, expiresAt, holdsIntact, isExpired, type QuoteStatus } from "@/lib/quotes";
 import { kindLabel, selectableAssets } from "@/lib/equipment";
 import { listMembers } from "@/lib/team";
@@ -77,11 +78,29 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
   }));
   const operatorName = new Map(team.map((m) => [m.id, m.name] as const));
 
-  const items: RequestRow[] = await Promise.all(rows.map(async (r) => ({
+  const items: RequestRow[] = await Promise.all(rows.map(async (r) => {
+  // A package arrives as several stages in field order; a plain request as one. Read once here
+  // because three fields below depend on it: the label, the stage planner and the quote it carries.
+  const ops = await operationsFor(r.id);
+  const mine = await currentQuote(r.id, business.id);
+  return {
     id: r.id,
     reference: r.reference,
     service: r.service,
-    serviceLabel: serviceLabel(r.service),
+    // "Ploughing", or "Ploughing, then harrowing, then planting". A provider scanning the list has
+    // to be able to see at a glance that a request is a package, because it is a different
+    // commitment: every stage has to come from them.
+    serviceLabel: ops.length > 1 ? describeOperations(ops) : serviceLabel(r.service),
+    stages: ops.map((o) => {
+      const was = mine?.plan.find((x) => x.operationId === o.id);
+      return {
+        id: o.id, service: o.service, serviceLabel: o.serviceLabel, sequence: o.sequence,
+        startDate: was?.startDate,
+        days: was?.daysToComplete,
+        amountInput: was && was.amountMinor > 0 ? (was.amountMinor / 100).toFixed(2) : undefined,
+        dailyRateInput: was && was.dailyRateMinor > 0 ? (was.dailyRateMinor / 100).toFixed(2) : undefined,
+      };
+    }),
     acres: r.acres,
     landAccess: landLabel(LAND_ACCESS, r.landAccess),
     landCondition: landLabel(LAND_CONDITION, r.landCondition),
@@ -108,7 +127,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
     status: r.status,
     statusLabel: STATUS_LABEL[r.status as RequestStatus],
     myQuote: await (async () => {
-      const q = await currentQuote(r.id, business.id);
+      const q = mine;
       if (!q) return null;
       // Since the handover, sending a quote reserves everything it names, so a live quote cannot
       // clash with anybody — what can go wrong is that its reservation lapsed or was let go,
@@ -150,7 +169,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
       const j = await jobForRequest(r.id);
       return j ? { reference: r.reference, scheduled: Boolean(j.startDate) } : null;
     })(),
-  })));
+  };
+  }));
 
   const href = (p: number) => {
     const q = new URLSearchParams();

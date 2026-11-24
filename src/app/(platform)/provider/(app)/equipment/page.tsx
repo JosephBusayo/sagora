@@ -9,6 +9,8 @@ import {
 import { describeSpecs } from "@/lib/specs";
 import { VERDICTS, pairingsFor, readinessFor } from "@/lib/pairing";
 import { implementKindsFor } from "@/lib/catalogue";
+import { sharesOf } from "@/lib/shares";
+import { db } from "@/lib/db";
 import { EquipmentList, type AssetView } from "@/components/equipment/EquipmentList";
 
 export const metadata: Metadata = { title: "Equipment" };
@@ -21,6 +23,10 @@ export default async function Page() {
   // quotation" — this is about owning the right kit, not about next Tuesday.
   const readiness = await readinessFor(business.id, SERVICES.map((x) => x.id));
   const pairings = await pairingsFor(business.id);
+  // Who a machine could be lent to. Approved businesses only, and never this one.
+  const otherProviders = (await db.all(
+    `SELECT id, name, district FROM provider_business WHERE status='approved' AND id <> ? ORDER BY name`,
+    business.id) as { id: string; name: string; district: string }[]);
   const assets: AssetView[] = await Promise.all((await listAssets(business.id)).map(async (a) => {
     const gallery = await listPhotos(business.id, a.id);
     return {
@@ -44,6 +50,9 @@ export default async function Page() {
       gallery: gallery.map((p) => ({ id: p.id, src: `/provider/equipment/gallery/${p.id}` })),
       galleryFull: gallery.length >= MAX_GALLERY_PHOTOS,
       unavailable: unavailableReason(a),
+      shares: (await sharesOf(business.id, a.id))
+        .filter((sh) => sh.revokedAt === "")
+        .map((sh) => ({ businessId: sh.businessId, businessName: sh.businessName, note: sh.note, grantedAt: sh.grantedAt })),
       // Which implements could go with this machine, and what has been decided about each.
       pairings: pairings.filter((x) => x.machineId === a.id).map((x) => ({
         implementId: x.implementId, service: x.service, verdict: x.verdict, basis: x.basis, decidedAt: x.decidedAt,
@@ -88,6 +97,7 @@ export default async function Page() {
         readiness={readiness.map((r) => ({ service: r.service, summary: r.summary, ready: r.ready }))}
         verdicts={VERDICTS.map((v) => ({ id: v.id, label: v.label }))}
         pairableServices={SERVICES.map((x) => ({ id: x.id, label: x.label, kinds: implementKindsFor(x.id) }))}
+        otherProviders={otherProviders}
         canEdit={permission !== "view_jobs"}
       />
     </Shell>

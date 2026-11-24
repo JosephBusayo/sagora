@@ -4,6 +4,7 @@ import Link from "next/link";
 import { requireFarmer } from "@/lib/session";
 import { districtLabel } from "@/lib/business";
 import { STATUS_LABEL, listForFarmer, serviceLabel } from "@/lib/requests";
+import { describeOperations, operationsFor } from "@/lib/operations";
 import { Shell } from "@/components/app/Shell";
 import { placeLine } from "@/lib/chiefdoms";
 import { pageOf } from "@/components/app/Pager";
@@ -36,6 +37,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
   const { rows, page, pages } = pageOf(all, sp.page);
   // The design's Request details window, opened from a row's arrow.
   const open = all.find((r) => r.id === sp.open);
+  // A farmer reading their own request back should see every stage they asked for, in the order the
+  // work happens — not only the one it leads with.
+  const openStages = open ? await operationsFor(open.id) : [];
   const back = page > 1 ? `/farmer/requests?page=${page}` : "/farmer/requests";
 
   return (
@@ -59,7 +63,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
             <div className="detail-list">
               <Row label="Request ID">#{open.reference}</Row>
               <Row label="Requested on">{at(open.createdAt)}</Row>
-              <Row label="Service">{serviceLabel(open.service)}</Row>
+              <Row label={openStages.length > 1 ? "Services, in order" : "Service"}>
+                {openStages.length > 0 ? describeOperations(openStages) : serviceLabel(open.service)}
+              </Row>
               <Row label="Land size">{landSize(open.acres)}</Row>
               <Row label="Location">{placeLine(open.village, open.chiefdom, districtLabel(open.district))}</Row>
               <Row label="Preferred start date">{fmt(open.preferredDate)}</Row>

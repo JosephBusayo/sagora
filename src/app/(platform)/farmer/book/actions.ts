@@ -7,6 +7,8 @@ import { z } from "zod";
 import { DISTRICTS, SERVICES, districtLabel, getApprovedBusiness } from "@/lib/business";
 import { createRequest, providersCovering, serviceLabel, updateRequest } from "@/lib/requests";
 import { coverageOf, inAreas } from "@/lib/coverage";
+import { MAX_OPERATIONS, leadService, packageProblem } from "@/lib/operations";
+import { inFieldOrder, serviceLabelOf } from "@/lib/catalogue";
 import { requireFarmer, type SessionUser } from "@/lib/session";
 import { guestRequestId, issueTrackingCode, rememberGuest, showCodeOnce } from "@/lib/guest";
 import { db } from "@/lib/db";
@@ -20,6 +22,22 @@ import type { FormState } from "@/lib/auth-flows";
 import { landSize, landUnit, toAcres } from "@/lib/land-size";
 
 const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String(fd.get(k)).trim() : "");
+
+/**
+ * Every stage the farmer ticked, in the order the work has to happen.
+ *
+ * Checkboxes arrive as repeated values; a comma-joined one can arrive too, from the hidden field
+ * the later steps carry. Both are read, and `inFieldOrder` settles the sequence either way, so no
+ * step of the form can send a different order from any other.
+ */
+const stagesFrom = (fd: FormData): string[] => {
+  const raw = fd.getAll("services")
+    .flatMap((v) => (typeof v === "string" ? v.split(",") : []))
+    .map((v) => v.trim())
+    .filter(Boolean);
+  // A tile on the home screen posts `service` alone, which is a package of one.
+  return inFieldOrder(raw.length ? raw : [str(fd, "service")].filter(Boolean));
+};
 const serviceIds = SERVICES.map((s) => s.id) as string[];
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -72,8 +90,11 @@ async function book(fd: FormData, who: Who): Promise<BookState> {
     contactPhone: str(fd, "contactPhone"),
     contactEmail: str(fd, "contactEmail").toLowerCase(),
   };
+  const stages = stagesFrom(fd);
   const raw = {
-    service: str(fd, "service"),
+    // The stage the request leads with. Everything downstream that reads one service reads this.
+    service: leadService(stages),
+    services: stages.join(","),
     acres: str(fd, "acres"),
     unit: landUnit(str(fd, "unit")),
     landAccess: str(fd, "landAccess"),
@@ -102,10 +123,17 @@ async function book(fd: FormData, who: Who): Promise<BookState> {
     for (const i of first.error.issues) errors[String(i.path[0])] ??= i.message;
     return { step: 1, fieldErrors: errors, values };
   }
-  if (needsCrop(raw.service) && raw.crop.length < 2) {
-    return { step: 1, fieldErrors: { crop: cropMissing(raw.service) }, values };
+  // "All stages must be covered before the package is quoted" starts here: a request for work
+  // Sagora does not sell, or for the same thing twice, is refused before anyone sees it.
+  const packageWrong = packageProblem(stages);
+  if (packageWrong) return { step: 1, fieldErrors: { service: packageWrong }, values };
+
+  // Any stage asking for a detail is enough to ask for it. A plough-and-harvest package needs the
+  // crop and the harvest readiness, even though its lead stage is ploughing and wants neither.
+  if (stages.some(needsCrop) && raw.crop.length < 2) {
+    return { step: 1, fieldErrors: { crop: cropMissing(stages.find(needsCrop) ?? raw.service) }, values };
   }
-  if (asksHarvestDetails(raw.service) && !raw.cropReadiness) {
+  if (stages.some(asksHarvestDetails) && !raw.cropReadiness) {
     return { step: 1, fieldErrors: { cropReadiness: "Say how ready the crop is, or choose Not sure" }, values };
   }
   if (str(fd, "step") === "1" || !str(fd, "step")) return { step: 2, values };
@@ -129,9 +157,19 @@ async function book(fd: FormData, who: Who): Promise<BookState> {
   // never quietly opened up to everyone else.
   const directTo = str(fd, "directTo");
   const chosen = directTo ? await getApprovedBusiness(directTo) : null;
-  if (directTo && (!chosen || !inAreas((await coverageOf(chosen)).areas, parsed.data))) {
-    const what = `${serviceLabel(parsed.data.service).toLowerCase()} in ${districtLabel(parsed.data.district)}`;
-    return { step: 2, fieldErrors: { district: `${chosen?.name ?? "That provider"} does not offer ${what}.` }, values };
+  if (directTo) {
+    // Every stage, not only the lead one. A provider who ploughs but does not plant cannot take a
+    // plough-and-plant request, and finding that out now is better than after they decline it.
+    const areas = chosen ? (await coverageOf(chosen)).areas : [];
+    const short = chosen
+      ? stages.filter((service) => !inAreas(areas, { district: parsed.data.district, service }))
+      : stages;
+    if (!chosen || short.length) {
+      const what = short.length === stages.length
+        ? `${short.map((x) => serviceLabelOf(x).toLowerCase()).join(" or ")} in ${districtLabel(parsed.data.district)}`
+        : `${short.map((x) => serviceLabelOf(x).toLowerCase()).join(" or ")}, which this request needs`;
+      return { step: 2, fieldErrors: { district: `${chosen?.name ?? "That provider"} does not offer ${what}.` }, values };
+    }
   }
   // Everything checks out: show it all once more before anything is saved or sent.
   if (str(fd, "step") !== "3") return { step: 3, values };
@@ -139,15 +177,16 @@ async function book(fd: FormData, who: Who): Promise<BookState> {
   const d = parsed.data;
   const details = {
     service: d.service,
+    services: stages,
     acres: toAcres(d.acres, raw.unit),
     landAccess: d.landAccess,
     landCondition: d.landCondition,
     landClearance: d.landClearance,
-    crop: needsCrop(d.service) ? d.crop : "",
+    crop: stages.some(needsCrop) ? d.crop : "",
     landType: d.landType,
-    cropVariety: asksHarvestDetails(d.service) ? d.cropVariety : "",
-    plantedOn: asksHarvestDetails(d.service) ? d.plantedOn : "",
-    cropReadiness: asksHarvestDetails(d.service) ? d.cropReadiness : "",
+    cropVariety: stages.some(asksHarvestDetails) ? d.cropVariety : "",
+    plantedOn: stages.some(asksHarvestDetails) ? d.plantedOn : "",
+    cropReadiness: stages.some(asksHarvestDetails) ? d.cropReadiness : "",
     preferredDate: d.preferredDate,
     alternateDate: d.alternateDate || null,
     district: d.district,
@@ -155,6 +194,9 @@ async function book(fd: FormData, who: Who): Promise<BookState> {
     village: d.village,
     notes: d.notes,
   };
+
+  // How the work reads in an email: "ploughing", or "ploughing, then harrowing, then planting".
+  const work = stages.map((x) => serviceLabelOf(x).toLowerCase()).join(", then ");
 
   const phone = farmer ? normaliseSierraLeonePhone(farmer.phone ?? "") ?? (farmer.phone ?? "") : normaliseSierraLeonePhone(contact.contactPhone ?? "")!;
   const requestId = str(fd, "requestId");
@@ -195,7 +237,7 @@ async function book(fd: FormData, who: Who): Promise<BookState> {
       to: email,
       subject: `Your Sagora request ${created.reference}`,
       text:
-        `We have your request for ${d.service} on ${landSize(details.acres)} in ${placeLine(d.village, raw.chiefdom, d.district)}.\n\n` +
+        `We have your request for ${work} on ${landSize(details.acres)} in ${placeLine(d.village, raw.chiefdom, d.district)}.\n\n` +
         (code
           ? `Your tracking code is ${code}. With your phone number, it opens this request at ${siteUrl()}/request/find\n\n`
           : `Your reference is ${created.reference}. Keep it: it is how you find this request again.\n\n`) +
@@ -205,14 +247,16 @@ async function book(fd: FormData, who: Who): Promise<BookState> {
   }
 
   // Only the work itself: a provider gets no farmer's name or number from this.
-  const covering = await providersCovering(d);
+  const covering = await providersCovering({ ...d, services: stages });
   for (const p of chosen ? covering.filter((c) => c.businessId === chosen.id) : covering) {
     await notify({
       kind: "request.new",
       dedupeKey: `request.new:${created.id}:${p.businessId}`,
       to: p.email,
       subject: `New request ${created.reference} in ${d.district}`,
-      text: `A farmer in ${d.district} is asking for ${d.service} on ${landSize(details.acres)}. Sign in to Sagora to send a quote.`,
+      text: `A farmer in ${d.district} is asking for ${work} on ${landSize(details.acres)}. ` +
+        (stages.length > 1 ? "Every stage has to be covered by one provider. " : "") +
+        "Sign in to Sagora to send a quote.",
     });
   }
 

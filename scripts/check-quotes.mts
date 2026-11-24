@@ -113,7 +113,8 @@ const q6 = await quotes.sendQuote(r6.id, biz, owner, kit({
 ok("one operator cannot be on two quotes at once", !q6.ok);
 ok("and the refusal names the operator", !q6.ok && q6.reason.includes("Driver A"));
 ok("the free machine was not left half-held",
-  (await holds.clashesFor([{ kind: "equipment", resourceId: spare.id, label: "" }], inDays(11), inDays(12), null)).length === 0);
+  (await holds.clashesFor([{ kind: "equipment", resourceId: spare.id, label: "" }],
+    { from: inDays(11), to: inDays(12) }, null, biz)).length === 0);
 
 console.log("\nA quote cannot be sent without actual resources");
 const f7 = await user("Farmer Seven");
@@ -171,7 +172,8 @@ ok("an expired quote cannot be accepted", !a4.ok);
 ok("and says why", !a4.ok && a4.reason.includes("48 hours"));
 ok("the sweep releases what it was holding", (await holds.sweepExpired()).holds > 0);
 ok("and the machine is free again",
-  (await holds.clashesFor([{ kind: "equipment", resourceId: tractor.id, label: "" }], inDays(40), inDays(40), null)).length === 0);
+  (await holds.clashesFor([{ kind: "equipment", resourceId: tractor.id, label: "" }],
+    { from: inDays(40), to: inDays(40) }, null, biz)).length === 0);
 ok("the sweep tells both sides once", (await quotes.sweepExpiredQuotes()) === 2);
 ok("and does not tell them twice", (await quotes.sweepExpiredQuotes()) === 0);
 

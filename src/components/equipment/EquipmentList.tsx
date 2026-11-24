@@ -9,8 +9,7 @@ import { Icon } from "@/components/app/Icon";
 import { AssetModal } from "./AssetModal";
 import { FaultModal } from "./FaultModal";
 import {
-  addGalleryPhotoAction, removeGalleryPhotoAction, restoreAssetAction, retireAssetAction, resolveFaultAction,
-  savePairingAction, setAvailabilityAction, setPhotoAction,
+  addGalleryPhotoAction, removeGalleryPhotoAction, resolveFaultAction, restoreAssetAction, retireAssetAction, revokeShareAction, savePairingAction, setAvailabilityAction, setPhotoAction, shareAssetAction,
 } from "@/app/(platform)/provider/(app)/equipment/actions";
 import { PhotoPicker } from "./PhotoPicker";
 import { Field } from "@/components/auth/Field";
@@ -21,10 +20,17 @@ import type { FormState } from "@/lib/auth-flows";
 export type FaultView = { id: string; severity: "blocking" | "minor"; description: string; reportedAt: string };
 export type Readiness = { service: string; summary: string; ready: boolean };
 export type PairableService = { id: string; label: string; kinds: string[] };
+/** Another approved provider this machine could be lent to. */
+export type ShareableProvider = { id: string; name: string; district: string };
+/** Who a machine is currently lent to. */
+export type ShareView = { businessId: string; businessName: string; note: string; grantedAt: string };
+
 export type PairingView = { implementId: string; service: string; verdict: string; basis: string; decidedAt: string };
 
 export type AssetView = {
   pairings: PairingView[];
+  /** Providers this machine is lent to right now. Empty on almost every machine. */
+  shares: ShareView[];
   /* Added with Karim's handover of 23 Nov 2026 — identity, condition, lease and specifications. */
   assetRef: string;
   serialStatus: "recorded" | "unreadable" | "none";
@@ -138,9 +144,50 @@ function PairingForm({ a, assets, verdicts, services }: {
   );
 }
 
-function DetailsModal({ a, canEdit, availability, assets, verdicts, pairableServices, onClose, onEdit, onFault, onDelete }: {
+/**
+ * Lends one machine to one other provider.
+ *
+ * Deliberately one at a time and from the owner's own machine, rather than a bulk screen: lending a
+ * tractor is a real arrangement between two businesses, and the register is where the machine is.
+ */
+function ShareForm({ a, providers }: { a: AssetView; providers: ShareableProvider[] }) {
+  const [state, action] = useActionState(useSafely(shareAssetAction), {} as FormState);
+  const free = providers.filter((p) => !a.shares.some((sh) => sh.businessId === p.id));
+
+  if (free.length === 0) {
+    return <p className="field__helper">There is nobody else to lend this to yet.</p>;
+  }
+  return (
+    <details className="shares__add">
+      <summary>Lend it to another provider</summary>
+      <form action={action} className="form-soft">
+        <input type="hidden" name="equipmentId" value={a.id} />
+        <div className="field">
+          <label className="field__label" htmlFor={`sh-to-${a.id}`}>Which provider</label>
+          <div className="field__box">
+            <select id={`sh-to-${a.id}`} name="toBusinessId" className="field__input" defaultValue="">
+              <option value="">Choose one</option>
+              {free.map((p) => <option key={p.id} value={p.id}>{p.name} — {p.district}</option>)}
+            </select>
+          </div>
+        </div>
+        <Field name="note" label="What you have agreed" required={false}
+          placeholder="eg: weekends only, they pay the fuel" />
+        <p className="field__helper">
+          They can reserve it for their own work, and whoever books the dates first keeps them. They will
+          never see your requests, your prices or your farmers — only that the machine is taken, and when.
+        </p>
+        {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
+        <FormNotice state={state} />
+        <PendingButton className="button button--inline">Lend it</PendingButton>
+      </form>
+    </details>
+  );
+}
+
+function DetailsModal({ a, canEdit, availability, assets, verdicts, pairableServices, otherProviders, onClose, onEdit, onFault, onDelete }: {
   a: AssetView; canEdit: boolean; availability: Option[];
-  assets: AssetView[]; verdicts: Option[]; pairableServices: PairableService[];
+  assets: AssetView[]; verdicts: Option[]; pairableServices: PairableService[]; otherProviders: ShareableProvider[];
   onClose: () => void; onEdit: () => void; onFault: () => void; onDelete: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -284,6 +331,38 @@ function DetailsModal({ a, canEdit, availability, assets, verdicts, pairableServ
           </section>
         )}
 
+        {/* "A shared asset shares its reservation constraint without sharing business data." Lending
+            a machine lets another provider reserve it; it tells them nothing about this business's
+            requests, prices or farmers, and when they find it busy they are given the dates and
+            nothing else. */}
+        {a.status === "retired" || a.ownership === "leased" ? null : (
+          <section className="shares">
+            <h4 className="field__label">Lent to</h4>
+            {a.shares.length === 0 ? (
+              <p className="field__helper">Nobody. Only you can put this machine on a quote.</p>
+            ) : (
+              <ul className="shares__list">
+                {a.shares.map((sh) => (
+                  <li key={sh.businessId}>
+                    <span className="shares__who">
+                      <strong>{sh.businessName}</strong>
+                      {sh.note ? <span className="field__helper">{sh.note}</span> : null}
+                    </span>
+                    {canEdit ? (
+                      <form action={revokeShareAction}>
+                        <input type="hidden" name="equipmentId" value={a.id} />
+                        <input type="hidden" name="fromBusinessId" value={sh.businessId} />
+                        <PendingButton className="button button--soft">Take it back</PendingButton>
+                      </form>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canEdit ? <ShareForm a={a} providers={otherProviders} /> : null}
+          </section>
+        )}
+
         {a.faults.length > 0 ? (
           <ul className="asset__faults">
             {a.faults.map((f) => (
@@ -362,10 +441,13 @@ function DeleteModal({ a, onClose }: { a: AssetView; onClose: () => void }) {
 }
 
 export function EquipmentList({
-  assets, kinds, services, availability, serialStates, readiness, verdicts, pairableServices, canEdit,
+  assets, kinds, services, availability, serialStates, readiness, verdicts, pairableServices,
+  otherProviders, canEdit,
 }: {
   assets: AssetView[]; kinds: Option[]; services: Option[]; availability: Option[];
   serialStates: Option[]; readiness: Readiness[]; verdicts: Option[]; pairableServices: PairableService[];
+  /** Other approved providers, for lending a machine. */
+  otherProviders: ShareableProvider[];
   canEdit: boolean;
 }) {
   const [editing, setEditing] = useState<AssetView | null | "new">(null);
@@ -430,7 +512,7 @@ export function EquipmentList({
 
       {open && !editing && !faulting && !deleting ? (
         <DetailsModal a={open} canEdit={canEdit} availability={availability} onClose={() => setOpenId(null)}
-          assets={assets} verdicts={verdicts} pairableServices={pairableServices}
+          assets={assets} verdicts={verdicts} pairableServices={pairableServices} otherProviders={otherProviders}
           onEdit={() => setEditing(open)} onFault={() => setFaulting(open)} onDelete={() => setDeleting(open)} />
       ) : null}
       {editing ? (

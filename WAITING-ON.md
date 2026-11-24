@@ -1,7 +1,36 @@
 # Waiting on
 
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
-each one is a swap, not a rewrite. Updated 23 Nov 2026.
+each one is a swap, not a rewrite. Updated 24 Nov 2026.
+
+## 24 Nov 2026: must one provider cover every stage of a package?
+
+**Built as the handover specifies. Karim should know what it costs before it bites.**
+
+Requests can now ask for several operations at once — ploughing, then harrowing, then planting on
+the same field — and the handover's rule is all-or-nothing: "all stages must be covered before the
+package is quoted." That is what is built. A provider who ploughs and harrows but does not plant
+never sees a plough-and-plant request, is never emailed about one, and cannot quote one if they
+reach the form by hand.
+
+**The cost.** Three providers are approved for the pilot. A three-stage package needs one of them
+to cover all three stages in that district, and if none does, the farmer gets no quotes at all and
+no explanation of why. The strict rule is right for the farmer who would otherwise have to
+coordinate two providers themselves; it is wrong if it means nothing can be sold.
+
+**What Karim needs to decide:** whether a provider may quote the stages they can do and leave the
+farmer to fill the gap. If yes, the change is to the browse filter and the quote gate only — the
+reservation, the per-stage plan and the pricing already work stage by stage and would not move.
+
+Two lesser decisions taken as defaults alongside it, both changeable settings:
+
+| Setting | Default | Why that number |
+|---|---|---|
+| `travel_setup_days` | **1** | The days either side of a job are no longer offered as free. Sierra Leone's districts are large and a tractor moving between two farms is not available for either on the day it travels. One day each side is the conservative guess; Karim may know it is two in the rains |
+| `capacity_fresh_hours` | **24** | A provider states at quotation that the machines are working and free of outside commitments. That statement goes stale after a day and then blocks the **dispatch** — not the acceptance, because a farmer should not lose an agreed price over an unclicked button. A day is short enough to mean something and long enough that quoting three requests in an afternoon takes one confirmation |
+
+A request may carry at most four operations (`MAX_OPERATIONS`). Beyond that the last stage's
+machines would be held months out on a guess, which is not capacity.
 
 ## 23 Nov 2026: when should an unconfirmed pairing stop a quote?
 

@@ -10,7 +10,8 @@ import { districtLabel } from "@/lib/business";
 import { serviceLabel } from "@/lib/requests";
 import { getAsset, selectableAssets } from "@/lib/equipment";
 import { listMembers } from "@/lib/team";
-import { JOB_STATUS_LABEL, READY_CHECKS, atRiskAssets, listJobs, machineChanges, type JobStatus } from "@/lib/jobs";
+import { dispatchBlockers, JOB_STATUS_LABEL, READY_CHECKS, atRiskAssets, listJobs, machineChanges, type JobStatus } from "@/lib/jobs";
+import { flagsForJob, openOnly } from "@/lib/flags";
 import { JobsList, type JobView } from "@/components/jobs/JobsList";
 
 export const metadata: Metadata = { title: "Jobs" };
@@ -58,6 +59,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Fil
       assetNames: names,
       operatorName: members.find((m) => m.id === j.operatorId)?.name ?? null,
       atRisk: await atRiskAssets(business.id, j),
+      // "A new blocking fault must flag existing bookings for action rather than cancelling them
+      // silently." This is where the provider finds the action waiting for them.
+      flags: openOnly(await flagsForJob(j.id)).map((f) => ({ id: f.id, cause: f.cause, reason: f.reason })),
+      // Everything that would stop the machine leaving the yard, in the words the server would use
+      // to refuse it, so the screen and the server cannot say different things.
+      blockers: await dispatchBlockers(business.id, j.id),
       privateCustomer: j.privateCustomer,
       changes: (await machineChanges(j.id)).map((c) => `${fmt(c.at.slice(0, 10))}: ${c.detail}`),
       reportedAcres: j.reportedAcres,

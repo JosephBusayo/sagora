@@ -26,7 +26,8 @@
     "db:repair-023": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/repair-migration-023.mts",
     "check:admin": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-admin.mts",
     "check:assets": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-assets.mts",
-    "check:pairing": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-pairing.mts"
+    "check:pairing": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-pairing.mts",
+    "check:packages": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-packages.mts"
   },
   "dependencies": {
     "@central-icons-react/round-filled-radius-2-stroke-2": "^1.2.22",

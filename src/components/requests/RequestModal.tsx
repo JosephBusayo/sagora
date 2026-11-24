@@ -3,7 +3,7 @@
 import { useModal } from "@/components/app/useModal";
 import { useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/app/Icon";
-import { QuoteForm, type MyQuote, type QuotableAsset, type QuotableOperator } from "./QuoteForm";
+import { QuoteForm, type MyQuote, type QuotableAsset, type QuotableOperator, type QuotableStage } from "./QuoteForm";
 import { InspectionForm, type MyInspection } from "./InspectionForm";
 import { landSize } from "@/lib/land-size";
 
@@ -27,6 +27,11 @@ export type RequestDetail = {
   notes: string;
   submittedOn: string;
   service: string;
+  /**
+   * Every stage the farmer asked for. One on an ordinary request; several on a package, which the
+   * quote form then prices and dates stage by stage.
+   */
+  stages: QuotableStage[];
   activity: { when: string; text: string }[];
   inspection: MyInspection;
 };
@@ -169,7 +174,7 @@ export function RequestModal({ request, myQuote, job, assets, operators, respons
                 </div>
               </div>
             ) : (
-              <QuoteForm requestId={request.id} service={request.service} existing={myQuote}
+              <QuoteForm requestId={request.id} service={request.service} stages={request.stages} existing={myQuote}
                 assets={assets} operators={operators} responseHours={responseHours} onDone={onClose} />
             )}
           </>

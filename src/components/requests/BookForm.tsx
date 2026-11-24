@@ -10,6 +10,7 @@ import { bookAsGuest, bookService, type BookState } from "@/app/(platform)/farme
 import { Field } from "@/components/auth/Field";
 import { CROP_READINESS, LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, LAND_TYPE, asksHarvestDetails, extraDetails, landLabel, needsCrop } from "@/lib/land";
 import { chiefdomsOf } from "@/lib/chiefdoms";
+import { inFieldOrder, serviceLabelOf } from "@/lib/catalogue";
 import { landSize, landUnit, toAcres } from "@/lib/land-size";
 import { LandSizeField } from "./LandSizeField";
 import { clearDraft, restoreDraft, saveDraft } from "./draft";
@@ -46,7 +47,7 @@ function Select({ name, label, options, placeholder, error, initial = "", icon, 
 }
 
 /** Every answer, carried to the next submit. */
-const FIELDS = ["service", "acres", "unit", "landAccess", "landCondition", "landClearance", "crop", "landType", "cropVariety", "plantedOn", "cropReadiness", "district", "chiefdom", "village", "preferredDate", "alternateDate", "notes"] as const;
+const FIELDS = ["service", "services", "acres", "unit", "landAccess", "landCondition", "landClearance", "crop", "landType", "cropVariety", "plantedOn", "cropReadiness", "district", "chiefdom", "village", "preferredDate", "alternateDate", "notes"] as const;
 /** Asked only of someone without an account: who the request is from, and how to reach them. */
 const CONTACT = ["contactName", "contactPhone", "contactEmail"] as const;
 
@@ -59,9 +60,10 @@ function Row({ label, value }: { label: string; value: string }) {
 
 /** Step three: what will be sent, to check before it goes. Nothing is saved until then. */
 function Summary({ v, serviceName, guest }: { v: Record<string, string>; serviceName: string; guest?: boolean }) {
+  const several = (v.services ?? "").includes(",");
   return (
     <div className="detail-list book__summary">
-      <Row label="Service" value={serviceName} />
+      <Row label={several ? "Services, in order" : "Service"} value={serviceName} />
       <Row label="Land size" value={landSize(toAcres(Number(v.acres), landUnit(v.unit)))} />
       {v.crop ? <Row label="Crop" value={v.crop} /> : null}
       <Row label="Land access" value={landLabel(LAND_ACCESS, v.landAccess)} />
@@ -119,6 +121,60 @@ function Chips({ name, label, options, initial, error }: {
   );
 }
 
+/**
+ * What work the farmer needs: one service, or several done in sequence on the same field.
+ *
+ * Karim's handover of 23 November 2026 asks for packages — "for a package such as ploughing and
+ * harrowing, plan each operation and reserve its resources for its own window" — and the design
+ * decision taken on it was that every request is a list and most are lists of one. This is that
+ * decision in front of the farmer: tick what you need, and the order is worked out for you.
+ *
+ * The order is deliberately not the farmer's to set. You cannot harrow a field you have not
+ * ploughed, so the sequence comes from the catalogue and the farmer is shown it rather than asked
+ * for it. `inFieldOrder` is the same function the server sorts by, which is why what the summary
+ * says and what the request stores can never differ.
+ *
+ * Nor are the dates. One preferred start, and the provider spaces the stages — the gap between
+ * ploughing and harrowing depends on the soil and the rain, and asking a farmer to schedule three
+ * operations would be asking them to do the provider's job.
+ *
+ * Two hidden fields go out: `services`, the whole list, and `service`, the stage it leads with. The
+ * second is what lets every existing screen, filter and email stay correct without being touched.
+ */
+function ServicePicker({ options, value, onChange, error }: {
+  options: readonly Option[]; value: readonly string[]; onChange: (ids: string[]) => void; error?: string;
+}) {
+  const toggle = (id: string) =>
+    onChange(inFieldOrder(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]));
+
+  return (
+    <fieldset className={`chips${error ? " field--invalid" : ""}`}>
+      <legend className="field__label">What work do you need?</legend>
+      <p className="field__helper">Choose one, or several to be done one after another on the same land.</p>
+      <div className="chips__row">
+        {options.map((o) => (
+          <label key={o.id} className="chip">
+            <input type="checkbox" name="services" value={o.id}
+              checked={value.includes(o.id)} onChange={() => toggle(o.id)} />
+            <span className="chip__icon" aria-hidden="true" />
+            {o.label}
+          </label>
+        ))}
+      </div>
+      {value.length > 1 ? (
+        <p className="field__helper" aria-live="polite">
+          In this order: {value.map((id) => serviceLabelOf(id).toLowerCase()).join(", then ")}.
+          One provider plans the dates for every stage.
+        </p>
+      ) : null}
+      {/* The stage the request leads with. Carried separately so nothing downstream has to parse
+          the list to find it. */}
+      <input type="hidden" name="service" value={value[0] ?? ""} />
+      {error ? <p className="field__error">{error}</p> : null}
+    </fieldset>
+  );
+}
+
 /** The example fits the work asked for, so a harvesting request is not shown ploughing advice. */
 const NOTES_EXAMPLE: Record<string, string> = {
   ploughing: "eg: the land is slightly sloped, has some stumps, needs deep ploughing",
@@ -162,11 +218,16 @@ export function BookForm({ services, districts, service = "", requestId, initial
   const typed = Object.entries(state.values ?? {}).filter(([, value]) => value !== "");
   const v: Record<string, string> = { ...initial, ...Object.fromEntries(typed) };
   const step = state.step ?? 1;
-  const chosen = v.service ?? service;
-  const label = services.find((s) => s.id === chosen)?.label;
-  // Picked from the drop-down before any submit: Crop shows at once rather than after a round trip.
-  const [picked, setPicked] = useState("");
-  const work = chosen || picked;
+  // Every stage asked for. A pre-chosen service from a home-screen tile is a list of one, and a
+  // request being edited brings its own list back. Held as state so Crop and the harvest questions
+  // appear the moment a box is ticked rather than after a round trip.
+  const [picked, setPicked] = useState<string[]>(() =>
+    inFieldOrder(((v.services ?? service ?? "") as string).split(",").map((x) => x.trim()).filter(Boolean)));
+  const work = picked;
+  const leadWork = picked[0] ?? "";
+  const label = picked.length > 1
+    ? picked.map((id) => serviceLabelOf(id).toLowerCase()).join(", then ")
+    : services.find((x) => x.id === leadWork)?.label;
   // The chiefdoms follow the district as soon as it is picked.
   const [pickedDistrict, setPickedDistrict] = useState("");
   const place = pickedDistrict || v.district || "";
@@ -180,7 +241,7 @@ export function BookForm({ services, districts, service = "", requestId, initial
   const form = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (draftKey && form.current) restoreDraft(draftKey, form.current);
-  }, [draftKey, step, work, place]);
+  }, [draftKey, step, leadWork, place]);
 
   return (
     <form
@@ -224,17 +285,17 @@ export function BookForm({ services, districts, service = "", requestId, initial
           {(["district", "chiefdom", "village", "preferredDate", "alternateDate", ...(guest ? CONTACT : [])] as const).map((k) => (
             <input key={k} type="hidden" name={k} value={v[k] ?? ""} />
           ))}
-          {label ? <input type="hidden" name="service" value={chosen} /> : (
-            <Select name="service" label="What work do you need?" options={services} placeholder="Select the work" error={e.service} onChange={setPicked} />
-          )}
+          {/* Always shown, even when a home-screen tile pre-chose one service: adding a stage to
+              it is exactly what a package is, and hiding the question would hide the feature. */}
+          <ServicePicker options={services} value={picked} onChange={setPicked} error={e.service ?? e.services} />
           <LandSizeField value={v.acres} unit={v.unit} error={e.acres} />
-          {needsCrop(work) ? <Field name="crop" label="Crop" placeholder="For example, rice" maxLength={60} defaultValue={v.crop} error={e.crop} /> : null}
-          <Notes value={v.notes} error={e.notes} service={work} />
+          {work.some(needsCrop) ? <Field name="crop" label="Crop" placeholder="For example, rice" maxLength={60} defaultValue={v.crop} error={e.crop} /> : null}
+          <Notes value={v.notes} error={e.notes} service={leadWork} />
           <Chips name="landAccess" label="Land access" options={LAND_ACCESS} initial={v.landAccess} error={e.landAccess} />
           <Chips name="landCondition" label="Land condition (optional)" options={LAND_CONDITION} initial={v.landCondition} error={e.landCondition} />
           <Chips name="landClearance" label="Land clearance" options={LAND_CLEARANCE} initial={v.landClearance} error={e.landClearance} />
           <Chips name="landType" label="Is the land upland or lowland? (optional)" options={LAND_TYPE} initial={v.landType} error={e.landType} />
-          {asksHarvestDetails(work) ? (
+          {work.some(asksHarvestDetails) ? (
             <>
               <Chips name="cropReadiness" label="Is the crop ready to harvest?" options={CROP_READINESS} initial={v.cropReadiness} error={e.cropReadiness} />
               <Field name="cropVariety" label="Variety (leave empty if not sure)" required={false} placeholder="For example, NERICA" maxLength={60} defaultValue={v.cropVariety} error={e.cropVariety} />
@@ -247,6 +308,9 @@ export function BookForm({ services, districts, service = "", requestId, initial
           {(["service", "acres", "unit", "landAccess", "landCondition", "landClearance", "crop", "landType", "cropVariety", "plantedOn", "cropReadiness"] as const).map((k) => (
             <input key={k} type="hidden" name={k} value={v[k] ?? ""} />
           ))}
+          {/* One input per stage rather than one comma-joined field, so the server reads this step
+              exactly the way it reads the picker on step one. */}
+          {picked.map((id) => <input key={id} type="hidden" name="services" value={id} />)}
           <Select icon="pin" name="district" label="District" options={districts.map((d) => ({ id: d, label: d }))} placeholder="Select a district" error={e.district} initial={v.district} onChange={setPickedDistrict} />
           {chiefdoms.length ? (
             <Select key={place} icon="pin" name="chiefdom" label="Chiefdom" options={chiefdoms.map((c) => ({ id: c, label: c }))}
@@ -255,7 +319,7 @@ export function BookForm({ services, districts, service = "", requestId, initial
           <Field icon="pin" name="village" label="Village/town" placeholder="Where the farm is" defaultValue={v.village} error={e.village} />
           <DateField name="preferredDate" label="Preferred start date" defaultValue={v.preferredDate} error={e.preferredDate} />
           <DateField name="alternateDate" label="Latest start date" defaultValue={v.alternateDate} error={e.alternateDate} />
-          <Notes value={v.notes} error={e.notes} service={work} />
+          <Notes value={v.notes} error={e.notes} service={leadWork} />
           {guest ? (
             <>
               <Field name="contactName" label="Your name" placeholder="First and last name" autoComplete="name" maxLength={80} defaultValue={v.contactName} error={e.contactName} />
@@ -266,7 +330,9 @@ export function BookForm({ services, districts, service = "", requestId, initial
         </>
       ) : (
         <>
-          {[...FIELDS, ...(guest ? CONTACT : [])].map((k) => <input key={k} type="hidden" name={k} value={v[k] ?? ""} />)}
+          {[...FIELDS, ...(guest ? CONTACT : [])].filter((k) => k !== "services")
+            .map((k) => <input key={k} type="hidden" name={k} value={v[k] ?? ""} />)}
+          {picked.map((id) => <input key={id} type="hidden" name="services" value={id} />)}
           <Summary v={v} serviceName={label ?? ""} guest={guest} />
         </>
       )}

@@ -12,6 +12,8 @@ import { coverageOf, covers } from "@/lib/coverage";
 import { notify } from "@/lib/outbox";
 import { inspectionBlocksQuote, saveInspection, type InspectionInput } from "@/lib/inspections";
 import { kitProblem, pairingEnforced } from "@/lib/pairing";
+import { coversEveryStage, operationsFor, stagesNotCovered, type PlannedOperation } from "@/lib/operations";
+import { selectableUsableAssets } from "@/lib/shares";
 import type { FormState } from "@/lib/auth-flows";
 
 const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String(fd.get(k)).trim() : "");
@@ -33,8 +35,11 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
     dailyRate: str(fd, "dailyRate"),
     operatorId: str(fd, "operatorId"),
     note: str(fd, "note"),
+    // "Require confirmation of machine condition and outside commitments at quotation."
+    outsideCommitments: str(fd, "outsideCommitments"),
   };
-  const values = { ...raw, assetIds: assetIds.join(",") };
+  const confirmed = str(fd, "confirmCapacity") === "yes";
+  const values = { ...raw, assetIds: assetIds.join(","), confirmCapacity: confirmed ? "yes" : "" };
 
   const fieldErrors: Record<string, string> = {};
   const amountMinor = parseAmount(raw.amount);
@@ -57,14 +62,35 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   if (assetIds.length === 0) fieldErrors.assetIds = "Choose the equipment you will put on this work";
   if (!raw.operatorId) fieldErrors.operatorId = "Choose the operator who will do the work";
   if (raw.note.length > 500) fieldErrors.note = "Use 500 characters or fewer";
+  if (raw.outsideCommitments.length > 300) fieldErrors.outsideCommitments = "Use 300 characters or fewer";
+  // A statement, not a formality: Sagora cannot see a tractor break or a neighbour borrow it, so the
+  // only thing standing behind a reservation is somebody having just looked.
+  if (!confirmed) fieldErrors.confirmCapacity = "Confirm the machines are working and free of other commitments";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
   // The list only shows what a business covers. This stops a form posted by hand.
   const target = await getById(requestId);
   if (!target || !covers(await coverageOf(business), target)) return { error: "This request is outside your district or services.", values };
 
+  // "All stages must be covered before the package is quoted." The browse list already hides
+  // packages a provider cannot see through, so reaching this means a hand-posted form or a coverage
+  // that changed since the page was drawn.
+  const ops = await operationsFor(requestId);
+  const cover = await coverageOf(business);
+  const covered = cover.areas.filter((a) => a.district === target.district).map((a) => a.service);
+  if (!coversEveryStage(covered, ops)) {
+    const short = stagesNotCovered(covered, ops).map((o) => o.serviceLabel.toLowerCase()).join(" or ");
+    return {
+      error: `This request needs ${short} as well, and your coverage does not include it. ` +
+        "Every stage of a package has to come from one provider.",
+      values,
+    };
+  }
+
   // Only this business's own working equipment, whatever the form posted.
-  const usable = await selectableAssets(business.id);
+  // Machines this business may commit: its own, plus any another provider has lent it. A borrowed
+  // machine is reserved through the same hold as an owned one, which is what makes the sharing safe.
+  const usable = await selectableUsableAssets(business.id);
   const chosen = assetIds.filter((id) => usable.some((a) => a.id === id));
   if (chosen.length !== assetIds.length) {
     return { error: "Some of that equipment is not on your register, or is not available for work.", values };
@@ -84,6 +110,48 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   const kitIssue = await kitProblem(business.id, target.service, chosen);
   if (kitIssue && (await pairingEnforced())) return { error: kitIssue, values };
 
+  // One stage, and nothing changes: the price, the start and the days the provider typed are the
+  // whole plan. Several stages, and each one carries its own window and its own price, read from
+  // fields named after the operation they belong to.
+  let plan: PlannedOperation[] | undefined;
+  if (ops.length > 1) {
+    const built: PlannedOperation[] = [];
+    for (const o of ops) {
+      const start = str(fd, `stage-${o.id}-start`);
+      const stageDays = Number(str(fd, `stage-${o.id}-days`) || "0");
+      const stageAmount = parseAmount(str(fd, `stage-${o.id}-amount`));
+      const stageRate = parseAmount(str(fd, `stage-${o.id}-rate`));
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) {
+        fieldErrors[`stage-${o.id}-start`] = `Choose the day ${o.serviceLabel.toLowerCase()} starts`;
+      } else if (start < today()) {
+        fieldErrors[`stage-${o.id}-start`] = "Choose a date in the future";
+      }
+      if (!Number.isInteger(stageDays) || stageDays < 1 || stageDays > 120) {
+        fieldErrors[`stage-${o.id}-days`] = "Enter a whole number of days, from 1 to 120";
+      }
+      if (stageAmount === null || stageAmount <= 0) {
+        fieldErrors[`stage-${o.id}-amount`] = "Enter the price for this stage";
+      }
+      if (stageRate === null) fieldErrors[`stage-${o.id}-rate`] = "Enter your rate for one working day";
+      else if (stageAmount !== null && stageDays >= 1 && stageRate * stageDays !== stageAmount) {
+        fieldErrors[`stage-${o.id}-amount`] = `This stage should be ${stageDays} × your daily rate for it.`;
+      }
+      built.push({
+        operationId: o.id, service: o.service, sequence: o.sequence, startDate: start,
+        daysToComplete: stageDays, dailyRateMinor: stageRate ?? 0, amountMinor: stageAmount ?? 0,
+      });
+    }
+    if (Object.keys(fieldErrors).length) return { fieldErrors, values };
+    plan = built;
+
+    // The kit question is per service, because a tractor and a plough being right for ploughing
+    // says nothing about harrowing. All of them have to pass, or the package cannot be sold.
+    for (const stage of built) {
+      const issue = await kitProblem(business.id, stage.service, chosen);
+      if (issue && (await pairingEnforced())) return { error: issue, values };
+    }
+  }
+
   const result = await sendQuote(requestId, business.id, user.id, {
     amountMinor: amountMinor!,
     includes: raw.includes,
@@ -93,6 +161,9 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
     dailyRateMinor: dailyRateMinor!,
     assetIds: chosen,
     operatorId: operator.id,
+    plan,
+    outsideCommitments: raw.outsideCommitments,
+    capacityConfirmed: confirmed,
   });
   if (!result.ok) return { error: result.reason, values };
 
@@ -108,7 +179,13 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
       text:
         `${business.name} ${isRevision ? "has updated their quote" : "has quoted"} for your ${request.service} request ${request.reference}.\n\n` +
         `Price: ${formatAmount(result.quote.amountMinor)}\nCovers: ${result.quote.includes}\n` +
-        `Can start: ${result.quote.startDate}\nDays to finish: ${result.quote.daysToComplete}\nEquipment: ${machines}\n\n` +
+        (result.quote.plan.length > 1
+          // A package is several pieces of work on several days, and a farmer comparing quotes needs
+          // to see which stage falls when rather than one total and one date.
+          ? `${result.quote.plan.map((stage) =>
+              `${stage.serviceLabel}: ${stage.startDate} to ${stage.endDate}, ${formatAmount(stage.amountMinor)}`).join("\n")}\n`
+          : `Can start: ${result.quote.startDate}\nDays to finish: ${result.quote.daysToComplete}\n`) +
+        `Equipment: ${machines}\n\n` +
         `This quote holds for ${RESPONSE_HOURS} hours. After that it cannot be accepted and the equipment is released, ` +
         "so answer it while it stands.\n\n" +
         "Sign in to compare quotes and accept one. Accepting agrees the price; it is not a booking " +

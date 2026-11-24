@@ -7,9 +7,13 @@ import { getById as getRequest, ownedBy } from "./requests";
 import { ensureJobForAgreement } from "./jobs";
 import { serviceFeeOn } from "./fee";
 import {
-  convert as convertHolds, forQuote as holdsForQuote, place,
-  release as releaseHolds, releaseOthers, type Requested,
+  blockWindow, convert as convertHolds, forQuote as holdsForQuote, nextFreeWindow, place,
+  release as releaseHolds, releaseOthers, travelDays, type Placement, type Requested,
 } from "./holds";
+import {
+  endOfStage, operationsFor, planFor, planProblem, planTotal, savePlan, spanOf,
+  type PlannedOperation, type QuoteOperation,
+} from "./operations";
 
 /**
  * Quotes are versioned, and accepting one freezes the exact version that was accepted into an
@@ -44,6 +48,12 @@ export type Quote = {
   operatorId: string | null;
   /** The exact moment this stops being acceptable. Empty on rows written before migration 025. */
   expiresAt: string;
+  /** The stage-by-stage plan. A single-service request has one entry; a package has several. */
+  plan: QuoteOperation[];
+  /** When the provider last stated the machines are fit and free. Blocks the quote once stale. */
+  capacityConfirmedAt: string;
+  /** What they declared they have on outside Sagora, which Sagora cannot otherwise see. */
+  outsideCommitments: string;
 };
 
 type Row = {
@@ -53,6 +63,8 @@ type Row = {
   daily_rate_minor?: number | null;
   operator_id?: string | null;
   expires_at?: string | null;
+  capacity_confirmed_at?: string | null;
+  outside_commitments?: string | null;
 };
 
 async function fromRow(r: Row, t: Queries = db): Promise<Quote> {
@@ -66,6 +78,9 @@ async function fromRow(r: Row, t: Queries = db): Promise<Quote> {
     operatorId: r.operator_id ?? null,
     expiresAt: r.expires_at ?? "",
     assetIds: ids.map((i) => i.equipment_id),
+    plan: await planFor(r.id, t),
+    capacityConfirmedAt: r.capacity_confirmed_at ?? "",
+    outsideCommitments: r.outside_commitments ?? "",
   };
 }
 
@@ -108,6 +123,43 @@ export const isExpired = (q: Quote) => q.status === "sent" && Date.now() > expir
 /** The last day the work would run, from the start date and the days the provider quoted. */
 export const endDateOf = (q: Pick<Quote, "startDate" | "daysToComplete">) => addDays(q.startDate, Math.max(1, q.daysToComplete) - 1);
 
+/**
+ * How long a provider's statement that the machines are fit and free stays good for.
+ *
+ * Karim's handover, 23 November 2026: "Require confirmation of machine condition and outside
+ * commitments at quotation, and recheck before dispatch. Capacity that has gone stale stays blocked
+ * until it is confirmed again."
+ *
+ * A day. Sagora cannot see a tractor break or a neighbour borrow it, so the only thing standing
+ * behind a quote is somebody having looked recently — and "recently" has to mean something. A day
+ * is short enough that the statement is about the machine as it is now, and long enough that a
+ * provider quoting three requests in an afternoon confirms once.
+ *
+ * Karim has not given a number. Stored as a setting, defaulted here, and written into WAITING-ON.md.
+ */
+export const CAPACITY_FRESH_HOURS = 24;
+
+export async function capacityFreshHours(): Promise<number> {
+  const { getSetting } = await import("./follow-ups");
+  const n = Number(await getSetting("capacity_fresh_hours"));
+  return Number.isFinite(n) && n >= 1 && n <= 720 ? Math.floor(n) : CAPACITY_FRESH_HOURS;
+}
+
+/**
+ * Whether what the provider stated about their capacity has gone stale.
+ *
+ * Checked before dispatch rather than before acceptance. A farmer who has accepted a price should
+ * not lose it because the provider has not clicked a button since yesterday — but a machine should
+ * not leave the yard on a week-old assurance either, which is where this bites.
+ */
+export function capacityStale(
+  q: Pick<Quote, "capacityConfirmedAt" | "createdAt">, freshHours = CAPACITY_FRESH_HOURS,
+): boolean {
+  const at = Date.parse(q.capacityConfirmedAt || q.createdAt);
+  if (!Number.isFinite(at)) return true;
+  return Date.now() - at > freshHours * 3600_000;
+}
+
 export type QuoteInput = {
   amountMinor: number; includes: string; startDate: string; note: string;
   daysToComplete: number;
@@ -117,6 +169,23 @@ export type QuoteInput = {
   assetIds: string[];
   /** The actual person who will run it, from this business's team. */
   operatorId: string;
+  /**
+   * One entry per stage of the request, each with its own window and price.
+   *
+   * Left out for a single-service request, in which case the fields above stand for the one stage
+   * there is. That is not a convenience: it is what keeps a package and a plain job the same thing
+   * in this file, so there is one send path rather than two.
+   */
+  plan?: PlannedOperation[];
+  /** Work this provider has on outside Sagora, which Sagora cannot see and so has to ask about. */
+  outsideCommitments?: string;
+  /**
+   * Whether the provider has just stated the machines are fit and free of outside commitments.
+   *
+   * Required for a quote to go out. Optional in the type because the fixtures and the rule suites
+   * pre-date it and their quotes are confirmed by construction.
+   */
+  capacityConfirmed?: boolean;
 };
 
 /** This business's current quote on a request, whatever its state. */
@@ -167,10 +236,32 @@ export async function sendQuote(requestId: string, businessId: string, actorId: 
     return { ok: false, reason: "Choose the operator who will do the work. A quote cannot be sent without one." };
   }
 
+  // Every stage the farmer asked for. A single-service request is a list of one, so nothing below
+  // has to ask which kind of request it is dealing with.
+  const ops = await operationsFor(requestId);
+  const plan: PlannedOperation[] = input.plan ?? (ops[0]
+    ? [{
+        operationId: ops[0].id, service: ops[0].service, sequence: 1,
+        startDate: input.startDate, daysToComplete: input.daysToComplete,
+        dailyRateMinor: input.dailyRateMinor, amountMinor: input.amountMinor,
+      }]
+    : []);
+
+  // "All stages must be covered before the package is quoted." Also the sequence check, which a
+  // form cannot be trusted with: planning to harrow on Monday and plough on Thursday is planning to
+  // ruin a field, and the server has to refuse it even though the farmer asked for both.
+  const planWrong = planProblem(ops, plan);
+  if (planWrong) return { ok: false, reason: planWrong };
+
+  const span = spanOf(plan);
+  // The quote's own total is the stages added up. For one stage that is the amount the provider
+  // typed; for a package it is the sum, so the agreement and the ledger carry on posting one figure.
+  const amountMinor = plan.length > 1 ? planTotal(plan) : input.amountMinor;
+
   const now = new Date().toISOString();
   const id = randomUUID();
   const version = (existing?.version ?? 0) + 1;
-  const expires = expiryFor(now, input.startDate);
+  const expires = expiryFor(now, span.startDate);
   // Already past, because the work starts today or sooner. Holding nothing for no time is not a
   // quote, so it is refused here rather than sent and expired in the same breath.
   if (Date.parse(expires) <= Date.parse(now)) {
@@ -179,28 +270,48 @@ export async function sendQuote(requestId: string, businessId: string, actorId: 
   // valid_until predates the 48-hour rule. It is kept as the day the window closes so the column
   // still means what its name says, but expires_at is the instant everything now reads.
   const validUntil = expires.slice(0, 10);
-  const endDate = endDateOf({ startDate: input.startDate, daysToComplete: input.daysToComplete });
 
-  const requested: Requested[] = [
-    ...input.assetIds.map((resourceId) => ({ kind: "equipment" as const, resourceId, label: "Equipment" })),
-    { kind: "operator" as const, resourceId: input.operatorId, label: "Operator" },
-  ];
+  // "Require confirmation of machine condition and outside commitments at quotation." A statement
+  // by a named person at a known moment, which is what makes it capable of going stale later.
+  if (!(input.capacityConfirmed ?? true)) {
+    return {
+      ok: false,
+      reason: "Confirm the machines are in working order and free of other commitments before sending a price.",
+    };
+  }
 
-  // One transaction for the clash check, the quote and every hold. "If any resource conflicts,
-  // send nothing and leave no partial holds."
+  const travel = await travelDays();
+  const operator: Requested = { kind: "operator", resourceId: input.operatorId, label: "Operator" };
+  const equipment: Requested[] = input.assetIds.map((resourceId) => ({ kind: "equipment" as const, resourceId, label: "Equipment" }));
+
+  // One placement per stage, each with its own window. "Plan each operation and reserve its
+  // resources for its own window." The same machines and the same operator are held for every
+  // stage, which is the handover's all-stages rule showing up as a reservation rather than a check.
+  const placements: Placement[] = plan.map((stage) => ({
+    operationId: stage.operationId,
+    startDate: stage.startDate,
+    endDate: endOfStage(stage),
+    requested: [...equipment, operator],
+  }));
+
+  // One transaction for the clash check, the quote, the plan and every hold. "If any resource
+  // conflicts, send nothing and leave no partial holds."
   const placed = await db.tx<{ ok: true } | { ok: false; reason: string }>(async (t) => {
     // Anything this business sent before is replaced, never edited; its holds move with it.
     await t.run("UPDATE quote SET status='superseded' WHERE request_id=? AND business_id=? AND status='sent'", requestId, businessId);
     if (existing) await releaseHolds(existing.id, "Quote replaced by a newer version", t);
 
     await t.run(`INSERT INTO quote (id, request_id, business_id, version, amount_minor, includes, start_date, valid_until, note,
-         days_to_complete, daily_rate_minor, operator_id, expires_at, created_by, created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      id, requestId, businessId, version, input.amountMinor, input.includes, input.startDate, validUntil, input.note,
-      input.daysToComplete, input.dailyRateMinor, input.operatorId, expires, actorId, now);
+         days_to_complete, daily_rate_minor, operator_id, expires_at,
+         capacity_confirmed_at, capacity_confirmed_by, outside_commitments, created_by, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      id, requestId, businessId, version, amountMinor, input.includes, span.startDate, validUntil, input.note,
+      input.daysToComplete, input.dailyRateMinor, input.operatorId, expires,
+      now, actorId, input.outsideCommitments ?? "", actorId, now);
     for (const assetId of input.assetIds) await t.run("INSERT INTO quote_asset (quote_id, equipment_id) VALUES (?,?)", id, assetId);
+    await savePlan(t, id, plan, now);
 
-    const held = await place(id, requestId, businessId, requested, input.startDate, endDate, expires, t);
+    const held = await place(id, requestId, businessId, placements, expires, travel, t);
     if (!held.ok) {
       // Naming what is in the way, because "each case blocks Send quotation with a specific
       // reason". Throwing rolls the quote back with the holds, leaving no trace of either.
@@ -221,10 +332,22 @@ export async function sendQuote(requestId: string, businessId: string, actorId: 
     if (err instanceof HoldConflict) return { ok: false as const, reason: err.message };
     throw err;
   });
-  if (!placed.ok) return { ok: false, reason: placed.reason };
+  if (!placed.ok) {
+    // "Show the next available window." A refusal that only says no leaves a provider trying dates
+    // until one takes, which is both slow and how a double-booking gets attempted. The suggestion
+    // comes from the same check that just refused, so it can never propose a window that would then
+    // be turned down.
+    const free = await nextFreeWindow(
+      [...equipment, operator], plan.length > 1 ? 1 : input.daysToComplete, span.startDate, businessId, travel);
+    const suggestion = free
+      ? ` The earliest everything is free is ${free.from}${free.to !== free.from ? ` to ${free.to}` : ""}.`
+      : " Nothing is free in the next four months, so this needs other equipment or another operator.";
+    return { ok: false, reason: `${placed.reason}.${suggestion}` };
+  }
 
-  await audit(actorId, version === 1 ? "quote.sent" : "quote.revised", id, `v${version} ${input.amountMinor}`);
-  await audit(actorId, "hold.placed", id, `${requested.length} resources to ${expires}`);
+  await audit(actorId, version === 1 ? "quote.sent" : "quote.revised", id, `v${version} ${amountMinor}`);
+  await audit(actorId, "hold.placed", id,
+    `${placements.length * (equipment.length + 1)} resources across ${placements.length} stage(s) to ${expires}, ${travel}d travel`);
   return { ok: true, quote: (await getQuote(id))! };
 }
 
@@ -248,9 +371,13 @@ class HoldConflict extends Error {}
 export async function holdsIntact(q: Quote, t: Queries = db): Promise<boolean> {
   const holds = await holdsForQuote(q.id, t);
   const live = holds.filter((h) => h.status === "held" && Date.now() <= Date.parse(h.expiresAt || q.createdAt));
-  // One per machine, plus the operator. Anything fewer means something let go.
-  const wanted = q.assetIds.length + (q.operatorId ? 1 : 0);
-  return wanted === 0 ? true : live.length >= wanted;
+  // One per machine, plus the operator — for every stage. A package whose planting hold lapsed is
+  // not a package any more, even though its ploughing is still reserved, which is why this counts
+  // per stage rather than counting rows.
+  const perStage = q.assetIds.length + (q.operatorId ? 1 : 0);
+  if (perStage === 0) return true;
+  const stages = Math.max(1, q.plan.length);
+  return live.length >= perStage * stages;
 }
 
 export async function withdrawQuote(requestId: string, businessId: string, actorId: string): Promise<boolean> {
@@ -286,7 +413,12 @@ export async function acceptQuote(quoteId: string, farmerId: string, onBehalf = 
   }
 
   const now = new Date().toISOString();
-  const endDate = endDateOf(quote);
+  // A package runs from its first stage to its last, so what the job owns is the whole span. For a
+  // single-stage quote this is the same answer endDateOf has always given.
+  const span = quote.plan.length > 0 ? spanOf(quote.plan) : { startDate: quote.startDate, endDate: endDateOf(quote) };
+  const endDate = span.endDate;
+  const travel = await travelDays();
+  const block = blockWindow(span.startDate, endDate, travel);
   // Accepting is one decision: the frozen agreement, the losing quotes and the request's own
   // state all move together, or none of them do.
   const decided = await db.tx<AcceptResult>(async (t) => {
@@ -312,7 +444,7 @@ export async function acceptQuote(quoteId: string, farmerId: string, onBehalf = 
 
     // The agreement is a frozen copy: later edits to the quote cannot change what was agreed.
     await t.run(`INSERT INTO agreement (id, request_id, quote_id, business_id, version, amount_minor, fee_minor, includes, start_date, accepted_by, accepted_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`, randomUUID(), quote.requestId, quote.id, quote.businessId, quote.version, quote.amountMinor, feeMinor, quote.includes, quote.startDate, farmerId, now);
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`, randomUUID(), quote.requestId, quote.id, quote.businessId, quote.version, quote.amountMinor, feeMinor, quote.includes, span.startDate, farmerId, now);
     await t.run("UPDATE quote SET status='accepted' WHERE id=?", quote.id);
     await t.run("UPDATE quote SET status='not_selected' WHERE request_id=? AND id<>? AND status='sent'", quote.requestId, quote.id);
     await t.run("UPDATE service_request SET status='in_progress', updated_at=? WHERE id=?", now, quote.requestId);
@@ -335,9 +467,11 @@ export async function acceptQuote(quoteId: string, farmerId: string, onBehalf = 
     // named operator. Nothing is chosen again here, which is the point — "do not create a second
     // reservation".
     if (quote.assetIds.length > 0) {
-      await t.run(`UPDATE job SET start_date=?, end_date=?, operator_id=?,
+      // block_from/block_to carry the travel the quote held, so the job keeps blocking exactly the
+      // days its holds did rather than quietly freeing the travel days on acceptance.
+      await t.run(`UPDATE job SET start_date=?, end_date=?, block_from=?, block_to=?, operator_id=?,
            status=CASE WHEN status='unscheduled' THEN 'scheduled' ELSE status END, updated_at=?
-         WHERE id=?`, quote.startDate, endDate, quote.operatorId, now, jobId);
+         WHERE id=?`, span.startDate, endDate, block.from, block.to, quote.operatorId, now, jobId);
       for (const assetId of quote.assetIds) {
         await t.run("INSERT INTO job_asset (job_id, equipment_id) VALUES (?,?) ON CONFLICT DO NOTHING", jobId, assetId);
       }

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db, type Queries } from "./db";
 import { DISTRICTS, SERVICES, audit } from "./business";
 import { coverageOf, type Coverage } from "./coverage";
+import { leadService, setOperations } from "./operations";
 
 /**
  * Service requests: a farmer asks for ploughing or harvesting, providers see it and
@@ -94,7 +95,21 @@ export async function nextReference(t: Queries): Promise<string> {
 export type Assisted = { by: string; callerName: string; callerRelation: string; mayAccept: string };
 
 export type NewRequest = {
+  /**
+   * The stage the request leads with, which is the first one in the farming year.
+   *
+   * On a single-service request that is the service, as it always was. On a package it is the
+   * earliest stage — so every screen, filter and notification that reads this column keeps saying
+   * something true, and the hundred-odd places that read `request.service` needed no change.
+   */
   service: string;
+  /**
+   * Every stage the farmer asked for, in any order: `setOperations` sorts them.
+   *
+   * Left out on a single-service request, where `service` is the whole of it. See lib/operations.ts
+   * for why both exist rather than this replacing `service` outright.
+   */
+  services?: string[];
   acres: number;
   landAccess: string;
   landCondition: string;
@@ -130,6 +145,10 @@ export async function createRequest(farmerId: string | null, input: NewRequest):
   const id = randomUUID();
   // One transaction, so a reference is never allocated without the request it belongs to.
   const owner = input.assisted?.by ?? farmerId;
+  // The column always holds the stage the work leads with, worked out here rather than taken from
+  // the caller, so `service` and `request_operation` cannot disagree however the request arrived.
+  const services = input.services?.length ? input.services : [input.service];
+  const lead = leadService(services);
   let key = input.submissionKey && isSubmissionKey(input.submissionKey) ? input.submissionKey : null;
   const reference = await db.tx(async (t) => {
     // The same form sent again: the request it already made, whatever happened to the first reply.
@@ -144,11 +163,16 @@ export async function createRequest(farmerId: string | null, input: NewRequest):
     // A farmer whose connection dropped and who sends the same form again gets the request they
     // already made, not a second one with its own reference.
     if (farmerId && !input.assisted) {
-      const same = await t.get(`SELECT id, reference FROM service_request
-           WHERE farmer_id=? AND service=? AND acres=? AND district=? AND village=? AND preferred_date=?
-             AND COALESCE(direct_to, '')=? AND status='awaiting_quotes' AND created_at >= ?
-           ORDER BY created_at DESC LIMIT 1`, farmerId, input.service, input.acres, input.district, input.village, input.preferredDate,
-        input.directTo ?? "", new Date(Date.now() - RESUBMIT_WINDOW_MS).toISOString()) as { id: string; reference: string } | undefined;
+      // Same farmer, same field, same day, same stages. The stage count is part of it: a farmer
+      // who asked for ploughing and then, ten minutes later, for ploughing and harrowing has asked
+      // for two different things and should get two requests.
+      const wanted = services.length;
+      const same = await t.get(`SELECT r.id, r.reference FROM service_request r
+           WHERE r.farmer_id=? AND r.service=? AND r.acres=? AND r.district=? AND r.village=? AND r.preferred_date=?
+             AND COALESCE(r.direct_to, '')=? AND r.status='awaiting_quotes' AND r.created_at >= ?
+             AND (SELECT COUNT(*) FROM request_operation o WHERE o.request_id = r.id) = ?
+           ORDER BY r.created_at DESC LIMIT 1`, farmerId, lead, input.acres, input.district, input.village, input.preferredDate,
+        input.directTo ?? "", new Date(Date.now() - RESUBMIT_WINDOW_MS).toISOString(), wanted) as { id: string; reference: string } | undefined;
       if (same) return { existing: same.id, reference: same.reference };
     }
     const next = await nextReference(t);
@@ -158,7 +182,7 @@ export async function createRequest(farmerId: string | null, input: NewRequest):
          preferred_date, alternate_date, district, chiefdom, village, notes, submission_key, created_at, updated_at,
          land_type, crop_variety, planted_on, crop_readiness)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`, id, next, farmerId, input.contactName, input.contactPhone, input.contactEmail,
-      input.service, input.acres, input.landAccess, input.landCondition, input.landClearance, input.crop ?? "", input.directTo ?? null,
+      lead, input.acres, input.landAccess, input.landCondition, input.landClearance, input.crop ?? "", input.directTo ?? null,
       input.assisted?.by ?? null, input.assisted?.callerName ?? "", input.assisted?.callerRelation ?? "", input.assisted?.mayAccept ?? "",
       input.preferredDate, input.alternateDate, input.district, input.chiefdom ?? "",
       input.village, input.notes, key, now, now,
@@ -168,6 +192,9 @@ export async function createRequest(farmerId: string | null, input: NewRequest):
       const other = await sentBefore();
       if (other) return { existing: other.id, reference: other.reference };
     }
+    // Every request gets its stages, so nothing downstream has to cope with a request that has
+    // none. A single-service request is a list of one.
+    if (inserted.changes) await setOperations(t, id, services, now);
     return { existing: null, reference: next };
   });
   if (reference.existing) return (await getById(reference.existing))!;
@@ -180,14 +207,21 @@ export async function updateRequest(
   farmerId: string, id: string,
   d: Omit<NewRequest, "contactName" | "contactPhone" | "contactEmail" | "directTo" | "assisted">,
 ): Promise<boolean> {
+  // The stages move with the details, and only while nobody has priced them. `service` follows the
+  // list rather than being set beside it, so the lead stage can never disagree with the operations.
+  const services = d.services?.length ? d.services : [d.service];
+  const lead = leadService(services);
   const res = await db.run(`UPDATE service_request SET service=?, acres=?, land_access=?, land_condition=?, land_clearance=?, crop=?,
        preferred_date=?, alternate_date=?, district=?, chiefdom=?, village=?, notes=?, updated_at=?,
        land_type=?, crop_variety=?, planted_on=?, crop_readiness=?
        WHERE id=? AND ${OWNED_BY()} AND status='awaiting_quotes'`,
-    d.service, d.acres, d.landAccess, d.landCondition, d.landClearance, d.crop ?? "", d.preferredDate, d.alternateDate,
+    lead, d.acres, d.landAccess, d.landCondition, d.landClearance, d.crop ?? "", d.preferredDate, d.alternateDate,
     d.district, d.chiefdom ?? "", d.village, d.notes, new Date().toISOString(),
     d.landType ?? "", d.cropVariety ?? "", d.plantedOn ?? "", d.cropReadiness ?? "", id, farmerId, farmerId);
-  if (res.changes) await audit(farmerId, "request.edited", id);
+  if (res.changes) {
+    await db.tx(async (t) => setOperations(t, id, services, new Date().toISOString()));
+    await audit(farmerId, "request.edited", id);
+  }
   return res.changes > 0;
 }
 
@@ -223,6 +257,28 @@ function coverageClause(c: Coverage, where: string[], params: (string | number)[
   where.push(`(direct_to = ? OR (direct_to IS NULL AND (${c.areas.map(() => "(district = ? AND service = ?)").join(" OR ")})))`);
   params.push(c.id, ...c.areas.flatMap((a) => [a.district, a.service]));
 }
+/**
+ * Drops packages this provider cannot see all the way through.
+ *
+ * Karim's handover, 23 November 2026: "All stages must be covered before the package is quoted." A
+ * provider who ploughs but does not plant has nothing to offer a farmer who asked for both, and
+ * listing it would waste their time and the farmer's.
+ *
+ * A request sent directly to one business is exempt, as it is from every coverage rule: the farmer
+ * chose them on purpose and may well have talked to them already.
+ *
+ * Written as a NOT EXISTS over the stages rather than a filter in JavaScript, because the browse
+ * query is paginated and a post-filter would give pages of inconsistent length and a wrong total.
+ */
+function allStagesClause(c: Coverage, where: string[], params: (string | number)[]) {
+  if (!c.areas.length) return; // coverageClause has already narrowed this to direct requests
+  const pairs = c.areas.map(() => "(service_request.district = ? AND o.service = ?)").join(" OR ");
+  where.push(`(direct_to = ? OR NOT EXISTS (
+       SELECT 1 FROM request_operation o
+        WHERE o.request_id = service_request.id AND NOT (${pairs})))`);
+  params.push(c.id, ...c.areas.flatMap((a) => [a.district, a.service]));
+}
+
 export const DATE_WINDOWS = [
   { id: "", label: "All dates" },
   { id: "30", label: "Next 30 days" },
@@ -239,13 +295,17 @@ export const PAGE_SIZE = 7;
 export async function browse(filters: Filters, page: number, business: Provider): Promise<{ rows: ServiceRequest[]; total: number; pages: number }> {
   const where: string[] = ["status <> 'cancelled'", "private_to IS NULL"];
   const params: (string | number)[] = [];
-  coverageClause(await coverageOf(business), where, params);
+  const cover = await coverageOf(business);
+  coverageClause(cover, where, params);
+  allStagesClause(cover, where, params);
   if (filters.reference) {
     where.push("reference = ?");
     params.push(filters.reference);
   }
   if (filters.service && SERVICES.some((s) => s.id === filters.service)) {
-    where.push("service = ?");
+    // Any stage, not only the lead one: a provider filtering for harrowing wants the package whose
+    // second stage is harrowing as much as the plain harrowing job.
+    where.push("EXISTS (SELECT 1 FROM request_operation o WHERE o.request_id = service_request.id AND o.service = ?)");
     params.push(filters.service);
   }
   if (filters.district && (DISTRICTS as readonly string[]).includes(filters.district)) {
@@ -284,21 +344,33 @@ export async function searchForProvider(q: string, business: Provider): Promise<
   const t = likeTerm(q);
   const where: string[] = [];
   const params: (string | number)[] = [];
-  coverageClause(await coverageOf(business), where, params);
+  const cover = await coverageOf(business);
+  coverageClause(cover, where, params);
+  allStagesClause(cover, where, params);
   const also = ` AND ${where.join(" AND ")}`;
   const rows = await db.all(`SELECT * FROM service_request WHERE status <> 'cancelled' AND private_to IS NULL${also} AND ${REQUEST_MATCH} ORDER BY created_at DESC LIMIT 25`, ...params, t, t, t) as Row[];
   return rows.map(fromRow);
 }
 
-/** Approved businesses covering this request, to tell them it exists. Their own sign-in email. */
-export async function providersCovering(r: { district: string; service: string }): Promise<{ businessId: string; email: string }[]> {
+/**
+ * Approved businesses covering this request, to tell them it exists. Their own sign-in email.
+ *
+ * `services` is every stage of a package. All of them have to be covered, by the same rule that
+ * keeps the package off the browse list — a notification a provider cannot act on is worse than no
+ * notification, because next time they will not read it.
+ */
+export async function providersCovering(
+  r: { district: string; service: string; services?: string[] },
+): Promise<{ businessId: string; email: string }[]> {
+  const stages = r.services?.length ? r.services : [r.service];
   // A business with no coverage rows yet is matched on its setup district and services.
+  const covers = stages.map(() => `(
+         EXISTS (SELECT 1 FROM provider_coverage c WHERE c.business_id = b.id AND c.status = 'active' AND c.district = ? AND c.service = ?)
+         OR (NOT EXISTS (SELECT 1 FROM provider_coverage c WHERE c.business_id = b.id) AND b.district = ? AND b.services LIKE ?))`).join(" AND ");
+  const params = stages.flatMap((service) => [r.district, service, r.district, `%"${service}"%`]);
   const rows = await db.all(`SELECT b.id AS id, u.email AS email FROM provider_business b
        JOIN "user" u ON u.id = b.user_id
-       WHERE b.status = 'approved' AND (
-         EXISTS (SELECT 1 FROM provider_coverage c WHERE c.business_id = b.id AND c.status = 'active' AND c.district = ? AND c.service = ?)
-         OR (NOT EXISTS (SELECT 1 FROM provider_coverage c WHERE c.business_id = b.id) AND b.district = ? AND b.services LIKE ?))`,
-    r.district, r.service, r.district, `%"${r.service}"%`) as { id: string; email: string }[];
+       WHERE b.status = 'approved' AND ${covers}`, ...params) as { id: string; email: string }[];
   return rows.map((b) => ({ businessId: b.id, email: b.email }));
 }
 

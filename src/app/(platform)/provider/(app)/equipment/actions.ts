@@ -269,3 +269,36 @@ export async function savePairingAction(_prev: FormState, fd: FormData): Promise
   revalidatePath("/provider/requests");
   return { notice: "Pairing recorded." };
 }
+
+/* ------------------------------------------- one machine, two providers */
+
+/**
+ * Lends a machine to another provider, or takes it back.
+ *
+ * "A shared asset shares its reservation constraint without sharing business data." The constraint
+ * comes free — a hold is on a machine id, so a borrowed tractor collides with itself whichever
+ * business quoted it — and the data stays apart because the borrower never gets this machine on
+ * their own register: see the note at the top of lib/shares.ts.
+ */
+export async function shareAssetAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return { error: "You do not have permission to share equipment." };
+  const { grantShare } = await import("@/lib/shares");
+  const result = await grantShare(business.id, user.id, str(fd, "equipmentId"), str(fd, "toBusinessId"), str(fd, "note"));
+  if (!result.ok) return { error: result.reason };
+  revalidatePath("/provider/equipment");
+  return { notice: "Shared. They can now reserve it, and your dates still come first." };
+}
+
+export async function revokeShareAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return;
+  const { revokeShare } = await import("@/lib/shares");
+  const ok = await revokeShare(business.id, user.id, str(fd, "equipmentId"), str(fd, "fromBusinessId"));
+  // Work they have already committed is flagged rather than cancelled, which is what the provider
+  // at the other end needs to hear about rather than discover.
+  await flash(ok
+    ? "Taken back. Any work they had booked with it has been flagged for them."
+    : "That machine was not shared with them.");
+  revalidatePath("/provider/equipment");
+}

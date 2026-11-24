@@ -3,11 +3,13 @@
 import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
 import { useModal } from "@/components/app/useModal";
-import { useRef, useState } from "react";
+import { useActionState, useRef, useState } from "react";
+import { useSafely } from "@/components/app/safely";
+import type { FormState } from "@/lib/auth-flows";
 import { Icon, ServiceIcon, type IconName } from "@/components/app/Icon";
 import { ScheduleModal } from "./ScheduleModal";
 import { ReportModal } from "./ReportModal";
-import { mobiliseAction, noReplacementAction, readinessAction, startWorkAction } from "@/app/(platform)/provider/(app)/jobs/actions";
+import { mobiliseAction, noReplacementAction, readinessAction, reconfirmCapacityAction, resolveFlagAction, startWorkAction } from "@/app/(platform)/provider/(app)/jobs/actions";
 import { landSize } from "@/lib/land-size";
 
 export type Option = { id: string; label: string };
@@ -20,7 +22,34 @@ export type JobView = {
   schedule: { startDate: string; endDate: string; operatorId: string; assetIds: string[] };
   checks: { id: string; label: string; done: boolean }[];
   mobilisedAt: string | null; startedAt: string | null;
+  /** Problems somebody has to deal with before this booking can go out, and what each one was. */
+  flags: { id: string; cause: string; reason: string }[];
+  /** Everything that would stop a dispatch, in the server's own words. */
+  blockers: string[];
 };
+
+/**
+ * How a provider answers a flag.
+ *
+ * The text is not optional, here or on the server: a flag that can be cleared with one click is a
+ * flag that gets cleared without being read, and what was actually done is part of the job's record
+ * and part of what a dispute would turn on.
+ */
+function ResolveFlag({ flagId }: { flagId: string }) {
+  const [state, action] = useActionState(useSafely(resolveFlagAction), {} as FormState);
+  return (
+    <form action={action} className="flags__resolve">
+      <input type="hidden" name="flagId" value={flagId} />
+      <label className="field__label" htmlFor={`fix-${flagId}`}>What you did about it</label>
+      <div className="field__box">
+        <input id={`fix-${flagId}`} name="resolution" className="field__input" maxLength={200}
+          placeholder="eg: moved it to Tractor B, farmer told" />
+      </div>
+      {state.error ? <p className="field__error">{state.error}</p> : null}
+      <PendingButton className="button button--soft">Record it</PendingButton>
+    </form>
+  );
+}
 
 const PILL: Record<string, string> = {
   unscheduled: "awaiting_quotes",
@@ -144,6 +173,37 @@ function JobModal({ job: j, canEdit, onClose, onSchedule, onReport }: {
               <PendingButton className="resend__button">No replacement available</PendingButton>
             </form>
           ) : null}
+          {/* "A new blocking fault must flag existing bookings for action rather than cancelling them
+              silently." The booking is still here; somebody has to say what they are doing about it,
+              and until they do the equipment does not leave. */}
+          {j.flags.length > 0 ? (
+            <div className="flags">
+              <p className="notice notice--warn" role="status">
+                {j.flags.length === 1 ? "This booking needs attention" : `${j.flags.length} problems on this booking`}.
+                It has not been cancelled — swap the machine, move the dates, or cancel it and tell the farmer.
+              </p>
+              <ul className="flags__list">
+                {j.flags.map((f) => (
+                  <li key={f.id}>
+                    <strong>{f.reason}</strong>
+                    {canEdit ? <ResolveFlag flagId={f.id} /> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {/* "Capacity that has gone stale stays blocked until it is confirmed again." Shown as the
+              one-click way out rather than as a dead end. */}
+          {canEdit && j.status === "scheduled" && !j.mobilisedAt
+            && j.blockers.some((b) => b.includes("gone stale")) ? (
+            <form action={reconfirmCapacityAction} className="flags__confirm">
+              <input type="hidden" name="jobId" value={j.id} />
+              <p className="field__helper">
+                Your last check on these machines has gone stale. Look at them again before they go out.
+              </p>
+              <PendingButton className="button button--soft">They are working and free</PendingButton>
+            </form>
+          ) : null}
           {j.changes.length > 0 ? <p className="field__helper">Changes: {j.changes.join(" · ")}</p> : null}
 
           {j.status === "scheduled" && !j.mobilisedAt ? (
@@ -184,7 +244,11 @@ function JobModal({ job: j, canEdit, onClose, onSchedule, onReport }: {
                   {j.status === "unscheduled" ? "Schedule" : "Change plan"}
                 </button>
               ) : null}
-              {j.status === "scheduled" && !j.mobilisedAt && j.checks.every((c) => c.done) ? (
+              {/* The checklist is no longer the only gate: an open flag, a machine that cannot work
+                  and a stale capacity check each stop a dispatch, and the button is hidden rather
+                  than offered and then refused. */}
+              {j.status === "scheduled" && !j.mobilisedAt && j.checks.every((c) => c.done)
+                && j.blockers.length === 0 ? (
                 <form action={mobiliseAction}>
                   <input type="hidden" name="jobId" value={j.id} />
                   <PendingButton className="button button--ghost">Equipment on the way</PendingButton>

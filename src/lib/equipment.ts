@@ -499,6 +499,13 @@ export async function setCondition(
   if (res.changes) {
     await note(id, "condition", before.condition, condition, actorId, conditionNote);
     await audit(actorId, "equipment.condition", id, condition);
+    // Moving a machine into repair is the same news to a waiting farmer as a blocking fault, so it
+    // flags the same bookings. Moving it back out does not clear them: somebody still has to say
+    // what happened to the job, which is what resolving the flag is for.
+    if (condition === "repair" && before.condition !== "repair") {
+      const { flagBookings } = await import("./flags");
+      await flagBookings(id, "condition", `${before.name} is under repair${conditionNote ? `: ${conditionNote}` : ""}`, actorId);
+    }
   }
   return res.changes > 0;
 }
@@ -619,9 +626,18 @@ export async function getGalleryPhoto(businessId: string, photoId: string): Prom
 /* ------------------------------------------------------------------ faults */
 
 export async function reportFault(businessId: string, actorId: string, equipmentId: string, severity: "blocking" | "minor", description: string): Promise<boolean> {
-  if (!(await getAsset(businessId, equipmentId))) return false; // never touch another provider's machine
+  const asset = await getAsset(businessId, equipmentId);
+  if (!asset) return false; // never touch another provider's machine
   await db.run("INSERT INTO equipment_fault (id, equipment_id, severity, description, reported_by, reported_at) VALUES (?,?,?,?,?,?)", randomUUID(), equipmentId, severity, description, actorId, new Date().toISOString());
   await audit(actorId, "equipment.fault_reported", equipmentId, severity);
+
+  // "A new blocking fault must flag existing bookings for action rather than cancelling them
+  // silently." Only blocking ones: a minor fault leaves the machine working, and flagging every
+  // booking over a cracked mirror would train providers to dismiss the queue without reading it.
+  if (severity === "blocking") {
+    const { flagBookings } = await import("./flags");
+    await flagBookings(equipmentId, "fault", `${asset.name}: ${description}`.trim(), actorId);
+  }
   return true;
 }
 
