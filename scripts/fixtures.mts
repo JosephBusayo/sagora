@@ -9,6 +9,32 @@
 import { randomUUID } from "node:crypto";
 import { db } from "../src/lib/db";
 
+/**
+ * Refuses to write fixtures into anything but a throwaway SQLite file.
+ *
+ * On 24 November 2026 the check:* suites were run with DATABASE_URL uncommented in .env.local.
+ * src/lib/db.ts picks the Postgres driver whenever a URL is present and ignores DATABASE_PATH
+ * entirely, so suites that looked like they were building scratch databases wrote approved
+ * provider businesses, equipment, farmers, requests and quotes straight into the hosted one.
+ *
+ * Passing DATABASE_PATH is not isolation and never was. This is. It runs once, on import, before
+ * any fixture can be created — so the mistake costs a one-line error message instead of a cleanup
+ * script.
+ */
+if (process.env.DATABASE_URL) {
+  console.error(
+    [
+      "",
+      "Refusing to run: DATABASE_URL is set, so this would write test fixtures into a real database.",
+      "",
+      "DATABASE_PATH does not help — src/lib/db.ts ignores it whenever a URL is present.",
+      "Comment DATABASE_URL and DATABASE_URL_UNPOOLED out of .env.local, then run the suite again.",
+      "",
+    ].join("\n"),
+  );
+  process.exit(1);
+}
+
 const now = () => new Date().toISOString();
 
 export const inDays = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);

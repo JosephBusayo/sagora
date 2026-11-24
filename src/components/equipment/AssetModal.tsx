@@ -12,6 +12,7 @@ import { saveAsset } from "@/app/(platform)/provider/(app)/equipment/actions";
 import type { FormState } from "@/lib/auth-flows";
 import type { AssetView } from "./EquipmentList";
 import { PhotoPicker } from "./PhotoPicker";
+import { clearDraft, restoreDraft, saveDraft } from "@/components/app/draft";
 
 type Option = { id: string; label: string };
 
@@ -57,10 +58,21 @@ function Chips({ name, legend, options, checked, type, error }: {
  * one form: the steps only show and hide fields, so nothing typed is lost moving between them,
  * and the server checks everything once at the end.
  */
-export function AssetModal({ asset, kinds, services, availability, serialStates, onClose }: {
+export function AssetModal({ asset, kinds, services, availability, serialStates, submissionKey, onClose }: {
   asset: AssetView | null; kinds: Option[]; services: Option[]; availability: Option[];
   /** Passed in rather than imported: lib/equipment is server-only and this is a client component. */
-  serialStates: Option[]; onClose: () => void;
+  serialStates: Option[];
+  /**
+   * Made once by the server when the page was drawn and sent with every attempt.
+   *
+   * "A retry must not create a duplicate" (A16). A provider on a bad connection who presses Add
+   * twice — or whose first attempt timed out after the row was written — gets one machine, because
+   * the key is unique in the database and the second insert finds the first. The request form has
+   * worked this way since migration 011; the equipment form had nothing, and two taps made two
+   * tractors.
+   */
+  submissionKey?: string;
+  onClose: () => void;
 }) {
   const [state, action] = useActionState(useSafely(saveAsset), {} as FormState);
   const [step, setStep] = useState(0);
@@ -106,6 +118,31 @@ export function AssetModal({ asset, kinds, services, availability, serialStates,
   const shown = (n: number) => editing || step === n;
   const legacyBrand = asset && !asset.brand && !asset.model ? asset.name : asset?.brand ?? "";
 
+  /**
+   * "Drafts and uploads must survive a dropped connection."
+   *
+   * Only while adding. Restoring a half-typed edit over a machine that is already on the register
+   * would be worse than losing it: a provider would not know which fields were theirs and which
+   * were a week-old draft, and the saved values are the ones the business actually runs on.
+   *
+   * Photographs are deliberately not kept — they are megabytes of base64 and localStorage is a few
+   * megabytes in total, so saving one would evict the text that matters. The picker keeps its own
+   * selection while the window is open, which covers the reload case for everything but the file.
+   */
+  const draftKey = editing ? null : "sagora:equipment-draft";
+  useEffect(() => {
+    if (draftKey && form.current) restoreDraft(draftKey, form.current);
+    // Runs again as the step and the kind change, because that is when the fields that depend on
+    // them come into existence. Restoring only ever fills an empty field, so repeating is harmless.
+  }, [draftKey, step, kind, ownership]);
+  const remember = () => { if (draftKey && form.current) saveDraft(draftKey, form.current); };
+
+  useEffect(() => {
+    // Saved, so the draft has done its job. Cleared on the notice rather than on submit: a submit
+    // that the server then refuses still needs the answers.
+    if (done && draftKey) clearDraft(draftKey);
+  }, [done, draftKey]);
+
   return (
     <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) close(); }}>
       <div className="modal modal--asset" role="dialog" aria-modal="true" aria-labelledby="asset-title" ref={ref}>
@@ -113,9 +150,13 @@ export function AssetModal({ asset, kinds, services, availability, serialStates,
           <h2 id="asset-title">{editing ? "Edit details" : "Add equipment"}</h2>
           <p>{editing ? "Edit details about your equipment" : "Tell us about your equipment"}</p>
         </div>
-        <form ref={form} action={action} className="form-soft">
+        <form ref={form} action={action} className="form-soft"
+          // Every keystroke and every chip, rather than only on moving between steps: the provider
+          // who loses signal mid-field is the one this is for.
+          onInput={remember} onChange={remember}>
           <CheckFirst title="Check the equipment details" action={editing ? "Save changes" : "Add equipment"} />
           {asset ? <input type="hidden" name="id" value={asset.id} /> : null}
+          {!asset && submissionKey ? <input type="hidden" name="submissionKey" value={submissionKey} /> : null}
           {asset ? <input type="hidden" name="ownership" value={asset.ownership} /> : null}
           {asset ? <input type="hidden" name="notes" value={asset.notes} /> : null}
 

@@ -4,12 +4,15 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
 import { FilterMenu } from "@/components/app/FilterMenu";
 import { useModal } from "@/components/app/useModal";
+import Link from "next/link";
 import { useActionState, useRef, useState } from "react";
+import { DOWNTIME_KINDS } from "@/lib/downtime-kinds";
+import { landSize } from "@/lib/land-size";
 import { Icon } from "@/components/app/Icon";
 import { AssetModal } from "./AssetModal";
 import { FaultModal } from "./FaultModal";
 import {
-  addGalleryPhotoAction, removeGalleryPhotoAction, resolveFaultAction, restoreAssetAction, retireAssetAction, revokeShareAction, savePairingAction, setAvailabilityAction, setPhotoAction, shareAssetAction,
+  addGalleryPhotoAction, cancelDowntimeAction, recordDowntimeAction, removeGalleryPhotoAction, resolveFaultAction, restoreAssetAction, retireAssetAction, revokeShareAction, savePairingAction, setAvailabilityAction, setPhotoAction, shareAssetAction,
 } from "@/app/(platform)/provider/(app)/equipment/actions";
 import { PhotoPicker } from "./PhotoPicker";
 import { Field } from "@/components/auth/Field";
@@ -17,9 +20,31 @@ import { FormNotice } from "@/components/app/FormNotice";
 import { useSafely } from "@/components/app/safely";
 import type { FormState } from "@/lib/auth-flows";
 
-export type FaultView = { id: string; severity: "blocking" | "minor"; description: string; reportedAt: string };
+/**
+ * One fault. `resolvedAt` is null while it is open.
+ *
+ * `a.faults` carries only the open ones, which is what the card and the Overview tab need;
+ * `a.allFaults` carries every one ever recorded, which is what Faults and repairs needs — a
+ * machine's fault history is the thing a provider actually wants when deciding whether to keep it.
+ */
+export type FaultView = {
+  id: string; severity: "blocking" | "minor"; description: string; reportedAt: string;
+  resolvedAt?: string | null; resolution?: string;
+};
 export type Readiness = { service: string; summary: string; ready: boolean };
 export type PairableService = { id: string; label: string; kinds: string[] };
+/** One commitment on a machine's calendar: a quote's hold, a booking, or booked-out downtime. */
+export type CommitmentView = {
+  kind: string; from: string; to: string; what: string; where: string; committed: boolean;
+  /** Set on a downtime row, so the row can carry its own "call it off" control. */
+  downtimeId?: string;
+};
+/** One finished, cancelled or disputed job this machine was on. */
+export type PastJobView = { reference: string; what: string; where: string; from: string; to: string; status: string; acres: number | null };
+/** One line of assignment activity. Never carries a price — see lib/asset-detail.ts. */
+export type ActivityView = { at: string; text: string };
+/** A span this machine is deliberately out of action for. */
+export type DowntimeView = { id: string; kind: string; kindLabel: string; fromDate: string; toDate: string; reason: string; cancelled: boolean };
 /** Another approved provider this machine could be lent to. */
 export type ShareableProvider = { id: string; name: string; district: string };
 /** Who a machine is currently lent to. */
@@ -29,8 +54,28 @@ export type PairingView = { implementId: string; service: string; verdict: strin
 
 export type AssetView = {
   pairings: PairingView[];
+  /**
+   * The three tabs beyond Overview.
+   *
+   * Loaded with the list rather than on demand, because a provider with a dozen machines opens two
+   * or three of them and a round trip per tab would make the window feel broken on a slow
+   * connection. If the register ever grows past a page this moves to a route.
+   */
+  schedule: CommitmentView[];
+  history: PastJobView[];
+  activity: ActivityView[];
+  downtime: DowntimeView[];
+  allFaults: FaultView[];
   /** Providers this machine is lent to right now. Empty on almost every machine. */
   shares: ShareView[];
+  /**
+   * The districts this machine has actually worked in, for the district filter.
+   *
+   * Drawn from its jobs rather than from `location`, which is free text somebody typed, and rather
+   * than from the business's coverage, which is where it *could* go. Where it has been is the only
+   * one of the three that is a fact.
+   */
+  districts: string[];
   /* Added with Karim's handover of 23 Nov 2026 — identity, condition, lease and specifications. */
   assetRef: string;
   serialStatus: "recorded" | "unreadable" | "none";
@@ -185,6 +230,236 @@ function ShareForm({ a, providers }: { a: AssetView; providers: ShareableProvide
   );
 }
 
+/**
+ * Booking a machine out, and recording work done off Sagora.
+ *
+ * Karim's handover, 23 November 2026: "Move Record downtime and Record private work inside
+ * Equipment. Private work recorded outside the booking flow is a second source of scheduling
+ * truth." Private work was already inside the booking flow — it is a job against a request the
+ * business owns — so this moves the button to where the machine is rather than rebuilding it.
+ *
+ * Downtime is new, and the distinction is worth stating: a *condition* of "under repair" says the
+ * machine is not available and gives no end date, so nothing can answer a question about next
+ * week. Downtime is a span, which can.
+ */
+function DowntimeSection({ a }: { a: AssetView }) {
+  const [state, action] = useActionState(useSafely(recordDowntimeAction), {} as FormState);
+  return (
+    <section className="downtime">
+      {/* No list of its own: the booked-out spans are in the schedule above, in date order among
+          the work, each with its own "call it off". This is only the way to add one. */}
+      <details className="downtime__add">
+        <summary>Book it out</summary>
+        <form action={action} className="form-soft">
+          <input type="hidden" name="equipmentId" value={a.id} />
+          <div className="field">
+            <label className="field__label" htmlFor={`dt-kind-${a.id}`}>Why</label>
+            <div className="field__box">
+              <select id={`dt-kind-${a.id}`} name="kind" className="field__input" defaultValue="service">
+                {DOWNTIME_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="field">
+              <label className="field__label" htmlFor={`dt-from-${a.id}`}>From</label>
+              <div className="field__box">
+                <input id={`dt-from-${a.id}`} name="fromDate" type="date" className="field__input" suppressHydrationWarning />
+              </div>
+            </div>
+            <div className="field">
+              <label className="field__label" htmlFor={`dt-to-${a.id}`}>To</label>
+              <div className="field__box">
+                <input id={`dt-to-${a.id}`} name="toDate" type="date" className="field__input" suppressHydrationWarning />
+              </div>
+            </div>
+          </div>
+          <Field name="reason" label="Anything worth noting" required={false} maxLength={200}
+            placeholder="eg: 250-hour service at the dealer" />
+          <p className="field__helper">
+            It will not be offered for work on these days. Work already booked has to be moved first — you
+            will be told what is in the way.
+          </p>
+          {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
+          <FormNotice state={state} />
+          <PendingButton className="button button--inline">Book it out</PendingButton>
+        </form>
+      </details>
+
+      {/* The other half of the same handover line. The form itself is unchanged — it already
+          creates a job against a request this business owns, which is what keeps private work
+          inside the one scheduling truth. */}
+      <p className="field__helper">
+        Did work for yourself or a neighbour off Sagora?{" "}
+        <Link href={`/provider/jobs/new?asset=${a.id}`}>Record private work</Link>, and it will hold
+        the machine like any other job.
+      </p>
+    </section>
+  );
+}
+
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "schedule", label: "Schedule" },
+  { id: "history", label: "Job history" },
+  { id: "faults", label: "Faults and repairs" },
+] as const;
+type Tab = (typeof TABS)[number]["id"];
+
+const day = (iso: string) =>
+  iso ? new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-GB",
+    { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : "";
+
+/** A span, said once when it is a single day rather than "14 Dec to 14 Dec". */
+const span = (from: string, to: string) => (from === to ? day(from) : `${day(from)} to ${day(to)}`);
+
+/**
+ * Where this machine is spoken for.
+ *
+ * Holds, bookings and downtime in one list, because a provider looking at a calendar does not care
+ * which table a commitment lives in. A quote nobody has answered is marked as such: it is the one
+ * line here that can still evaporate.
+ */
+function ScheduleTab({ a, canEdit }: { a: AssetView; canEdit: boolean }) {
+  return (
+    <>
+      {a.schedule.length === 0 ? (
+        <p className="field__helper">Nothing booked. This machine is free from today onwards.</p>
+      ) : (
+        <ul className="timeline">
+          {a.schedule.map((c, i) => (
+            <li key={`${c.kind}-${c.from}-${i}`} className={`timeline__item timeline__item--${c.kind}`}>
+              <span className="timeline__when">{span(c.from, c.to)}</span>
+              <span className="timeline__what">
+                <strong>{c.what}</strong>
+                {c.where ? <span className="field__helper">{c.where}</span> : null}
+                {!c.committed ? (
+                  <span className="field__helper">Not firm yet — the farmer has not answered.</span>
+                ) : null}
+              </span>
+              {/* The control sits on the row it acts on. Listing booked-out spans again underneath,
+                  as the first version did, made one servicing read as two bookings — the same
+                  mistake the hold-and-job de-duplication above exists to avoid. */}
+              {c.kind === "downtime" && c.downtimeId && canEdit ? (
+                <form action={cancelDowntimeAction}>
+                  <input type="hidden" name="id" value={c.downtimeId} />
+                  <PendingButton className="resend__button">Call it off</PendingButton>
+                </form>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* "Move Record downtime and Record private work inside Equipment." Both live here now: the
+          machine is the thing being committed, so this is where a provider is already looking. */}
+      {canEdit && a.status === "active" ? <DowntimeSection a={a} /> : null}
+    </>
+  );
+}
+
+/** What this machine has actually done. The acreage is the figure a provider checks it against. */
+function HistoryTab({ a }: { a: AssetView }) {
+  if (a.history.length === 0) {
+    return <p className="field__helper">No finished work yet. Jobs show here once they are completed or cancelled.</p>;
+  }
+  return (
+    <>
+      <ul className="timeline">
+        {a.history.map((j, i) => (
+          <li key={`${j.reference}-${i}`} className="timeline__item">
+            <span className="timeline__when">{span(j.from, j.to)}</span>
+            <span className="timeline__what">
+              <strong>{j.what}</strong>
+              <span className="field__helper">
+                {[j.reference, j.where, j.acres ? landSize(j.acres) : ""].filter(Boolean).join(" · ")}
+              </span>
+            </span>
+            <span className={`pill pill--${j.status === "completed" ? "completed" : "cancelled"}`}>
+              {j.status === "completed" ? "Completed" : j.status === "disputed" ? "Disputed" : "Cancelled"}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {/* "Show assignment activity for cancellations, replacements and expired holds, with no
+          prices shown." Read from the records that caused each event rather than a log somebody has
+          to remember to write, so it cannot drift out of step with what happened. */}
+      {a.activity.length > 0 ? (
+        <details className="activity">
+          <summary>Assignment activity</summary>
+          <ul className="activity__list">
+            {a.activity.map((x, i) => (
+              <li key={`${x.at}-${i}`}>
+                <span className="field__helper">{day(x.at)}</span>
+                <span>{x.text}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </>
+  );
+}
+
+/** Everything ever recorded against it. Nothing is deleted: a machine's history is evidence. */
+function FaultsTab({ a, canEdit, onFault }: { a: AssetView; canEdit: boolean; onFault: () => void }) {
+  const open = a.allFaults.filter((f) => !f.resolvedAt);
+  const fixed = a.allFaults.filter((f) => f.resolvedAt);
+  return (
+    <>
+      {a.allFaults.length === 0 ? (
+        <p className="field__helper">Nothing recorded. Report a fault and it stays on this machine&rsquo;s record for good.</p>
+      ) : null}
+      {open.length > 0 ? (
+        <ul className="asset__faults">
+          {open.map((f) => (
+            <li key={f.id}>
+              {/* Severity is said in words as well as coloured: condition must never be carried by
+                  colour alone (handover, A16). */}
+              <span className={`pill pill--${f.severity === "blocking" ? "cancelled" : "in_progress"}`}>
+                {f.severity === "blocking" ? "Out of service" : "Needs attention"}
+              </span>
+              <span className="asset__fault-text asset__fault-text--stacked">
+                <span>{f.description}</span>
+                <span className="field__helper">Reported {day(f.reportedAt)}</span>
+              </span>
+              {canEdit ? (
+                <form action={resolveFaultAction}>
+                  <input type="hidden" name="faultId" value={f.id} />
+                  <input type="hidden" name="resolution" value="Fixed" />
+                  <PendingButton className="resend__button">Mark fixed</PendingButton>
+                </form>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {fixed.length > 0 ? (
+        <>
+          <h4 className="field__label">Put right</h4>
+          <ul className="timeline">
+            {fixed.map((f) => (
+              <li key={f.id} className="timeline__item">
+                <span className="timeline__when">{day(f.resolvedAt ?? f.reportedAt)}</span>
+                <span className="timeline__what">
+                  <strong>{f.description}</strong>
+                  <span className="field__helper">
+                    Reported {day(f.reportedAt)}{f.resolution ? ` · ${f.resolution}` : ""}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+      {canEdit && a.status === "active" ? (
+        <button type="button" className="resend__button asset__report" onClick={onFault}>Report a fault</button>
+      ) : null}
+    </>
+  );
+}
+
 function DetailsModal({ a, canEdit, availability, assets, verdicts, pairableServices, otherProviders, onClose, onEdit, onFault, onDelete }: {
   a: AssetView; canEdit: boolean; availability: Option[];
   assets: AssetView[]; verdicts: Option[]; pairableServices: PairableService[]; otherProviders: ShareableProvider[];
@@ -192,18 +467,24 @@ function DetailsModal({ a, canEdit, availability, assets, verdicts, pairableServ
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const close = useModal(ref, onClose);
+  // "Equipment detail opens to four tabs" — opens to Overview, which is what was already here.
+  const [tab, setTab] = useState<Tab>("overview");
+  const openFaults = a.allFaults.filter((f) => !f.resolvedAt).length;
+
   return (
     <div className="modal-backdrop" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) close(); }}>
       <div className="modal modal--asset" role="dialog" aria-modal="true" aria-label={a.name} ref={ref}>
-        {canEdit && a.status === "active" ? (
+        {/* The title and the photo stay above the tabs: they say which machine this is, which is
+            true on every tab. */}
+        {canEdit && a.status === "active" && tab === "overview" ? (
           // Picking a photo sends it at once; the window then shows it.
           <form action={setPhotoAction} className="asset__photo-form" data-saves-itself>
             <input type="hidden" name="id" value={a.id} />
             <PhotoPicker name="photo" label="Photo" current={a.photo} onPicked={(f) => f?.requestSubmit()} />
           </form>
-        ) : <Photo size="large" src={a.photo} />}
+        ) : tab === "overview" ? <Photo size="large" src={a.photo} /> : null}
 
-        {a.gallery.length > 0 || (canEdit && a.status === "active" && !a.galleryFull) ? (
+        {tab === "overview" && (a.gallery.length > 0 || (canEdit && a.status === "active" && !a.galleryFull)) ? (
           <div className="asset__gallery">
             {a.gallery.map((p) => (
               <span key={p.id} className="asset__gallery-item">
@@ -231,6 +512,33 @@ function DetailsModal({ a, canEdit, availability, assets, verdicts, pairableServ
           <Kind a={a} />
         </div>
 
+        {/* Real buttons in a tablist rather than links, so the whole window is reachable from the
+            keyboard and a screen reader is told which panel it is on (A16). */}
+        <div className="tabs" role="tablist" aria-label={`${a.name} details`}>
+          {TABS.map((t) => (
+            <button key={t.id} type="button" role="tab" id={`tab-${a.id}-${t.id}`}
+              aria-selected={tab === t.id} aria-controls={`panel-${a.id}-${t.id}`}
+              tabIndex={tab === t.id ? 0 : -1}
+              className={`tabs__tab${tab === t.id ? " tabs__tab--on" : ""}`}
+              onClick={() => setTab(t.id)}
+              onKeyDown={(ev) => {
+                // Left and right move between tabs, which is what a tablist is expected to do.
+                const i = TABS.findIndex((x) => x.id === tab);
+                if (ev.key === "ArrowRight") setTab(TABS[(i + 1) % TABS.length]!.id);
+                if (ev.key === "ArrowLeft") setTab(TABS[(i - 1 + TABS.length) % TABS.length]!.id);
+              }}>
+              {t.label}
+              {/* The count is said, not coloured: "condition must not be carried by colour alone". */}
+              {t.id === "faults" && openFaults > 0 ? <span className="tabs__count">{openFaults}</span> : null}
+            </button>
+          ))}
+        </div>
+
+        <div role="tabpanel" id={`panel-${a.id}-${tab}`} aria-labelledby={`tab-${a.id}-${tab}`}
+          className="tabs__panel">
+
+        {tab === "overview" ? (
+        <>
         {/* What the handover asks a register to know about one machine. Each line is omitted when
             there is nothing recorded, so a sparse asset reads as sparse rather than as a wall of
             "Not known". */}
@@ -363,29 +671,24 @@ function DetailsModal({ a, canEdit, availability, assets, verdicts, pairableServ
           </section>
         )}
 
+        {/* Open faults used to be listed here and are now on their own tab, with the resolved ones
+            for company — a machine's fault history is the thing a provider actually wants when
+            deciding whether to keep it. Overview still says the condition, at the top. */}
         {a.faults.length > 0 ? (
-          <ul className="asset__faults">
-            {a.faults.map((f) => (
-              <li key={f.id}>
-                <span className={`pill pill--${f.severity === "blocking" ? "cancelled" : "in_progress"}`}>
-                  {f.severity === "blocking" ? "Out of service" : "Needs attention"}
-                </span>
-                <span className="asset__fault-text">{f.description}</span>
-                {canEdit ? (
-                  <form action={resolveFaultAction}>
-                    <input type="hidden" name="faultId" value={f.id} />
-                    <input type="hidden" name="resolution" value="Fixed" />
-                    <PendingButton className="resend__button">Mark fixed</PendingButton>
-                  </form>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <p className="field__helper">
+            {a.faults.length === 1 ? "There is one open fault" : `There are ${a.faults.length} open faults`} on this
+            machine. See <strong>Faults and repairs</strong>.
+          </p>
         ) : null}
-
-        {canEdit && a.status === "active" ? (
-          <button type="button" className="resend__button asset__report" onClick={onFault}>Report a fault</button>
-        ) : null}
+        </>
+        ) : tab === "schedule" ? (
+          <ScheduleTab a={a} canEdit={canEdit} />
+        ) : tab === "history" ? (
+          <HistoryTab a={a} />
+        ) : (
+          <FaultsTab a={a} canEdit={canEdit} onFault={onFault} />
+        )}
+        </div>
 
         {canEdit ? (
           <div className="form-actions">
@@ -441,22 +744,64 @@ function DeleteModal({ a, onClose }: { a: AssetView; onClose: () => void }) {
 }
 
 export function EquipmentList({
-  assets, kinds, services, availability, serialStates, readiness, verdicts, pairableServices,
-  otherProviders, canEdit,
+  assets, kinds, services, availability, serialStates, conditions, readiness, verdicts,
+  pairableServices, otherProviders, submissionKey, canEdit,
 }: {
   assets: AssetView[]; kinds: Option[]; services: Option[]; availability: Option[];
-  serialStates: Option[]; readiness: Readiness[]; verdicts: Option[]; pairableServices: PairableService[];
+  serialStates: Option[];
+  /** The four condition states, for the filter. Passed in because lib/equipment is server-only. */
+  conditions: Option[];
+  readiness: Readiness[]; verdicts: Option[]; pairableServices: PairableService[];
   /** Other approved providers, for lending a machine. */
   otherProviders: ShareableProvider[];
+  /** Made by the server when the page was drawn, so a retried Add cannot make a second machine. */
+  submissionKey: string;
   canEdit: boolean;
 }) {
   const [editing, setEditing] = useState<AssetView | null | "new">(null);
   const [faulting, setFaulting] = useState<AssetView | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<AssetView | null>(null);
+
+  /**
+   * "List filters by service, district, condition, ownership and dates; search by serial."
+   *
+   * Filtered in the browser rather than on the server, because the whole register is already on the
+   * page — a provider has a dozen machines, not a thousand — so a round trip per filter would make
+   * the screen feel slower for no gain. If a register ever gets big this moves to the query.
+   *
+   * "Dates" is the one worth explaining: a machine is listed as free on a day if nothing blocks it
+   * then, read from the same schedule the capacity check writes. That is what makes this useful
+   * rather than decorative — a provider asked for a tractor next Tuesday can answer the question.
+   */
   const [show, setShow] = useState("");
-  const shown = assets.filter((a) => !show || (show === "available") === !a.unavailable);
+  const [service, setService] = useState("");
+  const [district, setDistrict] = useState("");
+  const [condition, setCondition] = useState("");
+  const [ownership, setOwnership] = useState("");
+  const [onDate, setOnDate] = useState("");
+  const [term, setTerm] = useState("");
+
+  const needle = term.trim().toLowerCase();
+  const shown = assets.filter((a) => {
+    if (show && (show === "available") !== !a.unavailable) return false;
+    if (service && !a.services.includes(service)) return false;
+    if (district && !a.districts.includes(district)) return false;
+    if (condition && a.condition !== condition) return false;
+    if (ownership && a.ownership !== ownership) return false;
+    // Busy on the chosen day, by anything: a hold, a booking or downtime.
+    if (onDate && a.schedule.some((c) => c.from <= onDate && c.to >= onDate)) return false;
+    if (needle) {
+      // Serial first, because that is what the handover asks to search by and what is stamped on
+      // the machine — but a provider who types a name should not be told there is no such tractor.
+      const hay = [a.identifier, a.assetRef, a.name, a.brand, a.model].filter(Boolean).join(" ").toLowerCase();
+      if (!hay.includes(needle)) return false;
+    }
+    return true;
+  });
+  const filtered = Boolean(show || service || district || condition || ownership || onDate || needle);
   const open = assets.find((a) => a.id === openId) ?? null;
+  const districtsHeld = [...new Set(assets.flatMap((a) => a.districts))].sort();
 
   return (
     <>
@@ -475,8 +820,44 @@ export function EquipmentList({
       ) : null}
 
       <div className="equipment__top">
-        <FilterMenu name="show" label="Availability" icon="/icons/funnel.svg" value={show} onChange={setShow}
-          options={[{ value: "", label: "Filter" }, { value: "available", label: "Available" }, { value: "unavailable", label: "Not available" }]} />
+        <div className="equipment__filters">
+          {/* Search is first and widest: a provider standing next to a machine reads the plate. */}
+          <div className="field equipment__search">
+            <label className="field__label" htmlFor="eq-search">Search</label>
+            <div className="field__box">
+              <input id="eq-search" type="search" className="field__input" value={term}
+                onChange={(ev) => setTerm(ev.target.value)}
+                placeholder="Serial, your reference, or a name" />
+            </div>
+          </div>
+          <FilterMenu name="show" label="Availability" icon="/icons/funnel.svg" value={show} onChange={setShow}
+            options={[{ value: "", label: "Availability" }, { value: "available", label: "Available" }, { value: "unavailable", label: "Not available" }]} />
+          <FilterMenu name="condition" label="Condition" icon="/icons/funnel.svg" value={condition} onChange={setCondition}
+            options={[{ value: "", label: "Condition" }, ...conditions.map((c) => ({ value: c.id, label: c.label }))]} />
+          <FilterMenu name="ownership" label="Ownership" icon="/icons/funnel.svg" value={ownership} onChange={setOwnership}
+            options={[{ value: "", label: "Ownership" }, { value: "owned", label: "Owned" }, { value: "leased", label: "Leased" }]} />
+          <FilterMenu name="service" label="Service" icon="/icons/funnel.svg" value={service} onChange={setService}
+            options={[{ value: "", label: "Service" }, ...services.map((x) => ({ value: x.id, label: x.label }))]} />
+          {districtsHeld.length > 0 ? (
+            <FilterMenu name="district" label="District" icon="/icons/pin.svg" value={district} onChange={setDistrict}
+              options={[{ value: "", label: "District" }, ...districtsHeld.map((d) => ({ value: d, label: d }))]} />
+          ) : null}
+          {/* The useful one: free on a given day, read from the same schedule the capacity check
+              writes, so the answer here and the answer at quote time cannot differ. */}
+          <div className="field equipment__on">
+            <label className="field__label" htmlFor="eq-on">Free on</label>
+            <div className="field__box">
+              <input id="eq-on" type="date" className="field__input" value={onDate}
+                suppressHydrationWarning onChange={(ev) => setOnDate(ev.target.value)} />
+            </div>
+          </div>
+          {filtered ? (
+            <button type="button" className="button button--soft equipment__clear"
+              onClick={() => { setShow(""); setService(""); setDistrict(""); setCondition(""); setOwnership(""); setOnDate(""); setTerm(""); }}>
+              Clear
+            </button>
+          ) : null}
+        </div>
         {canEdit ? (
           <button type="button" className="button button--inline" onClick={() => setEditing("new")}>
             <Icon name="plus" size={18} />
@@ -487,6 +868,13 @@ export function EquipmentList({
 
       {assets.length === 0 ? (
         <div className="table-card"><EmptyState icon="equipment" title="No equipment yet" body="No equipment on your register yet." /></div>
+      ) : shown.length === 0 ? (
+        <div className="table-card">
+          <EmptyState icon="equipment" title="Nothing matches"
+            body={onDate
+              ? "No machine is free on that day with those filters. Try another date, or clear the filters."
+              : "No machine on your register matches those filters."} />
+        </div>
       ) : (
         <div className="equipment-grid">
           {shown.map((a) => (
@@ -517,7 +905,7 @@ export function EquipmentList({
       ) : null}
       {editing ? (
         <AssetModal asset={editing === "new" ? null : editing} kinds={kinds} services={services} availability={availability}
-          serialStates={serialStates} onClose={() => setEditing(null)} />
+          serialStates={serialStates} submissionKey={submissionKey} onClose={() => setEditing(null)} />
       ) : null}
       {faulting ? <FaultModal asset={faulting} onClose={() => setFaulting(null)} /> : null}
       {deleting ? <DeleteModal a={deleting} onClose={() => { setDeleting(null); setOpenId(null); }} /> : null}

@@ -1,15 +1,18 @@
+import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import { requireWorkspace } from "@/lib/guard";
 import { Shell, PageHead } from "@/components/app/Shell";
 import { SERVICES } from "@/lib/business";
 import {
-  AVAILABILITY, KINDS, MAX_GALLERY_PHOTOS, SERIAL_STATES, conditionLabel, kindLabel, limitedUseNote,
+  AVAILABILITY, CONDITIONS, KINDS, MAX_GALLERY_PHOTOS, SERIAL_STATES, conditionLabel, kindLabel, limitedUseNote,
   listAssets, listPhotos, locationAgeDays, unavailableReason,
 } from "@/lib/equipment";
 import { describeSpecs } from "@/lib/specs";
 import { VERDICTS, pairingsFor, readinessFor } from "@/lib/pairing";
 import { implementKindsFor } from "@/lib/catalogue";
 import { sharesOf } from "@/lib/shares";
+import { detailFor } from "@/lib/asset-detail";
+import { downtimeLabel } from "@/lib/downtime-kinds";
 import { db } from "@/lib/db";
 import { EquipmentList, type AssetView } from "@/components/equipment/EquipmentList";
 
@@ -50,6 +53,13 @@ export default async function Page() {
       gallery: gallery.map((p) => ({ id: p.id, src: `/provider/equipment/gallery/${p.id}` })),
       galleryFull: gallery.length >= MAX_GALLERY_PHOTOS,
       unavailable: unavailableReason(a),
+      // Where it has actually been, for the district filter. A fact, unlike `location` (free text)
+      // or the business's coverage (where it could go).
+      districts: (await db.all(`SELECT DISTINCT sr.district FROM job_asset ja
+             JOIN job j ON j.id = ja.job_id
+             JOIN service_request sr ON sr.id = j.request_id
+             WHERE ja.equipment_id=? AND sr.district <> '' ORDER BY sr.district`,
+        a.id) as { district: string }[]).map((r) => r.district),
       shares: (await sharesOf(business.id, a.id))
         .filter((sh) => sh.revokedAt === "")
         .map((sh) => ({ businessId: sh.businessId, businessName: sh.businessName, note: sh.note, grantedAt: sh.grantedAt })),
@@ -79,6 +89,24 @@ export default async function Page() {
       faults: a.openFaults.map((f) => ({
         id: f.id, severity: f.severity, description: f.description, reportedAt: f.reportedAt,
       })),
+      // The three tabs beyond Overview: where it is committed, what it has done, and everything
+      // ever recorded against it. "Equipment detail opens to four tabs" (handover, 23 Nov 2026).
+      ...(await (async () => {
+        const d = await detailFor(business.id, a.id);
+        return {
+          schedule: d.schedule,
+          history: d.history,
+          activity: d.activity,
+          downtime: d.downtime.map((x) => ({
+            id: x.id, kind: x.kind, kindLabel: downtimeLabel(x.kind),
+            fromDate: x.fromDate, toDate: x.toDate, reason: x.reason, cancelled: x.cancelledAt !== "",
+          })),
+          allFaults: d.faults.map((f) => ({
+            id: f.id, severity: f.severity, description: f.description,
+            reportedAt: f.reportedAt, resolvedAt: f.resolvedAt, resolution: f.resolution,
+          })),
+        };
+      })()),
     };
   }));
 
@@ -94,10 +122,12 @@ export default async function Page() {
         services={SERVICES.map((s) => ({ ...s }))}
         availability={AVAILABILITY.map((a) => ({ ...a }))}
         serialStates={SERIAL_STATES.map((x) => ({ ...x }))}
+        conditions={CONDITIONS.map((c) => ({ ...c }))}
         readiness={readiness.map((r) => ({ service: r.service, summary: r.summary, ready: r.ready }))}
         verdicts={VERDICTS.map((v) => ({ id: v.id, label: v.label }))}
         pairableServices={SERVICES.map((x) => ({ id: x.id, label: x.label, kinds: implementKindsFor(x.id) }))}
         otherProviders={otherProviders}
+        submissionKey={randomUUID()}
         canEdit={permission !== "view_jobs"}
       />
     </Shell>

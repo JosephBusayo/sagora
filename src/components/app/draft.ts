@@ -1,9 +1,14 @@
 "use client";
 
 /**
- * Keeps a half-filled booking form in the browser, so leaving the page does not throw the
- * answers away. A farmer who switches to the voice note and back, reloads, closes the tab, or
- * walks off and comes back later finds what they had already typed still there.
+ * Keeps a half-filled form in the browser, so leaving the page does not throw the answers away.
+ * Somebody who reloads, closes the tab, or walks off and comes back later finds what they had
+ * already typed still there.
+ *
+ * Written for the booking form and moved here, unchanged, when Karim's handover asked for the same
+ * of the equipment form: "drafts and uploads must survive a dropped connection, and a retry must
+ * not create a duplicate" (A16). It knows nothing about either form — only about named controls —
+ * which is why it lifted cleanly rather than being written twice.
  *
  * localStorage, not sessionStorage: sessionStorage dies with the tab, and "I closed it and came
  * back" is exactly the case this is for. It never leaves the device and is never sent anywhere.

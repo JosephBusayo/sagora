@@ -137,7 +137,9 @@ export async function saveAsset(_prev: FormState, fd: FormData): Promise<FormSta
   if (id) {
     if (!await updateAsset(business.id, user.id, id, input)) return { error: "That equipment can no longer be changed.", values };
   } else {
-    savedId = (await addAsset(business.id, user.id, input)).id;
+    // The form's own key, so a retry on a bad connection finds the machine it already made rather
+    // than adding a second one (A16).
+    savedId = (await addAsset(business.id, user.id, { ...input, submissionKey: str(fd, "submissionKey") || null })).id;
   }
   if (photo) await setPhoto(business.id, user.id, savedId, photo);
   revalidatePath("/provider/equipment");
@@ -301,4 +303,49 @@ export async function revokeShareAction(fd: FormData) {
     ? "Taken back. Any work they had booked with it has been flagged for them."
     : "That machine was not shared with them.");
   revalidatePath("/provider/equipment");
+}
+
+/* ---------------------------------------------- a machine deliberately out of action */
+
+/**
+ * Books a machine out for a span of days.
+ *
+ * "Move Record downtime and Record private work inside Equipment." Private work was already a job
+ * against a request the business owns, so that half moved rather than being rebuilt; this is the
+ * half that did not exist. The distinction worth keeping in mind: a condition of "under repair"
+ * says the machine is not available and gives no end date, so nothing can answer a question about
+ * next week. A span can.
+ */
+export async function recordDowntimeAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return { error: "You do not have permission to change equipment." };
+
+  const { isDowntimeKind } = await import("@/lib/downtime-kinds");
+  const kind = str(fd, "kind");
+  if (!isDowntimeKind(kind)) return { error: "Choose why it is out of action." };
+
+  const { recordDowntime } = await import("@/lib/downtime");
+  const result = await recordDowntime(business.id, user.id, {
+    equipmentId: str(fd, "equipmentId"),
+    kind,
+    fromDate: str(fd, "fromDate"),
+    toDate: str(fd, "toDate"),
+    reason: str(fd, "reason"),
+  });
+  if (!result.ok) return { error: result.reason };
+
+  revalidatePath("/provider/equipment");
+  // The capacity check reads downtime, so the jobs screen's blockers can change too.
+  revalidatePath("/provider/jobs");
+  return { notice: "Booked out. It will not be offered for work on those days." };
+}
+
+export async function cancelDowntimeAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return;
+  const { cancelDowntime } = await import("@/lib/downtime");
+  const ok = await cancelDowntime(business.id, user.id, str(fd, "id"));
+  await flash(ok ? "Called off. The machine is available again." : "That was not booked out.");
+  revalidatePath("/provider/equipment");
+  revalidatePath("/provider/jobs");
 }

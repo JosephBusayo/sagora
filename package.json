@@ -27,7 +27,10 @@
     "check:admin": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-admin.mts",
     "check:assets": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-assets.mts",
     "check:pairing": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-pairing.mts",
-    "check:packages": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-packages.mts"
+    "check:packages": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-packages.mts",
+    "dev:seed-equipment": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/seed-dev-equipment.mts",
+    "db:delete-fixtures": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/delete-test-fixtures.mts",
+    "check:register": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-register.mts"
   },
   "dependencies": {
     "@central-icons-react/round-filled-radius-2-stroke-2": "^1.2.22",

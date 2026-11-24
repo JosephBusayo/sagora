@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db, type Queries } from "./db";
 import { audit } from "./business";
 import { getSetting } from "./follow-ups";
+import { downtimeClash, downtimeLabel } from "./downtime";
 
 /**
  * Capacity held by a sent quote (Karim's handover, 23 November 2026).
@@ -98,6 +99,20 @@ export async function travelDays(): Promise<number> {
 
 export type Window = { from: string; to: string };
 
+/**
+ * A stored date read back the way the rest of Sagora writes one: 08 Dec 2026, not 2026-12-08.
+ *
+ * Every string built in this file ends up in front of a provider — in a quote refusal, on the
+ * Equipment screen, in a downtime clash — so they have to match the dates printed around them.
+ * Sierra Leone keeps UTC+0 all year, so no conversion is involved. The same helper exists in
+ * lib/jobs.ts for the same reason.
+ */
+const onDay = (iso: string): string =>
+  /^\d{4}-\d{2}-\d{2}$/.test(iso)
+    ? new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB",
+        { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })
+    : iso;
+
 /** The work dates widened by travel each side. Both ends, because the machine has to come back. */
 export const blockWindow = (startDate: string, endDate: string, travel: number): Window => ({
   from: addDays(startDate, -travel), to: addDays(endDate, travel),
@@ -127,8 +142,8 @@ export type Clash = {
  */
 const redactFor = (own: boolean, reference: string, from: string, to: string): string =>
   own
-    ? `committed to ${reference} from ${from} to ${to}`
-    : `already committed by its owner from ${from} to ${to}`;
+    ? `committed to ${reference} from ${onDay(from)} to ${onDay(to)}`
+    : `already committed by its owner from ${onDay(from)} to ${onDay(to)}`;
 
 /**
  * What a question about availability is allowed to ignore.
@@ -187,8 +202,8 @@ export async function clashesFor(
       out.push({
         ...r, blockedTo: held.b_to, elsewhere: !own,
         why: own
-          ? `held by your quote on ${held.reference} from ${held.b_from} to ${held.b_to}`
-          : `held by another quote from ${held.b_from} to ${held.b_to}`,
+          ? `held by your quote on ${held.reference} from ${onDay(held.b_from)} to ${onDay(held.b_to)}`
+          : `held by another quote from ${onDay(held.b_from)} to ${onDay(held.b_to)}`,
       });
       continue;
     }
@@ -216,13 +231,30 @@ export async function clashesFor(
       continue;
     }
 
+    // A machine booked out for servicing is as unavailable as one on another job. Read here rather
+    // than only on the register screen, so one machine has one availability answer however the
+    // question is asked: a quote, a reschedule, a booking confirmation, a downtime request.
+    //
+    // Nothing is redacted: downtime belongs to the machine's owner, so a borrower told the tractor
+    // is in for a service has learnt nothing about anybody's customers.
+    if (r.kind === "equipment") {
+      const bookedOut = await downtimeClash(r.resourceId, window.from, window.to, t);
+      if (bookedOut) {
+        out.push({
+          ...r, blockedTo: bookedOut.toDate, elsewhere: false,
+          why: `booked out for ${downtimeLabel(bookedOut.kind).toLowerCase()} from ${onDay(bookedOut.fromDate)} to ${onDay(bookedOut.toDate)}`,
+        });
+        continue;
+      }
+    }
+
     // Recorded leave keeps an operator off a job as surely as another job does. Travel is not added
     // to leave: a person on leave is away for exactly the days they said.
     if (r.kind === "operator") {
       const away = await t.get(`SELECT away_from, away_to FROM team_member WHERE id=?`, r.resourceId) as
         { away_from: string | null; away_to: string | null } | undefined;
       if (away?.away_from && away.away_to && away.away_from <= window.to && away.away_to >= window.from) {
-        out.push({ ...r, blockedTo: away.away_to, elsewhere: false, why: `away from ${away.away_from} to ${away.away_to}` });
+        out.push({ ...r, blockedTo: away.away_to, elsewhere: false, why: `away from ${onDay(away.away_from)} to ${onDay(away.away_to)}` });
       }
     }
   }

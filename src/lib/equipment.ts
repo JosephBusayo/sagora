@@ -253,6 +253,8 @@ export async function selectableAssets(businessId: string, on?: string): Promise
 
 export type AssetInput = {
   kind: string; name: string; identifier: string; ownership: "owned" | "leased"; notes: string;
+  /** The form's own key, the same on every send of that form. See migration 030. */
+  submissionKey?: string | null;
   /** The Add equipment screens fill these; older callers may leave them out. */
   brand?: string; model?: string; year?: string; horsepower?: string; implements?: string; services?: string[]; availability?: Availability;
 
@@ -322,25 +324,55 @@ async function note(
 }
 
 /**
+ * Whether a submission key is one the server made.
+ *
+ * Same shape and same reasoning as `isSubmissionKey` in lib/requests.ts: anything else is ignored
+ * rather than trusted, so a hand-written key cannot be used to probe for other providers' rows. Declared here
+ * rather than imported, because requests.ts imports this file and a cycle is not worth one regex.
+ */
+const isSubmissionKey = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v);
+
+/**
  * Adds one machine. Two machines with the same name are two machines: nothing is merged,
  * because they are different physical objects with different histories.
+ *
+ * Except on a retry. "A retry must not create a duplicate" (A16): when the form sends a submission
+ * key, the unique index on it means a second attempt finds the first machine instead of writing a
+ * second. Two taps on a bad connection made two tractors before migration 030.
  */
 export async function addAsset(businessId: string, actorId: string, input: AssetInput): Promise<Asset> {
   const now = new Date().toISOString();
+  const key = input.submissionKey && isSubmissionKey(input.submissionKey) ? input.submissionKey : null;
+  if (key) {
+    // The same form sent again: the machine it already made. Scoped to the business, so a key
+    // guessed from somewhere else cannot read another provider's register.
+    const before = await db.get("SELECT id FROM equipment WHERE submission_key=? AND business_id=?",
+      key, businessId) as { id: string } | undefined;
+    if (before) return (await getAsset(businessId, before.id))!;
+  }
+
   const id = randomUUID();
   const x = extras(input, now);
-  await db.run(`INSERT INTO equipment (id, business_id, kind, name, identifier, ownership, notes, brand, model, year, horsepower,
+  const inserted = await db.run(`INSERT INTO equipment (id, business_id, kind, name, identifier, ownership, notes, brand, model, year, horsepower,
        implements, services, availability, created_at, updated_at,
        asset_ref, serial_status, condition, condition_note, location, custodian, location_at, location_by,
        lessor, lease_from, lease_to, lease_notes, authorised_by, specs,
-       acquired_on, supplier, purchase_cost_minor, purchase_currency, donor, use_restrictions)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       acquired_on, supplier, purchase_cost_minor, purchase_currency, donor, use_restrictions, submission_key)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`,
      id, businessId, input.kind, input.name, input.identifier, input.ownership, input.notes,
      input.brand ?? "", input.model ?? "", input.year ?? "", input.horsepower ?? "", input.implements ?? "",
      (input.services ?? []).join(","), input.availability ?? "available", now, now,
      x.assetRef, x.serialStatus, x.condition, x.conditionNote, x.location, x.custodian, x.locationAt, x.locationAt ? actorId : "",
      x.lessor, x.leaseFrom, x.leaseTo, x.leaseNotes, x.authorisedBy, x.specs,
-     x.acquiredOn, x.supplier, x.purchaseCostMinor, x.purchaseCurrency, x.donor, x.useRestrictions);
+     x.acquiredOn, x.supplier, x.purchaseCostMinor, x.purchaseCurrency, x.donor, x.useRestrictions, key);
+  if (!inserted.changes) {
+    // Both attempts arrived together and the other one won the unique index. Nothing of this one
+    // was written, so there is nothing to undo.
+    const other = key
+      ? await db.get("SELECT id FROM equipment WHERE submission_key=? AND business_id=?", key, businessId) as { id: string } | undefined
+      : undefined;
+    if (other) return (await getAsset(businessId, other.id))!;
+  }
   await audit(actorId, "equipment.added", id, `${input.kind} ${input.name}`);
   // Two providers claiming one serial is a thing for staff to untangle, not a reason to refuse.
   if (x.serialStatus === "recorded" && input.identifier.trim()) await raiseSerialConflict(id, businessId, input.identifier);

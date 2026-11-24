@@ -1842,3 +1842,68 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .shares__add > summary { font: 500 14px/20px var(--font-sans); cursor: pointer; padding: 4px 0; }
 .allocate > summary { font: 500 14px/20px var(--font-sans); cursor: pointer; padding: 4px 0; }
 .allocate .form-soft { display: grid; gap: 10px; margin-top: 8px; }
+
+/* The equipment detail window's four tabs. Real buttons in a tablist, so the window is reachable
+   from the keyboard and a screen reader is told which panel it is on. */
+/* Wraps rather than scrolls. Four tabs with the handover's own names need 383px and the window is
+   325px wide on a 390px phone, so one of them would sit off-screen behind a scroll nobody
+   signposted — and a tab nobody can see is a tab nobody uses. Two rows of two is plainer. */
+.tabs { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid #e6e6e6; margin: 4px 0 14px; }
+.tabs__tab {
+  appearance: none; background: none; border: 0; cursor: pointer; white-space: nowrap;
+  padding: 10px 12px; font: 500 14px/20px var(--font-sans); color: #808080;
+  border-bottom: 2px solid transparent; display: inline-flex; align-items: center; gap: 6px;
+  /* 44px of height on a phone, where this is thumbed rather than clicked. */
+  min-height: 44px;
+}
+.tabs__tab--on { color: #191919; border-bottom-color: var(--brand, #1a7f4b); }
+.tabs__tab:focus-visible { outline: 2px solid var(--brand, #1a7f4b); outline-offset: -2px; border-radius: 6px; }
+/* The open-fault count. A number, not a dot: condition is never carried by colour alone. */
+.tabs__count {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #fdecec;
+  color: #a4261d; font: 600 12px/20px var(--font-sans); text-align: center;
+}
+.tabs__panel { display: grid; gap: 14px; }
+
+/* Dated rows: a machine's commitments, its past work, its repairs. One shape for all three, so a
+   provider reads the same thing the same way on every tab. */
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.timeline__item {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: start;
+  padding: 10px 12px; border-radius: 10px; background: #f5f5f5;
+}
+.timeline__when { grid-column: 1 / -1; font: 500 12px/18px var(--font-sans); color: #808080; }
+.timeline__what { display: grid; gap: 2px; min-width: 0; }
+.timeline__what strong { font: 500 14px/21px var(--font-sans); color: #191919; }
+/* A commitment nobody has confirmed yet is the one line here that can still evaporate. */
+.timeline__item--hold { background: #fff8e6; border: 1px solid #f0dca8; }
+.timeline__item--downtime { background: #eef1f4; border: 1px solid #dde3e9; }
+
+.asset__fault-text--stacked { display: grid; gap: 2px; }
+.activity > summary { font: 500 14px/20px var(--font-sans); cursor: pointer; padding: 6px 0; }
+.activity__list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.activity__list li { display: grid; gap: 1px; font: 400 14px/20px var(--font-sans); }
+
+.downtime { display: grid; gap: 10px; }
+.downtime__add > summary { font: 500 14px/20px var(--font-sans); cursor: pointer; padding: 4px 0; }
+
+/* The register's filter bar. Wraps rather than scrolling: a provider on a phone should be able to
+   see every filter without discovering a horizontal scroll nobody signposted. */
+.equipment__filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; flex: 1 1 auto; min-width: 0; }
+.equipment__search { flex: 1 1 220px; min-width: 0; margin: 0; }
+.equipment__on { flex: 0 0 auto; margin: 0; }
+.equipment__filters .field__label { font: 500 12px/18px var(--font-sans); }
+.equipment__clear { align-self: end; }
+@media (max-width: 560px) {
+  .equipment__top { flex-direction: column; align-items: stretch; }
+  .equipment__filters > * { flex: 1 1 140px; }
+  .equipment__search { flex: 1 1 100%; }
+}
+
+/* 320px is the narrowest the handover asks for (A16). Two date fields side by side do not fit, and
+   the tab strip scrolls rather than wrapping into an unreadable block. */
+@media (max-width: 420px) {
+  .form-row { grid-template-columns: 1fr; }
+  .timeline__item { grid-template-columns: 1fr; }
+  .shares__list li, .flags__list li { flex-direction: column; align-items: stretch; }
+}

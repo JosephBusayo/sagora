@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { transcribeVoiceNoteAction, type VoiceState } from "@/app/(platform)/request/voice/actions";
 import { BookForm } from "./BookForm";
-import { clearDraft } from "./draft";
+import { clearDraft } from "@/components/app/draft";
 
 type Option = { id: string; label: string };
 

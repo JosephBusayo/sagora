@@ -319,8 +319,14 @@ const clash = await holds.clashesFor(
   [{ kind: "equipment", resourceId: owner.machine, label: "" }],
   holds.blockWindow(inDays(100), inDays(100), 1), null, borrower.biz);
 ok("the borrower finds it taken", clash.length === 1);
+// The dates are printed the way every other date in Sagora is — "08 Dec 2026", not "2026-12-08" —
+// so this looks for that form. A borrower needs the dates to plan around; it is the reference, the
+// farmer and the service they must not be told.
+const asDay = (iso: string) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB",
+    { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
 ok("and is given the dates, which they need to plan around",
-  Boolean(clash[0]?.why.includes(inDays(99)) || clash[0]?.why.includes(inDays(100))));
+  Boolean(clash[0]?.why.includes(asDay(inDays(99))) || clash[0]?.why.includes(asDay(inDays(100)))));
 ok("but not the reference, the farmer or the service",
   !clash[0]!.why.includes(ownerReq.reference) && !clash[0]!.why.toLowerCase().includes("ploughing"));
 ok("and the clash is marked as somebody else's", clash[0]?.elsewhere === true);
