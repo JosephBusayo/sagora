@@ -104,11 +104,12 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   const blocked = await inspectionBlocksQuote(requestId, business.id);
   if (blocked) return { error: blocked, values };
 
-  // Does the chosen kit actually suit the work, and has somebody confirmed the pieces fit each
-  // other? While pairing_enforced is off this is said rather than enforced, because switching it
-  // on before providers have recorded their pairings would stop every quote on the platform.
+  // Two different refusals (see KitProblem in lib/pairing.ts). The catalogue requirement — ploughing
+  // needs a tractor and a plough — always blocks, because scheduleJob has always enforced it and a
+  // quote that cannot become a job is worse than no quote. The pairing judgement blocks only while
+  // pairing_enforced is on, since no provider has recorded one yet.
   const kitIssue = await kitProblem(business.id, target.service, chosen);
-  if (kitIssue && (await pairingEnforced())) return { error: kitIssue, values };
+  if (kitIssue && (!kitIssue.pairing || (await pairingEnforced()))) return { error: kitIssue.why, values };
 
   // One stage, and nothing changes: the price, the start and the days the provider typed are the
   // whole plan. Several stages, and each one carries its own window and its own price, read from
@@ -148,7 +149,7 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
     // says nothing about harrowing. All of them have to pass, or the package cannot be sold.
     for (const stage of built) {
       const issue = await kitProblem(business.id, stage.service, chosen);
-      if (issue && (await pairingEnforced())) return { error: issue, values };
+      if (issue && (!issue.pairing || (await pairingEnforced()))) return { error: issue.why, values };
     }
   }
 

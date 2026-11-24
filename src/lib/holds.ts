@@ -87,6 +87,11 @@ export const DEFAULT_TRAVEL_DAYS = 1;
 
 export async function travelDays(): Promise<number> {
   const raw = await getSetting("travel_setup_days");
+  // Nothing stored is not the same as zero stored, and the difference matters here in a way it does
+  // not for the other settings: zero is a legitimate answer ("no travel allowance"), so an unset
+  // key cannot be allowed to fall through Number("") === 0 and silently switch the whole feature
+  // off. Checked explicitly rather than relying on the range test below.
+  if (raw === null || raw.trim() === "") return DEFAULT_TRAVEL_DAYS;
   const n = Number(raw);
   return Number.isFinite(n) && n >= 0 && n <= 7 ? Math.floor(n) : DEFAULT_TRAVEL_DAYS;
 }
@@ -126,6 +131,16 @@ const redactFor = (own: boolean, reference: string, from: string, to: string): s
     : `already committed by its owner from ${from} to ${to}`;
 
 /**
+ * What a question about availability is allowed to ignore.
+ *
+ * A quote being revised must not clash with its own holds, and a job being rescheduled must not
+ * clash with itself. Before migration 029 these were two separate checks in two files, which is
+ * how a reschedule onto dates another provider's quote was holding slipped through: the job-level
+ * check only knew about other jobs. One check, one exemption, both kinds.
+ */
+export type Except = { quoteId?: string | null; jobId?: string | null };
+
+/**
  * Who else is holding these resources over this window.
  *
  * Three kinds of commitment count: a live hold from somebody's sent quote, an accepted job that
@@ -141,8 +156,13 @@ const redactFor = (own: boolean, reference: string, from: string, to: string): s
  */
 export async function clashesFor(
   requested: readonly Requested[], window: Window,
-  exceptQuoteId: string | null, askingBusinessId: string, t: Queries = db,
+  except: Except | string | null, askingBusinessId: string, t: Queries = db,
 ): Promise<Clash[]> {
+  // A bare string is the old single-quote form, kept so the rule suites and the quote path read
+  // the same as they did.
+  const skip: Except = typeof except === "string" || except === null ? { quoteId: except } : except;
+  const exceptQuoteId = skip.quoteId ?? null;
+  const exceptJobId = skip.jobId ?? null;
   const now = new Date().toISOString();
   const out: Clash[] = [];
 
@@ -179,14 +199,16 @@ export async function clashesFor(
                COALESCE(j.block_from, j.start_date) AS b_from, COALESCE(j.block_to, j.end_date) AS b_to
              FROM job_asset a JOIN job j ON j.id = a.job_id JOIN service_request sr ON sr.id = j.request_id
              WHERE a.equipment_id=? AND j.status IN ('scheduled','in_progress','work_reported')
+               AND j.id <> COALESCE(?, '')
                AND COALESCE(j.block_from, j.start_date) <= ?
-               AND COALESCE(j.block_to, j.end_date) >= ? LIMIT 1`, r.resourceId, window.to, window.from)
+               AND COALESCE(j.block_to, j.end_date) >= ? LIMIT 1`, r.resourceId, exceptJobId, window.to, window.from)
       : await t.get(`SELECT j.business_id, sr.reference,
                COALESCE(j.block_from, j.start_date) AS b_from, COALESCE(j.block_to, j.end_date) AS b_to
              FROM job j JOIN service_request sr ON sr.id = j.request_id
              WHERE j.operator_id=? AND j.status IN ('scheduled','in_progress','work_reported')
+               AND j.id <> COALESCE(?, '')
                AND COALESCE(j.block_from, j.start_date) <= ?
-               AND COALESCE(j.block_to, j.end_date) >= ? LIMIT 1`, r.resourceId, window.to, window.from);
+               AND COALESCE(j.block_to, j.end_date) >= ? LIMIT 1`, r.resourceId, exceptJobId, window.to, window.from);
     const c = committed as { business_id: string; reference: string; b_from: string; b_to: string } | undefined;
     if (c) {
       const own = c.business_id === askingBusinessId;
@@ -221,7 +243,7 @@ export async function clashesFor(
  */
 export async function nextFreeWindow(
   requested: readonly Requested[], days: number, notBefore: string, askingBusinessId: string,
-  travel?: number, t: Queries = db,
+  travel?: number, t: Queries = db, except: Except | null = null,
 ): Promise<Window | null> {
   const pad = travel ?? (await travelDays());
   const span = Math.max(1, days) - 1;
@@ -229,7 +251,7 @@ export async function nextFreeWindow(
   // A season's worth of days. Beyond that the answer is not a date, it is "buy another tractor".
   for (let tries = 0; tries < 120; tries++) {
     const work = { from: start, to: addDays(start, span) };
-    const clashes = await clashesFor(requested, blockWindow(work.from, work.to, pad), null, askingBusinessId, t);
+    const clashes = await clashesFor(requested, blockWindow(work.from, work.to, pad), except, askingBusinessId, t);
     if (clashes.length === 0) return work;
     // Jump past the latest thing in the way rather than trying tomorrow: it saves a hundred
     // queries on a busy machine and lands on the first day that could possibly be free.
@@ -363,6 +385,39 @@ export async function forBusiness(businessId: string): Promise<(Hold & { referen
        WHERE h.business_id=? AND h.status='held' AND h.expires_at > ?
        ORDER BY h.expires_at ASC`, businessId, new Date().toISOString()) as (Row & { reference: string; label: string })[];
   return rows.map((r) => ({ ...fromRow(r), reference: r.reference, label: r.label }));
+}
+
+/**
+ * Moves the reservation behind a booking to new dates.
+ *
+ * "Reschedule and replacement swap reservations atomically; a failed change keeps the original"
+ * (A08). The holds a quote placed became the booking's commitment when the farmer accepted, and a
+ * reschedule has to move them rather than leave them pointing at the old week — otherwise the
+ * records say one thing and the calendar says another, and whichever one a future clash check
+ * reads, the other is wrong.
+ *
+ * Takes the caller's transaction, because the only safe place to do this is inside the one that is
+ * already moving the job.
+ */
+export async function moveConverted(
+  requestId: string, startDate: string, endDate: string, travel: number,
+  resourceIds: readonly string[], t: Queries,
+): Promise<number> {
+  const block = blockWindow(startDate, endDate, travel);
+  const now = new Date().toISOString();
+  // Anything the job no longer uses is let go: a machine taken off a booking is free at once, which
+  // is the "replacement" half of A08.
+  if (resourceIds.length > 0) {
+    const marks = resourceIds.map(() => "?").join(",");
+    await t.run(`UPDATE resource_hold SET status='released', released_at=?,
+           release_reason='Taken off the booking when it was rescheduled'
+         WHERE request_id=? AND status='converted' AND resource_id NOT IN (${marks})`,
+      now, requestId, ...resourceIds);
+  }
+  const res = await t.run(`UPDATE resource_hold SET start_date=?, end_date=?, block_from=?, block_to=?
+       WHERE request_id=? AND status='converted'`,
+    startDate, endDate, block.from, block.to, requestId);
+  return res.changes;
 }
 
 /** Audit helper so every caller writes the same wording. */

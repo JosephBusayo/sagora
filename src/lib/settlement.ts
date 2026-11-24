@@ -206,9 +206,27 @@ export async function preparePayout(preparerId: string, requestId: string): Prom
 }
 
 /** Prepares a refund to the farmer, up to the money still held against the job. */
-export async function prepareRefund(preparerId: string, requestId: string, amountMinor: number, reason: string): Promise<Outcome<string>> {
+export async function prepareRefund(
+  preparerId: string, requestId: string, amountMinor: number, reason: string,
+  /**
+   * The machine this refund is about, when it is about one.
+   *
+   * "Net of fees and attributable refunds" (A14). A refund caused by the plough that broke and left
+   * half the field undone belongs to that plough, and attributing it is the difference between a
+   * per-machine report that explains a loss and one that smears it across the fleet. Left out, the
+   * refund is the job's and is divided by the same allocation as the earnings.
+   */
+  equipmentId = "",
+): Promise<Outcome<string>> {
   if (!Number.isSafeInteger(amountMinor) || amountMinor <= 0) return { ok: false, reason: "Enter an amount to refund." };
   if (!reason.trim()) return { ok: false, reason: "Say why this is being refunded." };
+  if (equipmentId) {
+    // Only a machine actually on the job, so a refund cannot be attributed to equipment that was
+    // never there — which would make one machine's report wrong and leave the job's total short.
+    const onJob = await db.get(`SELECT 1 AS x FROM job_asset a JOIN job j ON j.id = a.job_id
+         WHERE j.request_id=? AND a.equipment_id=?`, requestId, equipmentId);
+    if (!onJob) return { ok: false, reason: "That machine was not on this job, so the refund cannot be put against it." };
+  }
 
   const held = await balance(account.funds(requestId));
   if (amountMinor > held) {
@@ -220,8 +238,8 @@ export async function prepareRefund(preparerId: string, requestId: string, amoun
 
   const id = randomUUID();
   try {
-    await db.run(`INSERT INTO release (id, kind, request_id, beneficiary, beneficiary_label, gross_minor, net_minor, reason, prepared_by, prepared_at)
-       VALUES (?,'refund',?,?,?,?,?,?,?,?)`, id, requestId, farmer?.email ?? "", farmer?.name ?? "Farmer", amountMinor, amountMinor, reason.trim(), preparerId, new Date().toISOString());
+    await db.run(`INSERT INTO release (id, kind, request_id, beneficiary, beneficiary_label, gross_minor, net_minor, reason, equipment_id, prepared_by, prepared_at)
+       VALUES (?,'refund',?,?,?,?,?,?,?,?,?)`, id, requestId, farmer?.email ?? "", farmer?.name ?? "Farmer", amountMinor, amountMinor, reason.trim(), equipmentId, preparerId, new Date().toISOString());
   } catch {
     return { ok: false, reason: "A refund for this job is already in progress." };
   }

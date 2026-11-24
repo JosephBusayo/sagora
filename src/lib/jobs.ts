@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { db, type Queries } from "./db";
+import { blockWindow, clashesFor as holdClashes, moveConverted, travelDays, type Requested } from "./holds";
 import { audit } from "./business";
 import { getAsset, unavailableReason } from "./equipment";
 import { OWNED_BY, getById as getRequest, nextReference } from "./requests";
@@ -59,6 +60,11 @@ export type Job = {
   workNote: string; reportedAcres: number | null; reportedAt: string | null;
   confirmedAt: string | null; concern: string; assetIds: string[];
   readyChecks: ReadyCheck[]; readyAt: string | null; mobilisedAt: string | null; startedAt: string | null;
+  /**
+   * The wider span this job makes the machines unavailable for: the work dates plus travel each
+   * side. Equal to the work dates on jobs written before migration 028.
+   */
+  blockFrom: string | null; blockTo: string | null;
 };
 
 type Row = {
@@ -67,6 +73,7 @@ type Row = {
   work_note: string; reported_acres: number | null; reported_at: string | null;
   confirmed_at: string | null; concern: string;
   ready_checks?: string; ready_at?: string | null; mobilised_at?: string | null; started_at?: string | null;
+  block_from?: string | null; block_to?: string | null;
 };
 
 async function fromRow(r: Row): Promise<Job> {
@@ -78,6 +85,7 @@ async function fromRow(r: Row): Promise<Job> {
     confirmedAt: r.confirmed_at, concern: r.concern, assetIds: ids.map((i) => i.equipment_id),
     readyChecks: (r.ready_checks ?? "").split(",").filter((c): c is ReadyCheck => READY_CHECKS.some((x) => x.id === c)),
     readyAt: r.ready_at ?? null, mobilisedAt: r.mobilised_at ?? null, startedAt: r.started_at ?? null,
+    blockFrom: r.block_from ?? r.start_date, blockTo: r.block_to ?? r.end_date,
   };
 }
 
@@ -206,35 +214,47 @@ export async function scheduleJob(businessId: string, actorId: string, jobId: st
     }
   }
 
-  // The clash check and the commitment are one decision: two schedules racing for the same
-  // plough must not both pass the check and then both write.
+  // "Reschedule and replacement swap reservations atomically; a failed change keeps the original"
+  // (A08). Three things have to move together or not at all: which machines the job uses, the dates
+  // it owns, and the reservation records behind them. The check and all three writes are one
+  // transaction, so two schedules racing for the same plough cannot both pass and then both write,
+  // and a refused change leaves the original booking exactly as it was.
+  const travel = await travelDays();
+  const window = blockWindow(input.startDate, input.endDate, travel);
+  const requested: Requested[] = [
+    ...input.assetIds.map((resourceId) => ({ kind: "equipment" as const, resourceId, label: names.get(resourceId) ?? "Equipment" })),
+    ...(input.operatorId ? [{ kind: "operator" as const, resourceId: input.operatorId, label: "Operator" }] : []),
+  ];
+
   const result = await db.tx<ScheduleResult>(async (t) => {
-    for (const id of input.assetIds) {
-      const clash = (await clashesFor(id, input.startDate, input.endDate, jobId, t))[0];
-      if (clash) {
-        // Nothing written yet, so returning commits an empty transaction.
-        return {
-          ok: false,
-          reason: `${names.get(id)} is already committed to ${clash.reference} from ${onDay(clash.start_date)} to ${onDay(clash.end_date)}.`,
-        };
-      }
+    // One check for everything, rather than the two this used to do. The old pair only knew about
+    // other *jobs*, so a reschedule onto dates another provider's sent quote was holding went
+    // through — the kind of overbooking the quote-time holds exist to prevent.
+    const clashes = await holdClashes(requested, window, { jobId }, businessId, t);
+    const first = clashes[0];
+    if (first) {
+      // Nothing written yet, so returning commits an empty transaction and the original stands.
+      const label = first.kind === "operator" ? "This operator" : names.get(first.resourceId) ?? "That equipment";
+      return { ok: false, reason: `${label} is ${first.why}.` };
     }
-    if (input.operatorId) {
-      const busy = (await operatorClashesFor(input.operatorId, input.startDate, input.endDate, jobId, t))[0];
-      if (busy) {
-        return { ok: false, reason: `This operator is already on another job for those dates (${busy.reference}, ${onDay(busy.start_date)} to ${onDay(busy.end_date)}).` };
-      }
-    }
+
     await t.run("DELETE FROM job_asset WHERE job_id=?", jobId);
     const INSERT_ASSET = "INSERT INTO job_asset (job_id, equipment_id) VALUES (?,?)";
     for (const id of input.assetIds) await t.run(INSERT_ASSET, jobId, id);
-    await t.run(`UPDATE job SET start_date=?, end_date=?, operator_id=?, status=CASE WHEN status='unscheduled' THEN 'scheduled' ELSE status END, updated_at=?
-       WHERE id=? AND business_id=?`, input.startDate, input.endDate, input.operatorId, new Date().toISOString(), jobId, businessId);
+    await t.run(`UPDATE job SET start_date=?, end_date=?, block_from=?, block_to=?, operator_id=?,
+         status=CASE WHEN status='unscheduled' THEN 'scheduled' ELSE status END, updated_at=?
+       WHERE id=? AND business_id=?`,
+      input.startDate, input.endDate, window.from, window.to, input.operatorId,
+      new Date().toISOString(), jobId, businessId);
+    // The reservations follow the booking. Leaving them on the old week would mean the records and
+    // the calendar disagreed, and a future clash check would believe whichever it read.
+    await moveConverted(job.requestId, input.startDate, input.endDate, travel,
+      [...input.assetIds, ...(input.operatorId ? [input.operatorId] : [])], t);
     return { ok: true };
   });
   if (!result.ok) return result;
 
-  await audit(actorId, "job.scheduled", jobId, `${input.startDate}..${input.endDate}`);
+  await audit(actorId, "job.scheduled", jobId, `${input.startDate}..${input.endDate} (+${travel}d travel)`);
   return { ok: true };
 }
 

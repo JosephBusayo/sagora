@@ -183,3 +183,47 @@ export async function createPrivateJobAction(_prev: FormState, fd: FormData): Pr
   await createPrivateJob(business.id, user.id, { ...parsed.data, acres: toAcres(parsed.data.acres, landUnit(values.unit)) });
   redirect("/provider/jobs");
 }
+
+/**
+ * Records how a job's earnings are divided between the machines that did it.
+ *
+ * A14: "where a job used several machines the allocation must reconcile, and anything not allocated
+ * must be shown and excluded rather than quietly spread." Shares may come to less than the whole —
+ * a provider who can only account for 80% of a job should be able to say so — and the rest then
+ * shows as not allocated on the Reports screen rather than being nudged into the nearest machine.
+ */
+export async function allocateRevenueAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return { error: "You do not have permission to change this." };
+
+  const jobId = str(fd, "jobId");
+  const job = await getJob(business.id, jobId);
+  if (!job) return { error: "That job is not yours." };
+
+  // Percentages on the form, basis points underneath: a three-machine job does not divide into
+  // whole percents, and rounding it in the form would be the quiet spreading A14 forbids.
+  const input: { equipmentId: string; shareBp: number }[] = [];
+  for (const equipmentId of job.assetIds) {
+    const raw = str(fd, `share-${equipmentId}`);
+    if (!raw) continue;
+    const percent = Number(raw);
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      return { fieldErrors: { [`share-${equipmentId}`]: "Enter a percentage between 0 and 100" } };
+    }
+    input.push({ equipmentId, shareBp: Math.round(percent * 100) });
+  }
+  if (input.length === 0) return { error: "Give at least one machine a share, or leave it to split evenly." };
+
+  const { setAllocation } = await import("@/lib/revenue");
+  const result = await setAllocation(business.id, user.id, jobId, input);
+  if (!result.ok) return { error: result.reason };
+
+  revalidatePath("/provider/jobs");
+  revalidatePath("/provider/reports");
+  const total = input.reduce((sum, x) => sum + x.shareBp, 0);
+  return {
+    notice: total === 10_000
+      ? "Saved. The whole job is accounted for."
+      : `Saved. ${(100 - total / 100).toFixed(2).replace(/\.00$/, "")}% is not allocated and will show separately in Reports.`,
+  };
+}

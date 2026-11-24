@@ -12,6 +12,7 @@ import { getAsset, selectableAssets } from "@/lib/equipment";
 import { listMembers } from "@/lib/team";
 import { dispatchBlockers, JOB_STATUS_LABEL, READY_CHECKS, atRiskAssets, listJobs, machineChanges, type JobStatus } from "@/lib/jobs";
 import { flagsForJob, openOnly } from "@/lib/flags";
+import { allocationFor, sharePercent } from "@/lib/revenue";
 import { JobsList, type JobView } from "@/components/jobs/JobsList";
 
 export const metadata: Metadata = { title: "Jobs" };
@@ -65,6 +66,19 @@ export default async function Page({ searchParams }: { searchParams: Promise<Fil
       // Everything that would stop the machine leaving the yard, in the words the server would use
       // to refuse it, so the screen and the server cannot say different things.
       blockers: await dispatchBlockers(business.id, j.id),
+      allocation: await (async () => {
+        const a = await allocationFor(j.id, j.assetIds);
+        return {
+          stated: a.stated,
+          shares: a.shares.map((sh) => ({
+            equipmentId: sh.equipmentId,
+            // The same lookup the Committed line uses, so a share is labelled with the name the
+            // provider just read two lines above it.
+            name: names[j.assetIds.indexOf(sh.equipmentId)] ?? "Equipment",
+            percent: sharePercent(sh.shareBp),
+          })),
+        };
+      })(),
       privateCustomer: j.privateCustomer,
       changes: (await machineChanges(j.id)).map((c) => `${fmt(c.at.slice(0, 10))}: ${c.detail}`),
       reportedAcres: j.reportedAcres,

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { districtLabel } from "@/lib/business";
 import { formatAmount } from "@/lib/money";
 import { STATUS_LABEL, serviceLabel, type ServiceRequest } from "@/lib/requests";
-import { RESPONSE_HOURS, agreementFor, endDateOf, expiresAt, isExpired, listForRequest } from "@/lib/quotes";
+import { RESPONSE_HOURS, agreementFor, endDateOf, expiresAt, isExpired, listForRequest, paymentOverdue } from "@/lib/quotes";
 import { serviceFeeOn } from "@/lib/fee";
 import { db } from "@/lib/db";
 import { acceptQuoteAction, declineQuoteAction } from "@/app/(platform)/farmer/requests/accept-actions";
@@ -97,6 +97,18 @@ export type RequestFlags = { accepted?: string; error?: string; confirmed?: stri
  * One request as its farmer sees it: details, payment, the work and the quotes. The same for a
  * farmer with an account and for someone who came back with a tracking code; only the links differ.
  */
+/**
+ * A payment deadline, to the hour.
+ *
+ * Shown with the time because it is an instant rather than a day: a quote accepted at four in the
+ * afternoon is held until four two days later, and "15 Dec" would be a worse answer than useless.
+ * Sierra Leone keeps UTC+0 all year, so Africa/Freetown and UTC render identically.
+ */
+const payDeadline = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", {
+    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Freetown",
+  });
+
 export async function RequestDetail({ request, links, flags, online, noQuotes = "No provider has quoted yet. We will email you when one does." }: {
   request: ServiceRequest;
   links: RequestLinks;
@@ -121,6 +133,9 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
   ].filter(Boolean) as string[];
   const refunds = (await releasesFor(id)).filter((r) => r.kind === "refund" && r.status !== "void");
   const due = agreement ? agreement.farmerTotalMinor - received : 0;
+  // Read from the clock rather than from a swept column, so the screen is right the moment it
+  // becomes right rather than after the nightly sweep has been round.
+  const overdue = agreement ? paymentOverdue(agreement) : false;
   const scheduled = Boolean(job?.startDate && job.assetIds.length);
 
   return (
@@ -220,6 +235,34 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
             <div><dt>Sagora service fee</dt><dd>{formatAmount(agreement.feeMinor)}</dd></div>
             <div className="offer__breakdown-total"><dt>Total</dt><dd>{formatAmount(agreement.farmerTotalMinor)}</dd></div>
           </dl>
+        ) : null}
+
+        {/* A07: "hold the reservation for a bounded period between acceptance and payment, and show
+            the deadline." Said here rather than only enforced, because a farmer who does not know
+            there is a deadline cannot meet it — and because the machines really do go back on the
+            market when it passes, which is not something to spring on anybody.
+
+            Three states: still running, run out, already let go. Agreements accepted before this
+            rule existed carry no deadline and say nothing. */}
+        {!booking && agreement.lapsedAt ? (
+          <p className="notice notice--error" role="status">
+            The equipment was held for you until {payDeadline(agreement.payBy)} and has now been released,
+            so these dates are no longer reserved. Your provider can send you a new quote, and anything you
+            have paid is safe.
+          </p>
+        ) : !booking && agreement.payBy ? (
+          overdue ? (
+            <p className="notice notice--error" role="status">
+              The deadline for paying was {payDeadline(agreement.payBy)}. The equipment is being released
+              for other work. Pay now, or ask your provider for new dates.
+            </p>
+          ) : (
+            <p className="notice notice--warn" role="status">
+              Your equipment and operator are held until <strong>{payDeadline(agreement.payBy)}</strong>.
+              {due > 0 ? ` ${formatAmount(due)} is still to come.` : ""} After that the dates go back
+              on the market.
+            </p>
+          )
         ) : null}
 
         {/* The brief keeps these two apart on purpose: money in is not a booking. */}

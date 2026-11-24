@@ -4,7 +4,7 @@ import { db, type Queries } from "./db";
 import { formatAmount } from "./money";
 import { audit } from "./business";
 import { account, balance, post } from "./ledger";
-import { agreementFor } from "./quotes";
+import { agreementFor, paymentOverdue } from "./quotes";
 import { clashesFor, jobForRequest } from "./jobs";
 import { getById as getRequest } from "./requests";
 
@@ -175,6 +175,30 @@ export async function recordPayment(staffId: string, input: RecordInput): Promis
       };
     }
 
+    // A10: "money arriving after the hold has expired, or after capacity has been lost, must go to
+    // resolution rather than confirming a booking that cannot happen."
+    //
+    // Checked before the deposit test and ahead of the schedule test, because this is a different
+    // problem with a different answer. The other cases are "we cannot book this yet"; this one is
+    // "the reservation behind this price is gone", and the farmer has to be told that the dates
+    // they paid for are no longer theirs rather than left to find out on the day.
+    //
+    // The money is kept and held either way. Refusing it would be worse: it has already left the
+    // farmer's account, and a payment Sagora will not acknowledge is a payment nobody can trace.
+    if (agreement.lapsedAt !== "" || paymentOverdue(agreement)) {
+      const why = agreement.lapsedAt !== ""
+        ? agreement.lapsedReason || "The reservation had already been released."
+        : `The payment window closed on ${agreement.payBy.slice(0, 10)}.`;
+      await openCase(t, input.requestId, "payment_after_hold_expired",
+        `${formatAmount(input.amountMinor)} arrived after the reservation lapsed. ${why}`);
+      return {
+        ok: true,
+        outcome: "case_opened",
+        message: "The money is recorded and held, but the equipment was released when the payment " +
+          "window closed, so this is not booked. A case has been opened to agree new dates or refund it.",
+      };
+    }
+
     // Enough to book (the brief's "verified funds" — at least the deposit threshold, see
     // DEPOSIT_POLICY). The booking also needs the machines to still be free for these dates.
     if (!job.startDate || !job.endDate || job.assetIds.length === 0) {
@@ -187,7 +211,9 @@ export async function recordPayment(staffId: string, input: RecordInput): Promis
     }
 
     for (const assetId of job.assetIds) {
-      const clash = (await clashesFor(assetId, job.startDate, job.endDate, job.id, t))[0];
+      // The job's own padded span, so a booking is never confirmed onto a day the machine spends
+      // on the road. Pre-028 jobs have no padded span and fall back to the work dates.
+      const clash = (await clashesFor(assetId, job.blockFrom ?? job.startDate, job.blockTo ?? job.endDate, job.id, t))[0];
       if (clash) {
         await openCase(
           t,

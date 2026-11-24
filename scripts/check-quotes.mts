@@ -94,9 +94,16 @@ ok("nor any stray hold", (await holds.forRequest(r2.id)).length === 0);
 
 const f3 = await user("Farmer Three");
 const r3 = await request(f3, "Farmer Three");
-// Starts the day after the first window ends, so nothing overlaps.
-const q3 = await quotes.sendQuote(r3.id, biz, owner, kit({ amountMinor: 80000, startDate: inDays(15), daysToComplete: 2 }));
-ok("the same machine can be quoted for dates that do not overlap", q3.ok);
+// The day after the first window ends is no longer free: since migration 028 a hold covers the
+// work plus a day's travel each side, so the first quote (10-14) blocks 9-15 and the machine is
+// not available again until the 16th. The old test asked for the 15th and passing it would have
+// meant the travel allowance was doing nothing.
+const stillTravelling = await quotes.sendQuote(r3.id, biz, owner, kit({ amountMinor: 80000, startDate: inDays(15), daysToComplete: 2 }));
+ok("the day the machine travels is not offered as free", !stillTravelling.ok);
+ok("and the refusal offers the first date that would work",
+  !stillTravelling.ok && stillTravelling.reason.includes("The earliest everything is free is"));
+const q3 = await quotes.sendQuote(r3.id, biz, owner, kit({ amountMinor: 80000, startDate: inDays(17), daysToComplete: 2 }));
+ok("the same machine can be quoted once the travel is clear", q3.ok);
 if (!q3.ok) throw new Error(q3.reason);
 ok("and that farmer can accept", (await quotes.acceptQuote(q3.quote.id, f3)).ok);
 

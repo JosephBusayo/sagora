@@ -160,6 +160,37 @@ export function capacityStale(
   return Date.now() - at > freshHours * 3600_000;
 }
 
+/**
+ * How long a farmer has to pay once they have accepted, before the reservation lets go.
+ *
+ * Karim's handover, 23 November 2026: "Hold the reservation for a bounded period between
+ * acceptance and payment, and show the deadline. Release unused capacity when it lapses" (A07).
+ *
+ * Until this existed an accepted quote held its machines for ever, which is the single most
+ * expensive thing that can happen to a provider: the tractor is unavailable and nobody is paying
+ * for it. Forty-eight hours, matching the quote window, so a farmer deals with one number rather
+ * than two — and stored as a setting because Karim has not given one.
+ */
+export const PAYMENT_HOURS = 48;
+
+export async function paymentHours(): Promise<number> {
+  const { getSetting } = await import("./follow-ups");
+  const n = Number(await getSetting("payment_window_hours"));
+  return Number.isFinite(n) && n >= 1 && n <= 720 ? Math.floor(n) : PAYMENT_HOURS;
+}
+
+/**
+ * The moment the reservation stops standing, capped at the start of the work.
+ *
+ * The cap is the same reasoning as the quote's own expiry: a deadline that falls after the work
+ * was due to begin holds a machine for a day that has already gone.
+ */
+export function payByFor(acceptedAtIso: string, startDate: string, hours: number): string {
+  const window = Date.parse(acceptedAtIso) + hours * 3600_000;
+  const start = Date.parse(`${startDate}T00:00:00Z`);
+  return new Date(Math.min(window, start)).toISOString();
+}
+
 export type QuoteInput = {
   amountMinor: number; includes: string; startDate: string; note: string;
   daysToComplete: number;
@@ -419,6 +450,7 @@ export async function acceptQuote(quoteId: string, farmerId: string, onBehalf = 
   const endDate = span.endDate;
   const travel = await travelDays();
   const block = blockWindow(span.startDate, endDate, travel);
+  const payBy = payByFor(now, span.startDate, await paymentHours());
   // Accepting is one decision: the frozen agreement, the losing quotes and the request's own
   // state all move together, or none of them do.
   const decided = await db.tx<AcceptResult>(async (t) => {
@@ -443,8 +475,9 @@ export async function acceptQuote(quoteId: string, farmerId: string, onBehalf = 
     const feeMinor = serviceFeeOn(quote.amountMinor);
 
     // The agreement is a frozen copy: later edits to the quote cannot change what was agreed.
-    await t.run(`INSERT INTO agreement (id, request_id, quote_id, business_id, version, amount_minor, fee_minor, includes, start_date, accepted_by, accepted_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`, randomUUID(), quote.requestId, quote.id, quote.businessId, quote.version, quote.amountMinor, feeMinor, quote.includes, span.startDate, farmerId, now);
+    // pay_by is the bounded window from A07 — the machines are held until then and no longer.
+    await t.run(`INSERT INTO agreement (id, request_id, quote_id, business_id, version, amount_minor, fee_minor, includes, start_date, pay_by, accepted_by, accepted_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, randomUUID(), quote.requestId, quote.id, quote.businessId, quote.version, quote.amountMinor, feeMinor, quote.includes, span.startDate, payBy, farmerId, now);
     await t.run("UPDATE quote SET status='accepted' WHERE id=?", quote.id);
     await t.run("UPDATE quote SET status='not_selected' WHERE request_id=? AND id<>? AND status='sent'", quote.requestId, quote.id);
     await t.run("UPDATE service_request SET status='in_progress', updated_at=? WHERE id=?", now, quote.requestId);
@@ -504,12 +537,27 @@ export type Agreement = {
   feeMinor: number;
   /** What the farmer owes: the provider's price plus that fee. */
   farmerTotalMinor: number;
+  /**
+   * When the reservation stops standing without payment. Empty on agreements accepted before A07
+   * was built, which therefore never lapse — backdating a deadline onto them would release live
+   * bookings for farmers who have done nothing wrong.
+   */
+  payBy: string;
+  /** Set once the window closed unpaid. The agreement survives; the dates do not. */
+  lapsedAt: string;
+  lapsedReason: string;
 };
 
+/** Whether this agreement's payment window has run out with nothing paid. */
+export const paymentOverdue = (a: Pick<Agreement, "payBy" | "lapsedAt">) =>
+  a.lapsedAt === "" && a.payBy !== "" && Date.now() > Date.parse(a.payBy);
+
 export async function agreementFor(requestId: string): Promise<Agreement | null> {
-  const r = await db.get(`SELECT business_id, amount_minor, fee_minor, version, includes, start_date
+  const r = await db.get(`SELECT business_id, amount_minor, fee_minor, version, includes, start_date,
+         pay_by, lapsed_at, lapsed_reason
        FROM agreement WHERE request_id=?`, requestId) as
-    { business_id: string; amount_minor: number; fee_minor: number | null; version: number; includes: string; start_date: string } | undefined;
+    { business_id: string; amount_minor: number; fee_minor: number | null; version: number; includes: string;
+      start_date: string; pay_by?: string | null; lapsed_at?: string | null; lapsed_reason?: string | null } | undefined;
   if (!r) return null;
   const amountMinor = Number(r.amount_minor);
   // Agreements accepted before migration 025 carry no fee. They were charged the provider price
@@ -518,7 +566,58 @@ export async function agreementFor(requestId: string): Promise<Agreement | null>
   return {
     businessId: r.business_id, amountMinor, feeMinor, farmerTotalMinor: amountMinor + feeMinor,
     version: r.version, includes: r.includes, startDate: r.start_date,
+    payBy: r.pay_by ?? "", lapsedAt: r.lapsed_at ?? "", lapsedReason: r.lapsed_reason ?? "",
   };
+}
+
+/**
+ * Lets go of the dates on accepted work nobody paid for.
+ *
+ * "Release unused capacity when it lapses." What is released is the *reservation*, not the
+ * agreement: the price, the plan and who agreed it all survive, because they are facts and the
+ * farmer may still want the work. Only the claim on the calendar goes, and it goes because
+ * somebody else could be using that tractor.
+ *
+ * Nothing depends on this running on time. `paymentOverdue` reads the clock, so an overdue window
+ * is overdue the moment it becomes so; this sweep is what actually frees the machines, and running
+ * late costs only a tractor that looks busier than it is.
+ */
+export async function sweepUnpaidBookings(): Promise<{ lapsed: number; references: string[] }> {
+  const now = new Date().toISOString();
+  const rows = await db.all(`SELECT a.request_id, a.pay_by, r.reference
+       FROM agreement a
+       JOIN service_request r ON r.id = a.request_id
+       WHERE a.lapsed_at = '' AND a.pay_by <> '' AND a.pay_by <= ?
+         AND NOT EXISTS (SELECT 1 FROM booking b WHERE b.request_id = a.request_id)
+         AND r.status NOT IN ('cancelled','completed')`, now) as
+    { request_id: string; pay_by: string; reference: string }[];
+
+  const references: string[] = [];
+  for (const row of rows) {
+    // One request at a time, each in its own transaction: a sweep that fails halfway should leave
+    // the requests it has already dealt with properly dealt with.
+    const freed = await db.tx<boolean>(async (t) => {
+      // Money may have arrived between the query and here. If it has, the booking is somebody
+      // else's to confirm and the dates are not ours to release.
+      const paid = await t.get(`SELECT COALESCE(SUM(amount_minor),0) AS n FROM payment WHERE request_id=?`,
+        row.request_id) as { n: number };
+      if (Number(paid.n) > 0) return false;
+
+      await t.run(`UPDATE agreement SET lapsed_at=?, lapsed_reason=? WHERE request_id=? AND lapsed_at=''`,
+        now, `Nothing was paid by ${row.pay_by}`, row.request_id);
+      await t.run(`UPDATE resource_hold SET status='released', released_at=?,
+             release_reason='The payment window closed with nothing paid'
+           WHERE request_id=? AND status IN ('held','converted')`, now, row.request_id);
+      // The job keeps its history and loses its claim on the calendar. Back to unscheduled rather
+      // than cancelled, because the work was agreed and may yet happen on new dates.
+      await t.run(`UPDATE job SET start_date=NULL, end_date=NULL, block_from=NULL, block_to=NULL,
+             status=CASE WHEN status='scheduled' THEN 'unscheduled' ELSE status END, updated_at=?
+           WHERE request_id=? AND status='scheduled'`, now, row.request_id);
+      return true;
+    });
+    if (freed) references.push(row.reference);
+  }
+  return { lapsed: references.length, references };
 }
 
 export type ActivityItem = { at: string; text: string };

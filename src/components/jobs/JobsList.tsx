@@ -6,10 +6,11 @@ import { useModal } from "@/components/app/useModal";
 import { useActionState, useRef, useState } from "react";
 import { useSafely } from "@/components/app/safely";
 import type { FormState } from "@/lib/auth-flows";
+import { FormNotice } from "@/components/app/FormNotice";
 import { Icon, ServiceIcon, type IconName } from "@/components/app/Icon";
 import { ScheduleModal } from "./ScheduleModal";
 import { ReportModal } from "./ReportModal";
-import { mobiliseAction, noReplacementAction, readinessAction, reconfirmCapacityAction, resolveFlagAction, startWorkAction } from "@/app/(platform)/provider/(app)/jobs/actions";
+import { allocateRevenueAction, mobiliseAction, noReplacementAction, readinessAction, reconfirmCapacityAction, resolveFlagAction, startWorkAction } from "@/app/(platform)/provider/(app)/jobs/actions";
 import { landSize } from "@/lib/land-size";
 
 export type Option = { id: string; label: string };
@@ -26,6 +27,14 @@ export type JobView = {
   flags: { id: string; cause: string; reason: string }[];
   /** Everything that would stop a dispatch, in the server's own words. */
   blockers: string[];
+  /**
+   * How this job's earnings are divided between its machines, for a job with more than one.
+   *
+   * `stated` is false while the even split is being assumed, which the screen says out loud: an
+   * even split between a tractor and a plough is a guess, and a provider deciding where to put
+   * their money should know which figures rest on one.
+   */
+  allocation: { stated: boolean; shares: { equipmentId: string; name: string; percent: number }[] };
 };
 
 /**
@@ -48,6 +57,48 @@ function ResolveFlag({ flagId }: { flagId: string }) {
       {state.error ? <p className="field__error">{state.error}</p> : null}
       <PendingButton className="button button--soft">Record it</PendingButton>
     </form>
+  );
+}
+
+/**
+ * Who earned what on a job that used more than one machine.
+ *
+ * Offered only once the work is done, because before that there is nothing to divide and asking
+ * would be noise. Percentages are allowed to come to less than a hundred: see A14 and the notice
+ * the action returns.
+ */
+function AllocateRevenue({ j }: { j: JobView }) {
+  const [state, action] = useActionState(useSafely(allocateRevenueAction), {} as FormState);
+  const e = state.fieldErrors ?? {};
+  return (
+    <details className="allocate">
+      <summary>Who earned what on this job</summary>
+      <form action={action} className="form-soft">
+        <input type="hidden" name="jobId" value={j.id} />
+        <p className="field__helper">
+          {j.allocation.stated
+            ? "You have set these shares."
+            : "Split evenly at the moment, because nobody has said otherwise."}
+          {" "}They may come to less than 100% — whatever is left shows as “not allocated” in Reports
+          rather than being added to a machine.
+        </p>
+        {j.allocation.shares.map((sh) => (
+          <div key={sh.equipmentId} className={`field${e[`share-${sh.equipmentId}`] ? " field--invalid" : ""}`}>
+            <label className="field__label" htmlFor={`share-${j.id}-${sh.equipmentId}`}>{sh.name}</label>
+            <div className="field__box">
+              <input id={`share-${j.id}-${sh.equipmentId}`} name={`share-${sh.equipmentId}`} type="number"
+                min={0} max={100} step="0.01" inputMode="decimal" className="field__input"
+                defaultValue={String(sh.percent)} />
+              <span className="field__suffix" aria-hidden="true">%</span>
+            </div>
+            {e[`share-${sh.equipmentId}`] ? <p className="field__error">{e[`share-${sh.equipmentId}`]}</p> : null}
+          </div>
+        ))}
+        {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
+        <FormNotice state={state} />
+        <PendingButton className="button button--soft">Save the split</PendingButton>
+      </form>
+    </details>
   );
 }
 
@@ -235,6 +286,11 @@ function JobModal({ job: j, canEdit, onClose, onSchedule, onReport }: {
           ) : null}
           {j.status === "completed" ? (
             <p className="field__helper">{j.privateCustomer ? `Finished: ${landSize(j.reportedAcres)}.` : `The farmer confirmed ${landSize(j.reportedAcres)}.`}</p>
+          ) : null}
+          {/* A14. Only for a finished job with more than one machine on it: one machine earned the
+              lot and there is nothing to divide. */}
+          {j.status === "completed" && canEdit && j.allocation.shares.length > 1 ? (
+            <AllocateRevenue j={j} />
           ) : null}
 
           {canEdit ? (

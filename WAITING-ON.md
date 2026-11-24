@@ -3,6 +3,49 @@
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
 each one is a swap, not a rewrite. Updated 24 Nov 2026.
 
+## 24 Nov 2026: how long do we hold the machines before the farmer pays?
+
+**A default is in place and the deadline is shown to the farmer. Karim sets the number.**
+
+Until now an accepted quote held its machines for ever. The holds converted to the booking and the
+job owned the dates whether or not the farmer ever paid — which is the most expensive thing that
+can happen to a provider, because the tractor is unavailable and nobody is paying for it.
+
+`payment_window_hours` defaults to **48**, matching the quote window so a farmer deals with one
+number rather than two, and capped at the start of the work: a deadline falling after the work was
+due to begin would hold a machine for a day that has already gone.
+
+When it lapses, the **reservation** is released and the **agreement survives**. The price, the plan
+and who agreed it are facts, and the farmer may still want the work; only the claim on the calendar
+goes, because somebody else could be using that tractor. The farmer is shown the deadline before it
+passes and told plainly when it has.
+
+**What Karim needs to decide:** whether 48 hours is right for a farmer paying by mobile money from
+a village, and whether a part payment should extend it. Today a part payment does not — the window
+runs from acceptance and only a confirmed booking stops it.
+
+## 24 Nov 2026: who earned what, on a job with two machines?
+
+**Built as the handover specifies, with an even split assumed until a provider says otherwise.**
+
+A14 asks for revenue per machine "net of fees and attributable refunds", with allocations that
+reconcile and anything unallocated "shown and excluded rather than quietly spread". All of that is
+built. Two choices worth confirming:
+
+- **An unstated split is an even one**, and the Reports screen says so in as many words rather than
+  presenting a guess as a finding. A provider can state shares per machine on a finished job, and
+  they may come to less than 100% — the remainder then shows as a "Not allocated" row.
+- **A refund decides where a loss falls, not how much was earned.** A payout's net is already net of
+  refunds, because a refund can only be prepared while money is still held and therefore always
+  precedes the payout. Subtracting it again would count it twice. So a refund named to one machine
+  is added back, the job is divided, and that machine then carries its own refund — the loss lands
+  where it belongs and the totals still come to what was actually paid out.
+
+**What Karim needs to decide:** nothing blocking. Worth telling him that per-machine revenue counts
+**settled payouts only**, so the figures lag the work by however long the payout queue takes. An
+accepted price is not revenue and a confirmed booking is not revenue, because either can still
+become a refund.
+
 ## 24 Nov 2026: must one provider cover every stage of a package?
 
 **Built as the handover specifies. Karim should know what it costs before it bites.**
@@ -28,6 +71,7 @@ Two lesser decisions taken as defaults alongside it, both changeable settings:
 |---|---|---|
 | `travel_setup_days` | **1** | The days either side of a job are no longer offered as free. Sierra Leone's districts are large and a tractor moving between two farms is not available for either on the day it travels. One day each side is the conservative guess; Karim may know it is two in the rains |
 | `capacity_fresh_hours` | **24** | A provider states at quotation that the machines are working and free of outside commitments. That statement goes stale after a day and then blocks the **dispatch** — not the acceptance, because a farmer should not lose an agreed price over an unclicked button. A day is short enough to mean something and long enough that quoting three requests in an afternoon takes one confirmation |
+| `payment_window_hours` | **48** | How long the machines stay held after acceptance with nothing paid. See the entry above |
 
 A request may carry at most four operations (`MAX_OPERATIONS`). Beyond that the last stage's
 machines would be held months out on a guess, which is not capacity.

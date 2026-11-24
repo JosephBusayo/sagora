@@ -16,6 +16,8 @@ import * as quotes from "../src/lib/quotes";
 import * as jobs from "../src/lib/jobs";
 import * as equipment from "../src/lib/equipment";
 import * as fee from "../src/lib/fee";
+import * as revenue from "../src/lib/revenue";
+import * as holds from "../src/lib/holds";
 import { machine, operator, provider as providerFixture, quoteInput } from "./fixtures.mjs";
 
 
@@ -346,6 +348,256 @@ console.log("\nRequest kinds");
   await ok("a coordinator cannot accept for a farmer with an account", !(await quotes.acceptQuote(q2.quote.id, staffA, true)).ok);
   await requests.logContact(staffA, assisted.id, "Called back, no answer");
   await ok("calls are logged against the request", (await requests.contactsFor(assisted.id)).length === 1);
+}
+
+/* ===================================================================== phase 4 */
+
+console.log("\nThe reservation is held for a bounded time, then let go");
+{
+  const f = await paidJobFixture("Window");
+  const agreement = (await quotes.agreementFor(f.req.id))!;
+  await ok("accepting sets a payment deadline", agreement.payBy !== "");
+  await ok("which never runs past the day the work starts",
+    Date.parse(agreement.payBy) <= Date.parse(`${agreement.startDate}T00:00:00Z`));
+  await ok("and it has not lapsed yet", !quotes.paymentOverdue(agreement));
+  await ok("so the machine is still committed",
+    (await holds.clashesFor([{ kind: "equipment", resourceId: f.asset.id, label: "" }],
+      { from: inDays(20), to: inDays(21) }, null, f.biz)).length === 1);
+
+  // Backdate the deadline rather than waiting two days.
+  await db.run("UPDATE agreement SET pay_by=? WHERE request_id=?",
+    new Date(Date.now() - 3600_000).toISOString(), f.req.id);
+  await ok("an overdue window reads as overdue from the clock",
+    quotes.paymentOverdue((await quotes.agreementFor(f.req.id))!));
+
+  const swept = await quotes.sweepUnpaidBookings();
+  await ok("the sweep lapses it", swept.references.includes(f.req.reference));
+  const after = (await quotes.agreementFor(f.req.id))!;
+  await ok("the agreement itself survives", after.amountMinor === agreement.amountMinor);
+  await ok("and says why it lapsed", after.lapsedReason.includes("Nothing was paid"));
+  await ok("the machine is free again",
+    (await holds.clashesFor([{ kind: "equipment", resourceId: f.asset.id, label: "" }],
+      { from: inDays(20), to: inDays(21) }, null, f.biz)).length === 0);
+  await ok("the job kept its history and lost its dates",
+    (await jobs.jobForRequest(f.req.id))?.startDate === null);
+  await ok("running the sweep again does nothing", (await quotes.sweepUnpaidBookings()).lapsed === 0);
+  await ok("the ledger was never involved", await ledger.ledgerIsBalanced());
+}
+
+console.log("\nMoney arriving after the reservation lapsed goes to resolution");
+{
+  const f = await paidJobFixture("Late");
+  await db.run("UPDATE agreement SET pay_by=? WHERE request_id=?",
+    new Date(Date.now() - 3600_000).toISOString(), f.req.id);
+  await quotes.sweepUnpaidBookings();
+
+  const total = (await quotes.agreementFor(f.req.id))!.farmerTotalMinor;
+  const late = await payments.recordPayment(staffA, {
+    requestId: f.req.id, amountMinor: total, method: "mobile_money",
+    externalRef: "MM-LATE-WINDOW", note: "",
+  });
+  await ok("the payment is recorded, not refused", late.ok);
+  await ok("but it does not book anything", late.ok && late.outcome === "case_opened");
+  await ok("and says the window had closed",
+    late.ok && late.message.includes("payment window closed"));
+  await ok("the money is still held against the job", await payments.fundsFor(f.req.id) === total);
+  await ok("there is no booking", !(await payments.bookingFor(f.req.id)));
+  const cases = await payments.openCases();
+  await ok("a case is open for somebody to deal with",
+    cases.some((c) => c.requestId === f.req.id && c.kind === "payment_after_hold_expired"));
+  await ok("the ledger still balances", await ledger.ledgerIsBalanced());
+}
+
+console.log("\nA reschedule moves the reservation, or changes nothing at all");
+{
+  const f = await paidJobFixture("Reschedule");
+  const job = (await jobs.jobForRequest(f.req.id))!;
+  // The fixture's machine is the generic kind, which cannot power ploughing. Rescheduling enforces
+  // the catalogue requirement — a quote that cannot become a job was the bug this test found — so
+  // the job is given a real tractor and plough to move onto.
+  const tractor = await equipment.addAsset(f.biz, f.owner, {
+    name: "Reschedule tractor", kind: "tractor", identifier: "SN-RS-T", ownership: "owned", notes: "",
+    specs: { power: "90", hitch: "Three-point category 2", lift: "2500" },
+  });
+  const ploughRS = await equipment.addAsset(f.biz, f.owner, {
+    name: "Reschedule plough", kind: "plough", identifier: "SN-RS-P", ownership: "owned", notes: "",
+    specs: { powerNeeded: "70", hitch: "Three-point category 2" },
+  });
+  await ok("the booking owns its dates", job.startDate === inDays(20));
+  await ok("and the reservation agrees with them",
+    (await holds.forQuote((await quotes.currentQuote(f.req.id, f.biz))!.id))
+      .every((h) => h.status !== "converted" || h.startDate === inDays(20)));
+
+  const moved = await jobs.scheduleJob(f.biz, f.owner, job.id, {
+    startDate: inDays(50), endDate: inDays(51), operatorId: f.provider.operator,
+    assetIds: [tractor.id, ploughRS.id],
+  });
+  await ok("it can be moved", moved.ok);
+  const after = (await jobs.jobForRequest(f.req.id))!;
+  await ok("the job has the new dates", after.startDate === inDays(50));
+  await ok("the padded span moved with it", after.blockFrom === inDays(49));
+  await ok("and so did the reservation",
+    (await holds.forQuote((await quotes.currentQuote(f.req.id, f.biz))!.id))
+      .filter((h) => h.status === "converted").every((h) => h.startDate === inDays(50)));
+  await ok("the old week is free",
+    (await holds.clashesFor([{ kind: "equipment", resourceId: tractor.id, label: "" }],
+      { from: inDays(20), to: inDays(21) }, null, f.biz)).length === 0);
+  await ok("the machine taken off the booking was let go",
+    (await holds.forQuote((await quotes.currentQuote(f.req.id, f.biz))!.id))
+      .some((h) => h.resourceId === f.asset.id && h.status === "released"));
+
+  // A second provider's machine, already committed to their own dates.
+  const rival = await paidJobFixture("Rival");
+  await db.run("UPDATE job SET start_date=?, end_date=?, block_from=?, block_to=? WHERE id=?",
+    inDays(50), inDays(51), inDays(49), inDays(52), rival.jobId);
+  const blocked = await jobs.scheduleJob(f.biz, f.owner, job.id, {
+    startDate: inDays(50), endDate: inDays(51), operatorId: f.provider.operator,
+    assetIds: [tractor.id, ploughRS.id, rival.asset.id],
+  });
+  await ok("a machine somebody else has committed cannot be taken", !blocked.ok);
+  const unchanged = (await jobs.jobForRequest(f.req.id))!;
+  await ok("a refused change leaves the dates exactly as they were", unchanged.startDate === inDays(50));
+  await ok("and the machines exactly as they were",
+    unchanged.assetIds.slice().sort().join(",") === [tractor.id, ploughRS.id].sort().join(","));
+  await ok("and the other provider's booking untouched",
+    (await jobs.jobForRequest(rival.req.id))?.startDate === inDays(50));
+  await ok("the ledger was never involved", await ledger.ledgerIsBalanced());
+}
+
+console.log("\nAn allocation divides a job's earnings and always adds back up");
+{
+  const one = { shares: [{ equipmentId: "a", shareBp: 10000, note: "" }], unallocatedBp: 0, stated: true };
+  const split = revenue.allocate(100000, one);
+  await ok("one machine takes the lot", split.parts.get("a") === 100000);
+  await ok("with nothing unallocated", split.unallocatedMinor === 0);
+
+  const equal = await revenue.allocationFor("no-such-job", ["a", "b", "c"]);
+  await ok("an unstated split is equal", equal.shares.every((sh) => Math.abs(sh.shareBp - 3333) <= 1));
+  await ok("and comes to exactly the whole",
+    equal.shares.reduce((sum, sh) => sum + sh.shareBp, 0) === revenue.FULL_SHARE_BP);
+  await ok("and is marked as assumed rather than stated", !equal.stated);
+
+  // 100 does not divide by three. The parts must still add back to 100.
+  const awkward = revenue.allocate(100, equal);
+  const parts = [...awkward.parts.values()];
+  await ok("an awkward amount still divides",
+    parts.reduce((a, b) => a + b, 0) + awkward.unallocatedMinor === 100);
+  await ok("without inventing a unit", parts.every((x) => Number.isInteger(x)));
+
+  // A stated split that does not account for everything leaves a visible remainder.
+  const partial = {
+    shares: [{ equipmentId: "a", shareBp: 6000, note: "" }, { equipmentId: "b", shareBp: 2500, note: "" }],
+    unallocatedBp: 1500, stated: true,
+  };
+  const left = revenue.allocate(100000, partial);
+  await ok("stated shares get what they were given",
+    left.parts.get("a") === 60000 && left.parts.get("b") === 25000);
+  await ok("and the rest is shown as unallocated, not spread", left.unallocatedMinor === 15000);
+  await ok("which still adds back to the whole",
+    [...left.parts.values()].reduce((a, b) => a + b, 0) + left.unallocatedMinor === 100000);
+
+  await ok("the same job always splits the same way",
+    JSON.stringify([...revenue.allocate(100, equal).parts]) === JSON.stringify([...awkward.parts]));
+}
+
+console.log("\nRevenue per machine, net of fees and attributable refunds");
+{
+  // The handover's A14 arithmetic, in minor units: the provider's price is 100,000, the farmer pays
+  // 110,000 with Sagora's 10% on top, the provider's net is 100,000, and a 10,000 refund
+  // attributable to one machine leaves 90,000 earned.
+  const farmer = await user("Farmer A14");
+  const p = await providerFixture("A14");
+  const plough = await equipment.addAsset(p.biz, p.owner, {
+    name: "A14 plough", kind: "plough", identifier: "SN-A14-P", ownership: "owned", notes: "",
+    specs: { powerNeeded: "70", hitch: "Three-point category 2" },
+  });
+  const req = await requests.createRequest(farmer, {
+    service: "ploughing", acres: 4, landAccess: "easy", landCondition: "", landClearance: "cleared",
+    district: "Bo", village: "Testville", preferredDate: inDays(70), alternateDate: null, notes: "",
+    contactName: "Farmer A14", contactPhone: "76000001", contactEmail: `${farmer}@example.test`,
+  });
+  const q = await quotes.sendQuote(req.id, p.biz, p.owner, quoteInput(p, inDays(70), {
+    amountMinor: 100000, daysToComplete: 2, dailyRateMinor: 50000, assetIds: [p.machine, plough.id],
+  }));
+  if (!q.ok) throw new Error(`A14 quote failed: ${q.reason}`);
+  await ok("the farmer is quoted the price plus the fee",
+    (await quotes.acceptQuote(q.quote.id, farmer)).ok);
+  const agreement = (await quotes.agreementFor(req.id))!;
+  await ok("which is 110,000 on a 100,000 job", agreement.farmerTotalMinor === 110000);
+
+  await payments.recordPayment(staffA, {
+    requestId: req.id, amountMinor: 110000, method: "mobile_money", externalRef: "MM-A14", note: "",
+  });
+  const job = (await jobs.jobForRequest(req.id))!;
+  await jobs.saveReadiness(p.biz, p.owner, job.id, jobs.READY_CHECKS.map((c) => c.id));
+  await jobs.markMobilised(p.biz, p.owner, job.id);
+  await jobs.startWork(p.biz, p.owner, job.id);
+  await jobs.reportWork(p.biz, p.owner, job.id, 4, "Done");
+  await jobs.confirmDelivery(farmer, req.id);
+
+  await ok("a refund cannot be put against a machine that was not on the job",
+    !(await settlement.prepareRefund(staffA, req.id, 1000, "Nonsense", "no-such-machine")).ok);
+
+  // A refund can only be prepared while money is still held, so it always comes before the payout
+  // and has already reduced it. 11,000 off the farmer's 110,000 leaves 99,000 held, which splits
+  // into a 9,000 fee and the handover's 90,000 net.
+  const refund = await settlement.prepareRefund(staffA, req.id, 11000, "The plough left a strip undone", plough.id);
+  if (!refund.ok) throw new Error(`A14 refund failed: ${refund.reason}`);
+  await settlement.approveRelease(staffB, refund.value!);
+  await settlement.markSent(staffB, refund.value!, "mobile_money", "MM-A14-REF");
+
+  const payout = await settlement.preparePayout(staffA, req.id);
+  if (!payout.ok) throw new Error(`A14 payout failed: ${payout.reason}`);
+  await settlement.approveRelease(staffB, payout.value!);
+  await settlement.markSent(staffB, payout.value!, "mobile_money", "MM-A14-OUT");
+
+  let report = await revenue.revenueByMachine(p.biz);
+  await ok("both machines are reported", report.machines.length === 2);
+  await ok("the provider was paid the net of the refund, once",
+    report.totalEarnedMinor === 90000);
+  await ok("Sagora's fee shrank with the refund rather than being charged on money returned",
+    report.feeMinor === 9000);
+  await ok("the report says the split is an assumption, because nobody stated one",
+    report.machines.every((m) => m.assumed));
+  await ok("nothing is unallocated", report.unallocatedMinor === 0);
+  await ok("it reconciles", revenue.reconciles(report));
+
+  const ploughRow = report.machines.find((m) => m.equipmentId === plough.id)!;
+  const tractorRow = report.machines.find((m) => m.equipmentId === p.machine)!;
+  // The loss lands on the machine it was named to rather than being halved across both: the share
+  // is worked out before the named refund and the refund then comes off that one machine.
+  await ok("the named refund is attributed, not spread", ploughRow.refundMinor === 11000);
+  await ok("so the plough carries it", ploughRow.earnedMinor === 50500 - 11000);
+  await ok("and the tractor does not", tractorRow.earnedMinor === 50500);
+  await ok("while the two still come to exactly what was paid out",
+    ploughRow.earnedMinor + tractorRow.earnedMinor === 90000);
+  await ok("the refund is never subtracted twice", tractorRow.refundMinor === 0);
+
+  // Stating a split that does not account for everything.
+  await ok("a provider can state the split",
+    (await revenue.setAllocation(p.biz, p.owner, job.id, [
+      { equipmentId: p.machine, shareBp: 7000 }, { equipmentId: plough.id, shareBp: 2000 },
+    ])).ok);
+  await ok("shares adding to more than the whole are refused",
+    !(await revenue.setAllocation(p.biz, p.owner, job.id, [
+      { equipmentId: p.machine, shareBp: 8000 }, { equipmentId: plough.id, shareBp: 8000 },
+    ])).ok);
+  await ok("a machine not on the job cannot be given a share",
+    !(await revenue.setAllocation(p.biz, p.owner, job.id, [{ equipmentId: "no-such", shareBp: 100 }])).ok);
+  await ok("another business cannot state it",
+    !(await revenue.setAllocation("someone-else", p.owner, job.id, [{ equipmentId: p.machine, shareBp: 100 }])).ok);
+
+  report = await revenue.revenueByMachine(p.biz);
+  // 90,000 paid out plus the 11,000 named refund is 101,000 to divide: 70% and 20% of it, with the
+  // 10% nobody accounted for left over.
+  await ok("the stated split is used", report.machines.find((m) => m.equipmentId === p.machine)!.netMinor === 70700);
+  await ok("the tenth nobody accounted for is shown and not spread", report.unallocatedMinor === 10100);
+  await ok("it is in no machine's total",
+    report.machines.reduce((sum, m) => sum + m.netMinor, 0) === 101000 - 10100);
+  await ok("the report no longer calls the split an assumption",
+    report.machines.every((m) => !m.assumed));
+  await ok("and the whole thing still reconciles", revenue.reconciles(report));
+  await ok("the ledger balances after all of it", await ledger.ledgerIsBalanced());
 }
 
 console.log(`\n${checks - fail.length}/${checks} checks passed.`);

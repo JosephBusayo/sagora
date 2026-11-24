@@ -6,6 +6,7 @@ import { formatAmount } from "@/lib/money";
 import { serviceLabel } from "@/lib/requests";
 import { kindLabel } from "@/lib/equipment";
 import { reportFor } from "@/lib/reports";
+import { reconciles, revenueByMachine } from "@/lib/revenue";
 import { landSize } from "@/lib/land-size";
 
 export const metadata: Metadata = { title: "Reports" };
@@ -19,6 +20,9 @@ export default async function Page() {
   const r = await reportFor(business.id);
   // Money stays with full access, the same as the Payments screen.
   const money = permission === "full_access";
+  // A14: revenue per machine, net of fees and attributable refunds. Only with money access, the
+  // same as every other figure in Leones on this screen.
+  const revenue = money ? await revenueByMachine(business.id) : null;
   const winRate = r.quotesSent ? Math.round((r.quotesWon / r.quotesSent) * 100) : 0;
 
   const cards = [
@@ -83,6 +87,79 @@ export default async function Page() {
           )}
         </div>
       </section>
+
+      {/* A14. Settled payouts only: an accepted price is not revenue and a confirmed booking is not
+          revenue, because either can still become a refund. The unallocated row is the handover's
+          explicit ask — "anything not allocated must be shown and excluded rather than quietly
+          spread" — so it is a row of its own rather than a rounding adjustment nobody can see. */}
+      {revenue ? (
+        <section className="home-section">
+          <div className="home-section__head">
+            <h2 className="home-section__title">What each machine earned</h2>
+          </div>
+          <div className="table-card">
+            {revenue.machines.length === 0 ? (
+              <EmptyState icon="payments" title="Nothing settled yet"
+                body="Once a job has been paid out, what each machine earned shows here." />
+            ) : (
+              <>
+                <table className="table table--report">
+                  <thead>
+                    <tr>
+                      <th scope="col">Equipment</th>
+                      <th scope="col">Jobs</th>
+                      <th scope="col">Share of payouts</th>
+                      <th scope="col">Refunds against it</th>
+                      <th scope="col">Earned</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {revenue.machines.map((m) => (
+                      <tr key={m.equipmentId}>
+                        <td>
+                          {m.name}
+                          {m.identifier ? <span className="table__muted"> · {m.identifier}</span> : null}
+                        </td>
+                        <td>{m.jobs.toLocaleString("en-GB")}</td>
+                        <td>
+                          {formatAmount(m.netMinor)}
+                          {/* Said plainly, because an even split between a tractor and a plough is a
+                              guess and somebody deciding where to put their money should know it. */}
+                          {m.assumed ? <span className="table__muted"> · split evenly</span> : null}
+                        </td>
+                        <td>{m.refundMinor ? formatAmount(m.refundMinor) : "None"}</td>
+                        <td><strong>{formatAmount(m.earnedMinor)}</strong></td>
+                      </tr>
+                    ))}
+                    {revenue.unallocatedMinor !== 0 ? (
+                      <tr>
+                        <td colSpan={4}>
+                          Not allocated
+                          <span className="field__helper">
+                            Paid out on jobs where the shares you set do not account for all of it. It is in
+                            no machine&rsquo;s total.
+                          </span>
+                        </td>
+                        <td><strong>{formatAmount(revenue.unallocatedMinor)}</strong></td>
+                      </tr>
+                    ) : null}
+                    <tr>
+                      <td colSpan={4}><strong>Paid out to you</strong></td>
+                      <td><strong>{formatAmount(revenue.totalEarnedMinor)}</strong></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className="field__helper">
+                  Across {revenue.jobs.toLocaleString("en-GB")} settled {revenue.jobs === 1 ? "job" : "jobs"},
+                  after Sagora&rsquo;s fee of {formatAmount(revenue.feeMinor)}.
+                  {" "}Machines plus anything not allocated come to the total exactly
+                  {reconciles(revenue) ? "" : " — but they do not here, which is a bug worth reporting"}.
+                </p>
+              </>
+            )}
+          </div>
+        </section>
+      ) : null}
 
       <section className="home-section">
         <div className="home-section__head"><h2 className="home-section__title">Equipment use</h2></div>

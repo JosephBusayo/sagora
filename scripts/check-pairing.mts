@@ -89,18 +89,22 @@ await pairing.savePairing(biz, owner, {
 });
 ok("a verified pair passes", (await pairing.kitProblem(biz, "ploughing", [tractor.id, plough.id])) === null);
 ok("a tractor on its own does not",
-  Boolean((await pairing.kitProblem(biz, "ploughing", [tractor.id]))?.includes("needs plough")));
+  Boolean((await pairing.kitProblem(biz, "ploughing", [tractor.id]))?.why.includes("needs plough")));
 ok("nor a plough on its own",
-  Boolean((await pairing.kitProblem(biz, "ploughing", [plough.id]))?.includes("needs tractor")));
+  Boolean((await pairing.kitProblem(biz, "ploughing", [plough.id]))?.why.includes("needs tractor")));
+ok("a missing implement is a catalogue fact, so it always blocks",
+  (await pairing.kitProblem(biz, "ploughing", [tractor.id]))?.pairing === false);
 
 const other = await add("plough", "Unchecked plough", PLOUGH);
 ok("an unconfirmed plough is refused by name",
-  Boolean((await pairing.kitProblem(biz, "ploughing", [tractor.id, other.id]))?.includes("Unchecked plough")));
+  Boolean((await pairing.kitProblem(biz, "ploughing", [tractor.id, other.id]))?.why.includes("Unchecked plough")));
+ok("and that one is a judgement, so the setting decides",
+  (await pairing.kitProblem(biz, "ploughing", [tractor.id, other.id]))?.pairing === true);
 await pairing.savePairing(biz, owner, {
   machineId: tractor.id, implementId: other.id, service: "ploughing", verdict: "incompatible", basis: "Too heavy for the linkage",
 });
 ok("one recorded as not compatible says so",
-  Boolean((await pairing.kitProblem(biz, "ploughing", [tractor.id, other.id]))?.includes("not compatible")));
+  Boolean((await pairing.kitProblem(biz, "ploughing", [tractor.id, other.id]))?.why.includes("not compatible")));
 
 console.log("\nA self-contained machine needs nothing hitched to it");
 const combine = await add("combine", "Rice combine", { ownEngine: "Own engine", power: "120", header: "3" });

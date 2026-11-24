@@ -205,24 +205,38 @@ function readinessOf(service: string, assets: readonly Asset[], pairings: readon
 /**
  * Why this set of machines cannot do this work, or null when it can.
  *
- * Called when a quote is sent. It answers the kit question only — whether the machines are free
- * for the dates is lib/holds.ts, checked in the same transaction that writes the hold.
+ * Two quite different refusals come out of here, and conflating them was a real bug: until
+ * migration 029 both were gated behind `pairing_enforced`, so with the switch off a provider could
+ * send a quote with a machine that physically cannot do the work and then find they could not
+ * schedule the job they had won — `scheduleJob` has always enforced the kit requirement hard.
  *
- * While `pairing_enforced` is off this returns a warning rather than a refusal, so the caller can
- * show it without stopping the quote. See `pairingEnforced` for why that switch exists.
+ *  - `pairing: false` — **the catalogue**. Ploughing needs a tractor and a plough. That is a fact
+ *    about the work, not a judgement about two particular machines, and nothing is waiting on
+ *    Karim for it. It always blocks.
+ *  - `pairing: true` — **the judgement**. Whether *this* plough goes behind *this* tractor. Nobody
+ *    has recorded a pairing yet, so enforcing it today would stop every quote on the platform; it
+ *    blocks only while `pairing_enforced` is on, and is said rather than enforced until then.
+ *
+ * Whether the machines are free for the dates is a third question entirely, answered in
+ * lib/holds.ts inside the transaction that writes the hold.
  */
+export type KitProblem = { why: string; pairing: boolean };
+
+const kitFault = (why: string): KitProblem => ({ why, pairing: false });
+const pairingFault = (why: string): KitProblem => ({ why, pairing: true });
+
 export async function kitProblem(
   businessId: string, service: string, assetIds: readonly string[],
-): Promise<string | null> {
-  if (assetIds.length === 0) return "Choose the equipment for this work.";
+): Promise<KitProblem | null> {
+  if (assetIds.length === 0) return kitFault("Choose the equipment for this work.");
   const assets = (await listAssets(businessId)).filter((a) => assetIds.includes(a.id));
-  if (assets.length !== assetIds.length) return "Some of that equipment is not on your register.";
+  if (assets.length !== assetIds.length) return kitFault("Some of that equipment is not on your register.");
 
   const kit = kitFor(service);
   const powered = assets.filter((a) => canPower(service, a.kind));
   if (powered.length === 0) {
     const wanted = [...kit.power, ...(kit.selfContained ?? [])].map(kindLabelOf).join(" or ");
-    return `${serviceLabelOf(service)} needs ${wanted.toLowerCase() || "a suitable machine"}. None of the equipment you chose can do it.`;
+    return kitFault(`${serviceLabelOf(service)} needs ${wanted.toLowerCase() || "a suitable machine"}. None of the equipment you chose can do it.`);
   }
 
   // A self-contained unit among them settles it: no implement is required alongside.
@@ -232,7 +246,7 @@ export async function kitProblem(
   for (const group of kit.implements) {
     const chosen = assets.filter((a) => group.includes(a.kind));
     if (chosen.length === 0) {
-      return `${serviceLabelOf(service)} needs ${group.map(kindLabelOf).join(" or ").toLowerCase()}. Add one to this quote.`;
+      return kitFault(`${serviceLabelOf(service)} needs ${group.map(kindLabelOf).join(" or ").toLowerCase()}. Add one to this quote.`);
     }
     // At least one machine-and-implement pair among those chosen has to be verified.
     const anyVerified = powered.some((m) => chosen.some((c) =>
@@ -242,10 +256,10 @@ export async function kitProblem(
     const refused = powered.some((m) => chosen.some((c) =>
       pairings.some((p) => p.machineId === m.id && p.implementId === c.id && p.service === service && p.verdict === "incompatible")));
     const names = chosen.map((c) => c.name).join(" or ");
-    return refused
+    return pairingFault(refused
       ? `${names} is recorded as not compatible with the machine you chose for ${serviceLabelOf(service).toLowerCase()}.`
       : `Nobody has confirmed that ${names} fits the machine you chose for ${serviceLabelOf(service).toLowerCase()}. ` +
-        "Record the pairing on the Equipment screen first.";
+        "Record the pairing on the Equipment screen first.");
   }
   return null;
 }

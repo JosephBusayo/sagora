@@ -1840,3 +1840,5 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .pairings__text { display: grid; gap: 1px; font: 400 14px/20px var(--font-sans); }
 .pairings__add > summary { font: 500 14px/20px var(--font-sans); cursor: pointer; padding: 4px 0; }
 .shares__add > summary { font: 500 14px/20px var(--font-sans); cursor: pointer; padding: 4px 0; }
+.allocate > summary { font: 500 14px/20px var(--font-sans); cursor: pointer; padding: 4px 0; }
+.allocate .form-soft { display: grid; gap: 10px; margin-top: 8px; }
