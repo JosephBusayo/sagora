@@ -245,20 +245,32 @@ export async function recordPayment(staffId: string, input: RecordInput): Promis
   return outcome;
 }
 
-/** Agreements with money still owed, for the staff payments screen. */
+/**
+ * Agreements with money still owed, for the staff payments screen.
+ *
+ * Both figures, because they are different amounts and the screen needs both: `amountMinor` is
+ * what the provider is owed, `farmerTotalMinor` is what the farmer actually has to pay — Sagora's
+ * fee is added on top of the price rather than taken out of it (Karim, 23 November 2026). What is
+ * still to collect is measured against the farmer's total, which is what recordPayment books
+ * against.
+ */
 export async function awaitingPayment(): Promise<{
-  requestId: string; reference: string; businessName: string; amountMinor: number; receivedMinor: number; booked: boolean;
+  requestId: string; reference: string; businessName: string; amountMinor: number; feeMinor: number;
+  farmerTotalMinor: number; receivedMinor: number; booked: boolean;
 }[]> {
-  const rows = await db.all(`SELECT a.request_id, a.amount_minor, r.reference, b.name AS business_name
+  const rows = await db.all(`SELECT a.request_id, a.amount_minor, a.fee_minor, r.reference, b.name AS business_name
        FROM agreement a JOIN service_request r ON r.id = a.request_id
        JOIN provider_business b ON b.id = a.business_id
-       ORDER BY a.accepted_at DESC`,) as { request_id: string; amount_minor: number; reference: string; business_name: string }[];
+       ORDER BY a.accepted_at DESC`,) as
+    { request_id: string; amount_minor: number; fee_minor: number; reference: string; business_name: string }[];
   return Promise.all(
     rows.map(async (r) => ({
       requestId: r.request_id,
       reference: r.reference,
       businessName: r.business_name,
       amountMinor: Number(r.amount_minor),
+      feeMinor: Number(r.fee_minor),
+      farmerTotalMinor: Number(r.amount_minor) + Number(r.fee_minor),
       receivedMinor: await fundsFor(r.request_id),
       booked: Boolean(await bookingFor(r.request_id)),
     })),

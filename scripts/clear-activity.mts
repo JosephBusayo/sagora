@@ -22,19 +22,31 @@ const KEEP = [
   // What a provider set up once and should not have to do again.
   "provider_business", "provider_coverage", "team_member", "business_document",
   "equipment", "equipment_photo", "equipment_photos", "equipment_fault",
+  // The machine's own record and the permissions around it. A kept machine that lost its custody
+  // history, its reviewed pairings or its serial conflict would be a different machine afterwards,
+  // and a provider would have to have it all verified again.
+  "asset_custody", "asset_pairing", "asset_conflict", "asset_share", "asset_viewer",
   "payout_destination", "monime_phone_verification", "staff_mfa",
   // Not data: the migration record and the platform's own settings.
   "schema_migrations", "app_setting",
 ];
 
 /** Everything an account did. This is what gets cleared. */
+// Order matters on SQLite, where this deletes the list in reverse: a child has to be named after
+// its parent so that it is emptied first.
 const CLEAR = [
-  "service_request", "request_contact", "quote", "agreement",
-  "job", "job_asset", "booking", "inspection",
-  "payment", "ledger_entry", "release", "payout_request", "exception_case", "monime_checkout",
+  "service_request", "request_operation", "routing_decision", "request_contact",
+  "quote", "quote_asset", "quote_operation", "resource_hold", "agreement",
+  "job", "job_asset", "booking", "booking_flag", "inspection",
+  // Dated work against a machine, like any other traffic: test downtime left standing would go on
+  // blocking real days on the live site.
+  "asset_downtime",
+  "payment", "ledger_entry", "release", "payout_request", "revenue_allocation",
+  "exception_case", "monime_checkout",
   "notification_outbox", "notification_read",
   "follow_up", "guest_lookup_miss", "voice_intake", "audit_log", "staff_invite",
-  // So the next request is SG-1001 again rather than carrying on from the test traffic.
+  // So numbering starts over at SG-1048 rather than carrying on from the test traffic.
+  // (SG-1048 and not SG-1001: references count up from a base of 1047. See lib/requests.ts.)
   "reference_counter",
 ];
 
@@ -93,4 +105,4 @@ if (engine === "postgres") {
 }
 
 console.log(`\nDeleted ${total} rows across ${present.length} tables. Every account is untouched.`);
-console.log("The next request will be SG-1001.");
+console.log("The next request will be SG-1048.");

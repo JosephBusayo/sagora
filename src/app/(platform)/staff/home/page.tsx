@@ -39,6 +39,12 @@ export default async function Page() {
   // Money out is only shown to whoever may act on it, so the count matches what they can open.
   const queues = waiting.items.filter((i) => finance || !i.href.startsWith("/staff/payments"));
   const needsAction = queues.filter((i) => i.count > 0);
+  // Districts asking to be checked are work like any other queue. They are counted here rather
+  // than inside waitingOnStaff so they keep their own card below instead of being folded into
+  // Provider review — but a home that said "nothing is waiting" while a provider sat unable to
+  // receive requests was the one thing this screen exists to prevent.
+  const totalWaiting = waiting.total + changes.length;
+  const anythingWaiting = needsAction.length > 0 || changes.length > 0;
   const firstName = (staff.name || staff.email).trim().split(/\s+/)[0];
 
   const figures = [
@@ -55,15 +61,15 @@ export default async function Page() {
         <p className="greeting__date">{todayLong()}</p>
         <h1 className="greeting__title">{greeting()}, {firstName}</h1>
         <p className="greeting__sub">
-          {needsAction.length === 0
+          {!anythingWaiting
             ? "Nothing is waiting on you right now."
-            : `${waiting.total.toLocaleString("en-GB")} ${waiting.total === 1 ? "thing needs" : "things need"} someone to look at ${waiting.total === 1 ? "it" : "them"}.`}
+            : `${totalWaiting.toLocaleString("en-GB")} ${totalWaiting === 1 ? "thing needs" : "things need"} someone to look at ${totalWaiting === 1 ? "it" : "them"}.`}
         </p>
       </div>
 
       {/* What is waiting, loudest first. Queues with nothing in them are left out rather than
           listed as zeros: an empty queue is not work, and reading it as work wastes the glance. */}
-      {needsAction.length > 0 ? (
+      {anythingWaiting ? (
         <section className="home-section">
           <div className="home-section__head"><h2 className="home-section__title">Waiting on you</h2></div>
           <div className="home-cards home-cards--three">

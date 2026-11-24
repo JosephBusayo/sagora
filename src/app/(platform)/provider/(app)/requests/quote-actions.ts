@@ -12,7 +12,7 @@ import { coverageOf, covers } from "@/lib/coverage";
 import { notify } from "@/lib/outbox";
 import { inspectionBlocksQuote, saveInspection, type InspectionInput } from "@/lib/inspections";
 import { kitProblem, pairingEnforced } from "@/lib/pairing";
-import { coversEveryStage, operationsFor, stagesNotCovered, type PlannedOperation } from "@/lib/operations";
+import { coversEveryStage, operationsFor, planTotal, spanOf, stagesNotCovered, type PlannedOperation } from "@/lib/operations";
 import { selectableUsableAssets } from "@/lib/shares";
 import type { FormState } from "@/lib/auth-flows";
 
@@ -27,6 +27,13 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   // Equipment is chosen with the price now, so the farmer sees the machines and the days along
   // with the figure, and the job arrives ready to run (Karim, 22 Nov 2026).
   const assetIds = fd.getAll("assetIds").filter((v): v is string => typeof v === "string" && v.length > 0);
+
+  // Which shape of form this is, before anything is checked. A package posts a window and a price
+  // per stage and no single total at all, so the one-stage questions below cannot be asked of it:
+  // asked anyway, they fail on fields the provider was never shown, and the quote cannot be sent.
+  const ops = await operationsFor(requestId);
+  const isPackage = ops.length > 1;
+
   const raw = {
     amount: str(fd, "amount"),
     includes: str(fd, "includes"),
@@ -39,25 +46,33 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
     outsideCommitments: str(fd, "outsideCommitments"),
   };
   const confirmed = str(fd, "confirmCapacity") === "yes";
-  const values = { ...raw, assetIds: assetIds.join(","), confirmCapacity: confirmed ? "yes" : "" };
+  // Everything the provider typed, so a refusal hands their work back rather than an empty form.
+  // The stage fields are named after the operation they belong to, so they are carried whole.
+  const stageValues: Record<string, string> = {};
+  for (const [k, v] of fd.entries()) if (k.startsWith("stage-") && typeof v === "string") stageValues[k] = v.trim();
+  const values = { ...raw, ...stageValues, assetIds: assetIds.join(","), confirmCapacity: confirmed ? "yes" : "" };
 
   const fieldErrors: Record<string, string> = {};
   const amountMinor = parseAmount(raw.amount);
   const days = Number(raw.days);
-  if (amountMinor === null) fieldErrors.amount = "Enter the total price, for example 1,500.00";
+  const dailyRateMinor = parseAmount(raw.dailyRate);
   if (raw.includes.length < 3) fieldErrors.includes = "Say what the price covers";
   if (raw.includes.length > 300) fieldErrors.includes = "Use 300 characters or fewer";
-  if (!raw.startDate) fieldErrors.startDate = "Choose the day you can start";
-  else if (raw.startDate < today()) fieldErrors.startDate = "Choose a date in the future";
-  if (!raw.days) fieldErrors.days = "Say how many days the work will take";
-  else if (!Number.isInteger(days) || days < 1 || days > 120) fieldErrors.days = "Enter a whole number of days, from 1 to 120";
-  // The handover asks for the rate as well as the total: "capture numeric working days, daily rate
-  // and service total". It is checked against the total rather than used to compute it, because
-  // the total is what the farmer agrees to and a provider may round it.
-  const dailyRateMinor = parseAmount(raw.dailyRate);
-  if (dailyRateMinor === null) fieldErrors.dailyRate = "Enter your rate for one working day";
-  else if (amountMinor !== null && days >= 1 && dailyRateMinor * days !== amountMinor) {
-    fieldErrors.amount = `The total should be ${days} × your daily rate. Change the rate, the days or the total.`;
+  // One stage: the price, the start and the days are typed once, and these are the fields on the
+  // form. A package has none of them — its figures are the stages added up, further down.
+  if (!isPackage) {
+    if (amountMinor === null) fieldErrors.amount = "Enter the total price, for example 1,500.00";
+    if (!raw.startDate) fieldErrors.startDate = "Choose the day you can start";
+    else if (raw.startDate < today()) fieldErrors.startDate = "Choose a date in the future";
+    if (!raw.days) fieldErrors.days = "Say how many days the work will take";
+    else if (!Number.isInteger(days) || days < 1 || days > 120) fieldErrors.days = "Enter a whole number of days, from 1 to 120";
+    // The handover asks for the rate as well as the total: "capture numeric working days, daily rate
+    // and service total". It is checked against the total rather than used to compute it, because
+    // the total is what the farmer agrees to and a provider may round it.
+    if (dailyRateMinor === null) fieldErrors.dailyRate = "Enter your rate for one working day";
+    else if (amountMinor !== null && days >= 1 && dailyRateMinor * days !== amountMinor) {
+      fieldErrors.amount = `The total should be ${days} × your daily rate. Change the rate, the days or the total.`;
+    }
   }
   if (assetIds.length === 0) fieldErrors.assetIds = "Choose the equipment you will put on this work";
   if (!raw.operatorId) fieldErrors.operatorId = "Choose the operator who will do the work";
@@ -75,7 +90,6 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   // "All stages must be covered before the package is quoted." The browse list already hides
   // packages a provider cannot see through, so reaching this means a hand-posted form or a coverage
   // that changed since the page was drawn.
-  const ops = await operationsFor(requestId);
   const cover = await coverageOf(business);
   const covered = cover.areas.filter((a) => a.district === target.district).map((a) => a.service);
   if (!coversEveryStage(covered, ops)) {
@@ -115,7 +129,11 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   // whole plan. Several stages, and each one carries its own window and its own price, read from
   // fields named after the operation they belong to.
   let plan: PlannedOperation[] | undefined;
-  if (ops.length > 1) {
+  // The figures the quote itself carries. For one stage they are what the provider typed; for a
+  // package they are read back off the plan, so the total is the stages added up and the dates are
+  // the whole run of work rather than the first stage of it.
+  let headline = { amountMinor: amountMinor ?? 0, startDate: raw.startDate, days, dailyRateMinor: dailyRateMinor ?? 0 };
+  if (isPackage) {
     const built: PlannedOperation[] = [];
     for (const o of ops) {
       const start = str(fd, `stage-${o.id}-start`);
@@ -145,6 +163,19 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
     if (Object.keys(fieldErrors).length) return { fieldErrors, values };
     plan = built;
 
+    const span = spanOf(built);
+    headline = {
+      amountMinor: planTotal(built),
+      startDate: span.startDate,
+      // The days a package takes is the run from the first stage to the last, travel and the gaps
+      // between stages included — that is what "8 December to 14 December" has to add up to on the
+      // farmer's screen. The working days are on the stages themselves.
+      days: Math.max(1, Math.round((Date.parse(`${span.endDate}T00:00:00Z`) - Date.parse(`${span.startDate}T00:00:00Z`)) / 86400_000) + 1),
+      // No single rate covers two stages priced separately. Zero, which every screen already reads
+      // as "no rate to show", rather than one stage's rate passed off as the whole package's.
+      dailyRateMinor: 0,
+    };
+
     // The kit question is per service, because a tractor and a plough being right for ploughing
     // says nothing about harrowing. All of them have to pass, or the package cannot be sold.
     for (const stage of built) {
@@ -154,12 +185,12 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   }
 
   const result = await sendQuote(requestId, business.id, user.id, {
-    amountMinor: amountMinor!,
+    amountMinor: headline.amountMinor,
     includes: raw.includes,
-    startDate: raw.startDate,
+    startDate: headline.startDate,
     note: raw.note,
-    daysToComplete: days,
-    dailyRateMinor: dailyRateMinor!,
+    daysToComplete: headline.days,
+    dailyRateMinor: headline.dailyRateMinor,
     assetIds: chosen,
     operatorId: operator.id,
     plan,

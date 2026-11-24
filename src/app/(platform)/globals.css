@@ -731,6 +731,8 @@ a.topbar__round:hover, a.topbar__user:hover { background: var(--color-hover); te
 .detail-row__label { display: flex; align-items: center; gap: 10px; color: var(--color-text-muted); font: 500 13px/21px var(--font-sans); }
 .detail-row__label .icon { color: var(--color-icon); flex: none; }
 .detail-row__value { max-width: 240px; color: var(--color-heading); font: 600 13px/21px var(--font-sans); text-align: right; }
+/* A line with no label of its own: the sentence is the whole row, so it reads across the width. */
+.detail-row--statement .detail-row__value { max-width: none; text-align: left; }
 /* Measured from the Requests design: banner 180px, circles 600 / 300 / 112, each
    shade lighter outwards. The outer circle is clipped by the banner. */
 .modal--request { max-width: 645px; padding: 0 22px 22px; }
@@ -1748,6 +1750,12 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .shares__list li { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
 .shares__who { display: grid; gap: 2px; }
 .shares__who strong { font: 500 14px/21px var(--font-sans); color: #191919; }
+
+/* The stages of a packaged quote: the same shape as the machine list beside it. */
+.offer__stages { display: grid; gap: 8px; margin: 0 0 12px; padding: 0; list-style: none; }
+.offer__stages li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; }
+.offer__stages strong { color: var(--color-heading); font: 600 13px/21px var(--font-sans); }
+.offer__stages span { color: var(--color-text-muted); font: 500 13px/21px var(--font-sans); }
 
 /* The same machines as the farmer reads them, in the quote card. No photographs: Karim asked for
    the detail only, and a farmer on a slow connection should not wait on pictures to compare prices. */

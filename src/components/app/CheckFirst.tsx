@@ -40,15 +40,18 @@ function linesOf(form: HTMLFormElement): Line[] {
       continue;
     }
 
-    const label = questionOf(el) || el.name;
+    // A field with no question of its own — a single tick box whose own words are the whole
+    // sentence — is shown as that sentence. Never as its form field name: "confirmCapacity" in
+    // front of a provider is a leak, not a label.
+    const label = questionOf(el);
     // Several ticks under one question read as one line.
-    const same = seen.get(label);
+    const same = label ? seen.get(label) : undefined;
     if (same && el instanceof HTMLInputElement && el.type === "checkbox") {
       same.value += `, ${value}`;
       continue;
     }
     const line = { label, value };
-    seen.set(label, line);
+    if (label) seen.set(label, line);
     lines.push(line);
   }
   return lines;
@@ -107,9 +110,9 @@ export function CheckFirst({ title = "Check before sending", action = "Confirm a
             <h2 className="confirm__title">{title}</h2>
             <p className="confirm__body">Make sure everything is right. Nothing is sent until you confirm.</p>
             <div className="detail-list check-first__list">
-              {pending.lines.map((l) => (
-                <div key={l.label} className="detail-row">
-                  <span className="detail-row__label">{l.label}</span>
+              {pending.lines.map((l, i) => (
+                <div key={`${l.label}-${i}`} className={`detail-row${l.label ? "" : " detail-row--statement"}`}>
+                  {l.label ? <span className="detail-row__label">{l.label}</span> : null}
                   <span className="detail-row__value">{l.value}</span>
                 </div>
               ))}

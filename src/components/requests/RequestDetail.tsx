@@ -9,6 +9,7 @@ import Link from "next/link";
 import { districtLabel } from "@/lib/business";
 import { formatAmount } from "@/lib/money";
 import { STATUS_LABEL, serviceLabel, type ServiceRequest } from "@/lib/requests";
+import { describeOperations, operationsFor, planFor } from "@/lib/operations";
 import { RESPONSE_HOURS, agreementFor, endDateOf, expiresAt, isExpired, listForRequest, paymentOverdue } from "@/lib/quotes";
 import { serviceFeeOn } from "@/lib/fee";
 import { db } from "@/lib/db";
@@ -54,6 +55,35 @@ async function machinesOn(assetIds: readonly string[]): Promise<{ name: string; 
         .filter(Boolean).join(" · "),
     };
   }));
+}
+
+/**
+ * The stages behind a packaged quote, each with its own dates and price.
+ *
+ * A package is quoted as one figure over one run of days, which is right for comparing offers and
+ * wrong for knowing what you have agreed to: "12 Dec to 18 Dec" does not say that the planting is
+ * on the 18th. The provider planned each stage and Sagora is holding the machines for each stage,
+ * so the farmer sees the same plan before accepting it. Nothing here for a single-stage quote.
+ */
+async function Stages({ quoteId }: { quoteId: string }) {
+  const stages = await planFor(quoteId);
+  if (stages.length < 2) return null;
+  return (
+    <>
+      <p className="offer__label">The stages, in order</p>
+      <ul className="offer__stages">
+        {stages.map((s) => (
+          <li key={s.id}>
+            <strong>{s.sequence}. {s.serviceLabel}</strong>
+            <span>
+              {fmt(s.startDate)}{s.endDate !== s.startDate ? ` to ${fmt(s.endDate)}` : ""}
+              {" · "}{formatAmount(s.amountMinor)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
 }
 
 /** The equipment list on one quote. Its own component so the lookup can be awaited. */
@@ -121,6 +151,11 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
   const { accepted, error, confirmed, concern, payment } = flags;
   const id = request.id;
   const quotes = await listForRequest(id);
+  // Every stage the farmer asked for, in the order the work happens. This screen is where a
+  // package is accepted and paid for, so it is the one place that must not quietly reduce
+  // "ploughing, then planting" to the stage it leads with.
+  const stages = await operationsFor(id);
+  const whatWasAsked = stages.length > 0 ? describeOperations(stages) : serviceLabel(request.service);
   const agreement = await agreementFor(id);
   const job = await jobForRequest(id);
   const inspections = await inspectionsForRequest(id);
@@ -160,6 +195,7 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
         <dl className="request-rows">
           <Detail label="Request ID" value={request.reference} />
           <Detail label="Requested on" value={fmtTime(request.createdAt)} />
+          <Detail label={stages.length > 1 ? "Services, in order" : "Service"} value={whatWasAsked} />
           <Detail label="Land size" value={landSize(request.acres)} />
           <Detail label="Location" value={placeLine(request.village, request.chiefdom, districtLabel(request.district))} />
           <Detail label="Preferred start date" value={fmt(request.preferredDate)} />
@@ -437,14 +473,14 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
               <div className="offer__price">
                 <div>
                   <p className="offer__amount">{formatAmount(q.amountMinor)}</p>
-                  <p>Total price for {serviceLabel(request.service).toLowerCase()} {landSize(request.acres)}</p>
+                  <p>Total price for {whatWasAsked.toLowerCase()} {landSize(request.acres)}</p>
                 </div>
                 {q.status === "sent" && !expired ? <span className="pill pill--in_progress">Pending approval</span> : null}
               </div>
               <div className="offer__body">
                 <h3>{businessName(q.businessId)}</h3>
                 <p className="offer__meta">
-                  <span>{serviceLabel(request.service)} request</span>
+                  <span>{whatWasAsked} request</span>
                   <span>Submitted on {fmt(q.createdAt.slice(0, 10))}</span>
                 </p>
                 {q.includes ? (
@@ -459,6 +495,7 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
                 <p className="offer__text">
                   {q.daysToComplete} {q.daysToComplete === 1 ? "day" : "days"} &mdash; {fmt(q.startDate)} to {fmt(endDateOf(q))}
                 </p>
+                <Stages quoteId={q.id} />
                 <Machines assetIds={q.assetIds} />
                 {land.length > 0 ? (
                   <ul className="offer__chips">

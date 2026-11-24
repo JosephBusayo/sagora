@@ -124,7 +124,7 @@ export default async function Page({
                   <tr>
                     <th scope="col">Job</th>
                     <th scope="col">Provider</th>
-                    <th scope="col">Agreed</th>
+                    <th scope="col">To pay</th>
                     <th scope="col">Received</th>
                     <th scope="col">Booking</th>
                     <th scope="col"><span className="sr-only">Record a payment</span></th>
@@ -132,13 +132,22 @@ export default async function Page({
                 </thead>
                 <tbody>
                   {collect.map((c) => {
-                    const owed = c.amountMinor - c.receivedMinor;
+                    // What the farmer owes, which is the price plus Sagora's fee — not the price
+                    // alone. This is the figure recordPayment confirms the booking against, so a
+                    // screen showing anything else sends a coordinator to collect too little.
+                    const owed = c.farmerTotalMinor - c.receivedMinor;
                     const seen = paymentsByRequest.get(c.requestId) ?? [];
                     return (
                       <tr key={c.requestId}>
                         <td>{c.reference}</td>
                         <td>{c.businessName}</td>
-                        <td>{formatAmount(c.amountMinor)}</td>
+                        <td>
+                          {formatAmount(c.farmerTotalMinor)}
+                          <br />
+                          <span className="field__helper">
+                            {formatAmount(c.amountMinor)} to the provider · {formatAmount(c.feeMinor)} fee
+                          </span>
+                        </td>
                         <td>
                           {formatAmount(c.receivedMinor)}
                           {seen.length > 0 ? (

@@ -14,6 +14,7 @@ import {
   endOfStage, operationsFor, planFor, planProblem, planTotal, savePlan, spanOf,
   type PlannedOperation, type QuoteOperation,
 } from "./operations";
+import { onDay } from "./zone";
 
 /**
  * Quotes are versioned, and accepting one freezes the exact version that was accepted into an
@@ -371,7 +372,9 @@ export async function sendQuote(requestId: string, businessId: string, actorId: 
     const free = await nextFreeWindow(
       [...equipment, operator], plan.length > 1 ? 1 : input.daysToComplete, span.startDate, businessId, travel);
     const suggestion = free
-      ? ` The earliest everything is free is ${free.from}${free.to !== free.from ? ` to ${free.to}` : ""}.`
+      // Written the way the dates beside it are written. The refusal this is appended to already
+      // says "08 Dec 2026"; a bare 2026-12-12 next to it reads like a different kind of thing.
+      ? ` The earliest everything is free is ${onDay(free.from)}${free.to !== free.from ? ` to ${onDay(free.to)}` : ""}.`
       : " Nothing is free in the next four months, so this needs other equipment or another operator.";
     return { ok: false, reason: `${placed.reason}.${suggestion}` };
   }
