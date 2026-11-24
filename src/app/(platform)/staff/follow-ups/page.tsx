@@ -7,12 +7,13 @@ import { THRESHOLDS, queues, thresholds } from "@/lib/follow-ups";
 import { requireStaff } from "@/lib/session";
 import { listStaff } from "@/lib/staff";
 import { saveFollowUpAction, saveThresholdsAction } from "../follow-up-actions";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Follow-ups" };
 export const dynamic = "force-dynamic";
 
 const when = (iso: string) =>
-  new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Freetown" });
+  new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: ZONE });
 
 /** UC14: everything waiting on someone, with an owner, the next action and a due date. No Figma frame exists for this. */
 export default async function Page() {

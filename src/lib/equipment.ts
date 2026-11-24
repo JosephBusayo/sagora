@@ -560,10 +560,69 @@ export async function confirmLocation(
 }
 
 /** Retiring keeps the record and its history; it only stops the asset being chosen again. */
-export async function retireAsset(businessId: string, actorId: string, id: string, reason: string): Promise<boolean> {
+/**
+ * What still points at this machine, and would be stranded by retiring it.
+ *
+ * Karim's handover, 23 November 2026 (A15): "Retired assets cannot be quoted; referenced assets
+ * must never be hard-deleted." The second half has always been true here — nothing in Sagora runs
+ * `DELETE FROM equipment`, and "Delete equipment" on the register retires it — so the gap was the
+ * first half's other edge: retiring a machine that is *currently committed* left a farmer with a
+ * booking against equipment the provider had just written off, and told nobody.
+ */
+export async function retirementBlockers(businessId: string, id: string): Promise<string[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  const out: string[] = [];
+
+  const jobs = await db.all(`SELECT sr.reference, j.start_date, j.end_date FROM job_asset a
+       JOIN job j ON j.id = a.job_id
+       LEFT JOIN service_request sr ON sr.id = j.request_id
+       WHERE a.equipment_id=? AND j.business_id=?
+         AND j.status IN ('scheduled','in_progress','work_reported')
+         AND COALESCE(j.end_date, j.start_date, ?) >= ?`, id, businessId, today, today) as
+    { reference: string | null; start_date: string | null; end_date: string | null }[];
+  for (const j of jobs) {
+    out.push(`it is committed to ${j.reference ?? "a booking"}${j.start_date ? ` from ${j.start_date}` : ""}`);
+  }
+
+  const held = await db.all(`SELECT sr.reference FROM resource_hold h
+       JOIN service_request sr ON sr.id = h.request_id
+       WHERE h.resource_id=? AND h.business_id=? AND h.status='held' AND h.expires_at > ?`,
+    id, businessId, new Date().toISOString()) as { reference: string }[];
+  for (const h of held) out.push(`a live quote on ${h.reference} is holding it`);
+
+  const shared = await db.all(`SELECT COALESCE(b.name, '') AS name FROM asset_share s
+       LEFT JOIN provider_business b ON b.id = s.business_id
+       WHERE s.equipment_id=? AND s.revoked_at=''`, id) as { name: string }[];
+  for (const sh of shared) out.push(`it is lent to ${sh.name || "another provider"}`);
+
+  return out;
+}
+
+export type RetireResult = { ok: true } | { ok: false; reason: string };
+
+/**
+ * Takes a machine off the register. A soft retirement, never a delete: jobs, quotes and agreements
+ * still point at it, so it stays on record and simply stops being usable.
+ *
+ * Refused while anything live still depends on it. A provider who means to retire a machine that
+ * is out on a job has to deal with the job first — which is the same rule a blocking fault follows,
+ * and for the same reason: the farmer at the other end is owed an answer rather than a surprise.
+ */
+export async function retireAsset(
+  businessId: string, actorId: string, id: string, reason: string,
+): Promise<RetireResult> {
+  const blockers = await retirementBlockers(businessId, id);
+  if (blockers.length) {
+    return {
+      ok: false,
+      reason: `This machine cannot be retired yet: ${blockers.join("; ")}. ` +
+        "Move that work onto other equipment first, or cancel it and tell the farmer.",
+    };
+  }
   const res = await db.run("UPDATE equipment SET status='retired', retired_reason=?, updated_at=? WHERE id=? AND business_id=? AND status='active'", reason, new Date().toISOString(), id, businessId);
-  if (res.changes) await audit(actorId, "equipment.retired", id, reason);
-  return res.changes > 0;
+  if (!res.changes) return { ok: false, reason: "That machine is not on your register, or is already retired." };
+  await audit(actorId, "equipment.retired", id, reason);
+  return { ok: true };
 }
 
 export async function restoreAsset(businessId: string, actorId: string, id: string): Promise<boolean> {

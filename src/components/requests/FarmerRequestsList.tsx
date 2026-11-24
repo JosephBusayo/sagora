@@ -6,6 +6,7 @@ import { STATUS_LABEL, serviceLabel, type ServiceRequest } from "@/lib/requests"
 import { PageHead } from "@/components/app/Shell";
 import { Pager } from "@/components/app/Pager";
 import { landSize } from "@/lib/land-size";
+import { ZONE } from "@/lib/zone";
 
 const BOOK = [
   { service: "ploughing", title: "Book ploughing service", body: "Prepare your land for planting" },
@@ -16,7 +17,7 @@ const BOOK = [
 
 const fmt = (iso: string) =>
   new Date(iso + (iso.length === 10 ? "T00:00:00Z" : "")).toLocaleDateString("en-GB", {
-    day: "2-digit", month: "short", year: "numeric", timeZone: "UTC",
+    day: "2-digit", month: "short", year: "numeric", timeZone: ZONE,
   });
 
 /**

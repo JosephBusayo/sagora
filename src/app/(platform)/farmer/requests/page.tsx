@@ -13,13 +13,14 @@ import { unreadCount } from "@/lib/notifications";
 import { ModalShell } from "@/components/app/ModalShell";
 import { LAND_ACCESS, LAND_CONDITION, landLabel } from "@/lib/land";
 import { landSize } from "@/lib/land-size";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "My requests" };
 export const dynamic = "force-dynamic";
 
 const fmt = (iso: string) =>
   new Date(iso + (iso.length === 10 ? "T00:00:00Z" : "")).toLocaleDateString("en-GB", {
-    day: "2-digit", month: "short", year: "numeric", timeZone: "UTC",
+    day: "2-digit", month: "short", year: "numeric", timeZone: ZONE,
   });
 
 const at = (iso: string) =>

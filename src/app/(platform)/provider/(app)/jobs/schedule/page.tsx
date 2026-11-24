@@ -5,6 +5,7 @@ import { requireWorkspace } from "@/lib/guard";
 import { listAssets } from "@/lib/equipment";
 import { listJobs } from "@/lib/jobs";
 import { Shell, PageHead } from "@/components/app/Shell";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Schedule" };
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export default async function Page() {
 
   const today = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
   const days = Array.from({ length: DAYS }, (_, i) => new Date(today + i * 86400000).toISOString().slice(0, 10));
-  const label = (d: string) => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", timeZone: "UTC" });
+  const label = (d: string) => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", timeZone: ZONE });
 
   return (
     <Shell crumb={{ label: "Jobs", icon: "jobs" }} user={{ name: user.name }}>

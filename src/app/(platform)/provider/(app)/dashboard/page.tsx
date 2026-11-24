@@ -12,6 +12,7 @@ import { listAssets, unavailableReason } from "@/lib/equipment";
 import { unreadCount } from "@/lib/notifications";
 import { greeting, todayLong } from "@/lib/greeting";
 import { landSize } from "@/lib/land-size";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Home" };
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ const ACTIONS: { href: string; art: string; title: string; body: string }[] = [
 ];
 
 const fmtYear = (iso: string) =>
-  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: ZONE });
 
 /**
  * The provider's home screen.

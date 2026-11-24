@@ -6,6 +6,7 @@ import { audit } from "./business";
 import { getAsset, unavailableReason } from "./equipment";
 import { OWNED_BY, getById as getRequest, nextReference } from "./requests";
 import { canPower, isSelfContainedFor, kindLabelOf, kitFor } from "./catalogue";
+import { ZONE } from "./zone";
 
 /**
  * A job is the work itself: an accepted agreement, scheduled, with specific machines and a
@@ -133,7 +134,7 @@ export async function listJobs(businessId: string): Promise<ListedJob[]> {
 /** A stored date read back the way the rest of Sagora writes one: 16 Nov 2026, not 2026-11-16.
  * These end up in front of a provider, so they match the dates on the screen around them. */
 const onDay = (iso: string): string =>
-  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: ZONE });
 
 export async function clashesFor(equipmentId: string, start: string, end: string, exceptJobId: string | null, t: Queries = db) {
   return await t.all(`SELECT j.id, r.reference, j.start_date, j.end_date

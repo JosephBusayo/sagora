@@ -4,6 +4,7 @@ import { audit } from "./business";
 import { missingDetails } from "./land";
 import { serviceLabel } from "./requests";
 import { RESPONSE_HOURS } from "./quotes";
+import { ZONE } from "./zone";
 
 /**
  * The coordinator's queues (UC14). Each queue is worked out from the records themselves, so
@@ -235,7 +236,7 @@ export async function queues(): Promise<Queue[]> {
       body: `Quotes with less than 12 hours left of their ${RESPONSE_HOURS}-hour window. Ring the farmer before they expire.`,
       items: unanswered.map((q) => item({
         key: `unanswered:${q.id}`, reference: q.reference, title: q.business,
-        detail: `Expires ${new Date(Date.parse(q.created_at) + RESPONSE_HOURS * 3600_000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })}`,
+        detail: `Expires ${new Date(Date.parse(q.created_at) + RESPONSE_HOURS * 3600_000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: ZONE })}`,
         href: requestHref({ id: q.request_id, assisted_by: q.assisted_by }), since: q.created_at, overdue: true,
         parties: both(q.request_id, q.business_id),
       })),

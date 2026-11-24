@@ -22,13 +22,14 @@ import { Icon } from "@/components/app/Icon";
 import { landSize } from "@/lib/land-size";
 import { monimeTestMode } from "@/lib/monime";
 import { payOnlineAction } from "@/app/(platform)/farmer/requests/pay-actions";
+import { ZONE } from "@/lib/zone";
 
 const fmt = (iso: string) =>
-  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: ZONE });
 
 const fmtTime = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", {
-    day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "UTC",
+    day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: ZONE,
   }).replace(" at ", ", ").toUpperCase().replace(/([A-Z]{3})/, (m) => m[0] + m.slice(1).toLowerCase());
 
 function Detail({ label, value }: { label: string; value: string }) {
@@ -106,7 +107,7 @@ export type RequestFlags = { accepted?: string; error?: string; confirmed?: stri
  */
 const payDeadline = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Freetown",
+    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: ZONE,
   });
 
 export async function RequestDetail({ request, links, flags, online, noQuotes = "No provider has quoted yet. We will email you when one does." }: {

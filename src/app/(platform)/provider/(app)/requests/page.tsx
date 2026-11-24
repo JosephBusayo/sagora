@@ -15,17 +15,18 @@ import { formatAmount } from "@/lib/money";
 import { jobForRequest } from "@/lib/jobs";
 import { RequestsTable, type RequestRow } from "@/components/requests/RequestsTable";
 import { FilterAutoSubmit } from "@/components/requests/FilterAutoSubmit";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Requests" };
 export const dynamic = "force-dynamic";
 
 const fmt = (iso: string) =>
   new Date(iso + (iso.length === 10 ? "T00:00:00Z" : "")).toLocaleDateString("en-GB", {
-    day: "2-digit", month: "short", year: "numeric", timeZone: "UTC",
+    day: "2-digit", month: "short", year: "numeric", timeZone: ZONE,
   });
 const fmtLong = (iso: string) =>
   new Date(iso + (iso.length === 10 ? "T00:00:00Z" : "")).toLocaleDateString("en-GB", {
-    day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
+    day: "numeric", month: "long", year: "numeric", timeZone: ZONE,
   });
 
 type Params = { service?: string; district?: string; window?: string; page?: string; open?: string };
@@ -156,7 +157,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
         expiresAt: q.status === "sent" ? expiresAt(q).toISOString() : "",
         // Shown to the provider in Sierra Leone time, which is UTC, so no conversion is needed.
         expiresAtLabel: q.status === "sent"
-          ? expiresAt(q).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Freetown" })
+          ? expiresAt(q).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: ZONE })
           : "",
         clash: lost
           ? "The equipment and operator this quote reserved are no longer held for those dates. Send a new quote to reserve them again."

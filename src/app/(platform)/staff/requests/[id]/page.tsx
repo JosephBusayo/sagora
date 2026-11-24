@@ -17,11 +17,12 @@ import { PageHead } from "@/components/app/Shell";
 import { acceptOnBehalfAction, confirmOnBehalfAction, logContactAction, newTrackingCodeAction } from "../../assisted-actions";
 import { newCodeFor } from "@/lib/guest";
 import { landSize } from "@/lib/land-size";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Assisted request" };
 export const dynamic = "force-dynamic";
 
-const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
+const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: ZONE });
 
 export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
   const staff = await requireStaff();

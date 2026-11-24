@@ -28,8 +28,10 @@
     "check:assets": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-assets.mts",
     "check:pairing": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-pairing.mts",
     "check:packages": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-packages.mts",
+    "dev:seed-request": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/seed-dev-request.mts",
     "dev:seed-equipment": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/seed-dev-equipment.mts",
     "db:delete-fixtures": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/delete-test-fixtures.mts",
+    "check:acceptance": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-acceptance.mts",
     "check:register": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-register.mts"
   },
   "dependencies": {

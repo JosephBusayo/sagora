@@ -9,6 +9,7 @@ import { useFormStatus } from "react-dom";
 import { Field } from "@/components/auth/Field";
 import { sendQuoteAction } from "@/app/(platform)/provider/(app)/requests/quote-actions";
 import type { FormState } from "@/lib/auth-flows";
+import { ZONE } from "@/lib/zone";
 
 export type MyQuote = {
   version: number;
@@ -292,7 +293,7 @@ export function QuoteForm({ requestId, service, stages, existing, assets, operat
           <span>
             <strong>I have checked these machines are in working order and free for these dates.</strong>
             <span className="field__helper">
-              Confirmed {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })}.
+              Confirmed {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: ZONE })}.
               You will be asked again before the work goes out.
             </span>
           </span>

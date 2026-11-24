@@ -16,12 +16,13 @@ import { landSize } from "@/lib/land-size";
 import {
   BOOKING_TABS, JOB_STATUS_LABEL, bookingsForFarmer, type JobStatus,
 } from "@/lib/jobs";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "My bookings" };
 export const dynamic = "force-dynamic";
 
 const fmt = (iso: string | null) =>
-  iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : null;
+  iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: ZONE }) : null;
 
 const PILL: Record<string, string> = {
   unscheduled: "awaiting_quotes",
@@ -124,9 +125,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
               {open.assetNames.length > 0 ? <Row label="Equipment">{open.assetNames.join(", ")}</Row> : null}
               <Row label="Payment"><span className={`pill pill--${paid ? "quotes_sent" : "awaiting_quotes"}`}>{paid ? "Paid" : "Not paid"}</span></Row>
               {open.status === "scheduled" ? (
-                <Row label="Progress">{open.mobilisedAt ? `The equipment is on the way (since ${new Date(open.mobilisedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Freetown" })}).` : open.readyAt ? "Ready. The equipment has not left yet." : "The provider is getting ready. Work has not started."}</Row>
+                <Row label="Progress">{open.mobilisedAt ? `The equipment is on the way (since ${new Date(open.mobilisedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: ZONE })}).` : open.readyAt ? "Ready. The equipment has not left yet." : "The provider is getting ready. Work has not started."}</Row>
               ) : null}
-              {open.startedAt ? <Row label="Work started">{new Date(open.startedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Freetown" })}</Row> : null}
+              {open.startedAt ? <Row label="Work started">{new Date(open.startedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: ZONE })}</Row> : null}
               <Row label="Status"><span className={`pill pill--${PILL_FARMER[open.status]}`}>{JOB_STATUS_LABEL[open.status as JobStatus]}</span></Row>
             </div>
             {open.status === "work_reported" ? (

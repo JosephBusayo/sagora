@@ -14,6 +14,7 @@ import { dispatchBlockers, JOB_STATUS_LABEL, READY_CHECKS, atRiskAssets, listJob
 import { flagsForJob, openOnly } from "@/lib/flags";
 import { allocationFor, sharePercent } from "@/lib/revenue";
 import { JobsList, type JobView } from "@/components/jobs/JobsList";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Jobs" };
 export const dynamic = "force-dynamic";
@@ -21,10 +22,10 @@ export const dynamic = "force-dynamic";
 type Filters = { page?: string; service?: string; district?: string; status?: string; open?: string };
 
 const fmt = (iso: string | null) =>
-  iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : null;
+  iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: ZONE }) : null;
 
 const stamp = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Freetown" }) : null;
+  iso ? new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: ZONE }) : null;
 
 export default async function Page({ searchParams }: { searchParams: Promise<Filters> }) {
   const { user, business, permission } = await requireWorkspace();

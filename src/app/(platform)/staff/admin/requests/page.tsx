@@ -4,8 +4,9 @@ import { PendingButton } from "@/components/app/PendingButton";
 import { StaffShell } from "@/components/staff/StaffShell";
 import { DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
 import { listRequests, requestBlockers } from "@/lib/admin";
-import { STATUS_LABEL, type RequestStatus } from "@/lib/requests";
+import { STATUS_LABEL, serviceLabel, type RequestStatus } from "@/lib/requests";
 import { requireAdmin } from "@/lib/session";
+import { OUTCOME_LABEL, routingFor, summarise, unroutedRequests } from "@/lib/routing";
 import { landSize } from "@/lib/land-size";
 import { cancelRequestAction, deleteRequestAction, updateRequestAction } from "../actions";
 
@@ -25,6 +26,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
   // Worked out once per row so the screen can say why a delete will be refused before it is
   // tried, rather than after. An admin should not have to click to find out.
   const blockers = new Map(await Promise.all(rows.map(async (r) => [r.id, await requestBlockers(r.id)] as const)));
+  // A01: why each provider did or did not hear about this request. Recorded at the moment the
+  // decision was made, so it still explains a request from last month whose coverage has changed
+  // since — which is the whole reason a log beats reconstructing it from today's coverage.
+  const routing = new Map(await Promise.all(rows.map(async (r) => [r.id, await routingFor(r.id)] as const)));
+  // The question underneath all of it: is Sagora quietly dropping work nobody covers?
+  const unrouted = await unroutedRequests(10);
 
   return (
     <StaffShell staff={admin} crumb={{ label: "All requests", icon: "requests" }}>
@@ -39,6 +46,24 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
       </form>
 
       <p className="field__helper">{rows.length === 0 ? "No requests match." : `${rows.length} request${rows.length === 1 ? "" : "s"}.`}</p>
+
+      {/* A coverage gap, not a bug: these requests were routed and no approved provider was
+          eligible for any of them. Something a person can act on — recruit, or ask a provider to
+          extend — which is why it is at the top rather than buried in a per-request panel. */}
+      {unrouted.length > 0 ? (
+        <div className="notice notice--warn" role="status">
+          <strong>{unrouted.length === 1 ? "One open request" : `${unrouted.length} open requests`} no provider can quote.</strong>
+          <ul className="activity__list">
+            {unrouted.map((u) => (
+              <li key={u.requestId}>
+                {u.reference} — {serviceLabel(u.service)} in {districtLabel(u.district)}
+              </li>
+            ))}
+          </ul>
+          Nobody approved covers that service in that district. The farmers are waiting on a quote
+          that cannot come.
+        </div>
+      ) : null}
 
       <ul className="queue__list">
         {rows.map((r) => {
@@ -55,6 +80,32 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
                 {" · "}wants {r.preferredDate}
                 {r.farmerId ? " · has an account" : " · no account"}
               </p>
+
+              {/* "Log every routing decision — eligible, notified or excluded, and why — and make it
+                  visible to an administrator." This is the visible part. */}
+              <details className="routing">
+                <summary>Who heard about it — {summarise(routing.get(r.id) ?? [])}</summary>
+                {(routing.get(r.id) ?? []).length === 0 ? (
+                  <p className="field__helper">
+                    No routing decision was recorded. Requests made before this log existed have none;
+                    there is nothing wrong with the request itself.
+                  </p>
+                ) : (
+                  <ul className="routing__list">
+                    {(routing.get(r.id) ?? []).map((d) => (
+                      <li key={d.businessId}>
+                        <span className={`pill pill--${d.outcome === "notified" ? "completed" : d.outcome === "eligible" ? "in_progress" : "cancelled"}`}>
+                          {OUTCOME_LABEL[d.outcome]}
+                        </span>
+                        <span className="routing__who">
+                          <strong>{d.businessName}</strong>
+                          {d.reason ? <span className="field__helper">{d.reason}</span> : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </details>
 
               <details>
                 <summary>Edit</summary>

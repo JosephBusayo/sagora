@@ -12,6 +12,7 @@ import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, cropMissing, needsCrop } f
 import { notify } from "@/lib/outbox";
 import { acceptQuote, getQuote } from "@/lib/quotes";
 import { createRequest, getById, logContact, openRequestsForPhone, providersCovering, serviceLabel } from "@/lib/requests";
+import { recordRouting } from "@/lib/routing";
 import { requireStaff } from "@/lib/session";
 import { db } from "@/lib/db";
 import { landSize, landUnit, toAcres } from "@/lib/land-size";
@@ -72,7 +73,14 @@ export async function createAssistedAction(_prev: FormState, fd: FormData): Prom
     submissionKey: str(fd, "submissionKey"),
     assisted: { by: staff.id, callerName: d.callerName, callerRelation: d.callerRelation, mayAccept: d.mayAccept },
   });
-  for (const p of await providersCovering(d)) {
+  const covering = await providersCovering(d);
+  // The same record as a farmer's own request. A request taken on the phone is routed by exactly
+  // the same rule, so it would be odd for only one of the two to be explainable afterwards.
+  await recordRouting(
+    { id: created.id, district: d.district, service: d.service },
+    covering.map((c) => c.businessId),
+  );
+  for (const p of covering) {
     await notify({
       kind: "request.new",
       dedupeKey: `request.new:${created.id}:${p.businessId}`,

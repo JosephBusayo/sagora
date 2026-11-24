@@ -3,6 +3,28 @@
 Everything the build needs from someone else. Stand-ins are in place so nothing is blocked;
 each one is a swap, not a rewrite. Updated 24 Nov 2026.
 
+## 24 Nov 2026: who may see one machine, and should packages stay all-or-nothing?
+
+**Both built. Neither is blocking; both are Karim's to confirm.**
+
+**The asset-owner viewer** (A15) is a grant per machine per email address, made by the business that
+owns the machine. The case it is for: a donor or lessor who paid for a tractor and is entitled to
+know how it is used. They see its condition, how many days it has worked and how many days it has
+been out of action. They see nothing of the provider's farmers, prices, other equipment or
+location, and they need no Sagora account — there is no join from the grant table to a request, a
+quote or a farmer, which is the only honest way to meet "scoped to named assets only".
+
+**What Karim needs to decide:** whether a viewer should get a login and a screen of their own, or
+whether a figure read out on a call is enough for the pilot. Today it is the latter: the data is
+there and queryable, with no viewer-facing page.
+
+**Routing is now logged** (A01). Every provider gets a row per request — told, eligible but not
+told, or not eligible and why, in words. It is written at the moment the decision is made, so it
+still explains a request from last month whose coverage has changed since; `db:why-no-match` could
+only ever reconstruct it against coverage as it stands now. The admin screen also lists open
+requests **no approved provider can quote**, which is a coverage gap somebody can act on. Worth
+watching during the pilot: it answers "is Sagora quietly dropping work" without anyone asking.
+
 ## 24 Nov 2026: how long do we hold the machines before the farmer pays?
 
 **A default is in place and the deadline is shown to the farmer. Karim sets the number.**

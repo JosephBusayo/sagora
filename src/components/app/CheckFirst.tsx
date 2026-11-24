@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ZONE } from "@/lib/zone";
 
 type Line = { label: string; value: string };
 
@@ -29,7 +30,7 @@ function linesOf(form: HTMLFormElement): Line[] {
       value = text(el.labels?.[0]) || (el.type === "checkbox" ? "Yes" : el.value);
     } else if (el instanceof HTMLInputElement && el.type === "password") value = el.value ? "••••••••" : "";
     else if (el instanceof HTMLInputElement && el.type === "date" && el.value) {
-      value = new Date(el.value + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+      value = new Date(el.value + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: ZONE });
     } else value = el.value.trim();
     if (!value) continue;
     // A unit beside a number reads as one answer: "5 hectares", not two lines.

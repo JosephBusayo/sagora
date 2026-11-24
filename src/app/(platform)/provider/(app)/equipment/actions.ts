@@ -192,7 +192,14 @@ export async function setAvailabilityAction(fd: FormData) {
 export async function retireAssetAction(fd: FormData) {
   const { user, business, permission } = await requireWorkspace();
   if (permission === "view_jobs") return;
-  await retireAsset(business.id, user.id, str(fd, "id"), str(fd, "reason") || "No reason given");
+  const retired = await retireAsset(business.id, user.id, str(fd, "id"), str(fd, "reason") || "No reason given");
+  // Said rather than swallowed: a provider stopped from retiring a machine needs to know what is
+  // still pointing at it, because the answer is a job they have to move.
+  if (!retired.ok) {
+    await flash(retired.reason);
+    revalidatePath("/provider/equipment");
+    return;
+  }
   await flash("Equipment retired.");
   revalidatePath("/provider/equipment");
 }
@@ -348,4 +355,33 @@ export async function cancelDowntimeAction(fd: FormData) {
   await flash(ok ? "Called off. The machine is available again." : "That was not booked out.");
   revalidatePath("/provider/equipment");
   revalidatePath("/provider/jobs");
+}
+
+/* --------------------------------------- somebody who may see one machine and nothing else */
+
+/**
+ * Lets a named person see one machine's utilisation.
+ *
+ * "Support an authorised asset-owner viewer, scoped to named assets only" (A15). For the donor or
+ * lessor who put up a tractor and is entitled to know how it is being used — without a provider
+ * login, and without any sight of the provider's customers, prices or other equipment. See
+ * lib/asset-viewers.ts for what they can and cannot read.
+ */
+export async function grantViewerAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return { error: "You do not have permission to share equipment." };
+  const { grantViewer } = await import("@/lib/asset-viewers");
+  const result = await grantViewer(business.id, user.id, str(fd, "equipmentId"), str(fd, "email"), str(fd, "label"));
+  if (!result.ok) return { error: result.reason };
+  revalidatePath("/provider/equipment");
+  return { notice: "They can now see this machine's use, and nothing else." };
+}
+
+export async function revokeViewerAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  if (permission === "view_jobs") return;
+  const { revokeViewer } = await import("@/lib/asset-viewers");
+  const ok = await revokeViewer(business.id, user.id, str(fd, "equipmentId"), str(fd, "email"));
+  await flash(ok ? "Access withdrawn." : "They did not have access to that machine.");
+  revalidatePath("/provider/equipment");
 }

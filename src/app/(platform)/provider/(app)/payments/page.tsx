@@ -16,6 +16,7 @@ import {
 } from "@/lib/settlement";
 import { requestPayoutAction } from "./actions";
 import { DestinationForm } from "@/components/payments/DestinationForm";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Payments" };
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "
 /** "15 Sep 2026, 10:24 AM", as the design writes when a payout was asked for. */
 const at = (iso: string) => {
   const d = new Date(iso);
-  return `${when(iso)}, ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Africa/Freetown" })}`;
+  return `${when(iso)}, ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: ZONE })}`;
 };
 /** The design names a mobile money payout account after Monime. */
 const methodName = (d: Destination) => (d.method === "bank" ? d.bank || "Bank account" : "Monime");

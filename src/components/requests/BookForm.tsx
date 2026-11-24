@@ -14,6 +14,7 @@ import { inFieldOrder, serviceLabelOf } from "@/lib/catalogue";
 import { landSize, landUnit, toAcres } from "@/lib/land-size";
 import { LandSizeField } from "./LandSizeField";
 import { clearDraft, restoreDraft, saveDraft } from "@/components/app/draft";
+import { ZONE } from "@/lib/zone";
 
 type Option = { id: string; label: string };
 
@@ -52,7 +53,7 @@ const FIELDS = ["service", "services", "acres", "unit", "landAccess", "landCondi
 const CONTACT = ["contactName", "contactPhone", "contactEmail"] as const;
 
 const longDate = (iso: string) =>
-  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: ZONE });
 
 function Row({ label, value }: { label: string; value: string }) {
   return <div className="detail-row"><span className="detail-row__label">{label}</span><span className="detail-row__value">{value}</span></div>;

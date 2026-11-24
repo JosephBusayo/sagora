@@ -114,14 +114,31 @@ export type RequestEdit = {
 };
 
 export async function updateRequest(adminId: string, id: string, input: RequestEdit): Promise<ActionResult> {
+  // Read first, so the audit entry can name a phone change. Karim's handover asks for
+  // "staff-assisted changes recorded" on the guest route, and the phone number is the change that
+  // matters: a guest's request is found with its tracking code AND its phone, so moving the number
+  // moves who can reach the request. A farmer cannot do it themselves (see the identity check in
+  // the booking action); staff can, on a call, and this is the record of it.
+  const before = await db.get<{ contact_phone: string; farmer_id: string | null }>(
+    "SELECT contact_phone, farmer_id FROM service_request WHERE id=?", id);
+
   const res = await db.run(
     `UPDATE service_request SET service=?, acres=?, district=?, chiefdom=?, village=?, preferred_date=?,
        notes=?, contact_name=?, contact_phone=?, updated_at=? WHERE id=?`,
     input.service, input.acres, input.district, input.chiefdom, input.village,
     input.preferredDate, input.notes, input.contactName, input.contactPhone, new Date().toISOString(), id);
   if (!res.changes) return { ok: false, reason: "That request no longer exists." };
-  await audit(adminId, "admin.request.updated", id, `${input.service} ${input.acres}ac ${input.district}`);
-  return { ok: true, message: "Request updated." };
+
+  const movedPhone = before && before.contact_phone !== input.contactPhone;
+  await audit(adminId, "admin.request.updated", id,
+    `${input.service} ${input.acres}ac ${input.district}` +
+    (movedPhone ? ` · contact number changed from ${before!.contact_phone || "none"} to ${input.contactPhone || "none"}` : ""));
+  return {
+    ok: true,
+    message: movedPhone && before && !before.farmer_id
+      ? "Request updated. The contact number changed, so the farmer's tracking code now needs the new number."
+      : "Request updated.",
+  };
 }
 
 export async function deleteRequest(adminId: string, id: string): Promise<ActionResult> {

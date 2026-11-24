@@ -11,6 +11,7 @@ import { describeSpecs } from "@/lib/specs";
 import { VERDICTS, pairingsFor, readinessFor } from "@/lib/pairing";
 import { implementKindsFor } from "@/lib/catalogue";
 import { sharesOf } from "@/lib/shares";
+import { viewersOf } from "@/lib/asset-viewers";
 import { detailFor } from "@/lib/asset-detail";
 import { downtimeLabel } from "@/lib/downtime-kinds";
 import { db } from "@/lib/db";
@@ -63,6 +64,9 @@ export default async function Page() {
       shares: (await sharesOf(business.id, a.id))
         .filter((sh) => sh.revokedAt === "")
         .map((sh) => ({ businessId: sh.businessId, businessName: sh.businessName, note: sh.note, grantedAt: sh.grantedAt })),
+      viewers: (await viewersOf(business.id, a.id))
+        .filter((v) => v.revokedAt === "")
+        .map((v) => ({ email: v.email, label: v.label })),
       // Which implements could go with this machine, and what has been decided about each.
       pairings: pairings.filter((x) => x.machineId === a.id).map((x) => ({
         implementId: x.implementId, service: x.service, verdict: x.verdict, basis: x.basis, decidedAt: x.decidedAt,

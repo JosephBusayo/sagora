@@ -5,10 +5,11 @@ import { districtLabel } from "@/lib/business";
 import { STATUS_LABEL, serviceLabel, type ServiceRequest } from "@/lib/requests";
 import { greeting, todayLong } from "@/lib/greeting";
 import { landSize } from "@/lib/land-size";
+import { ZONE } from "@/lib/zone";
 
 const fmt = (iso: string) =>
   new Date(iso + (iso.length === 10 ? "T00:00:00Z" : "")).toLocaleDateString("en-GB", {
-    day: "2-digit", month: "short", year: "numeric", timeZone: "UTC",
+    day: "2-digit", month: "short", year: "numeric", timeZone: ZONE,
   });
 
 /**

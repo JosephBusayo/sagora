@@ -14,6 +14,7 @@ import { bookingsForFarmer } from "@/lib/jobs";
 import { LAND_ACCESS, LAND_CONDITION, landLabel } from "@/lib/land";
 import { getById, serviceLabel } from "@/lib/requests";
 import { landSize } from "@/lib/land-size";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Payments" };
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ const when = (iso: string) =>
  * matches the paper or the mobile money message the farmer already has.
  */
 const day = (iso: string | null) =>
-  iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : null;
+  iso ? new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: ZONE }) : null;
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="detail-row"><span className="detail-row__label">{label}</span><span className="detail-row__value">{children}</span></div>;

@@ -6,13 +6,14 @@ import { districtLabel } from "@/lib/business";
 import { INSPECTION_LABEL, openInspections } from "@/lib/inspections";
 import { serviceLabel } from "@/lib/requests";
 import { requireStaff } from "@/lib/session";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Farm inspections" };
 export const dynamic = "force-dynamic";
 
 const fmt = (iso: string) =>
   new Date(iso + (iso.length === 10 ? "T00:00:00Z" : "")).toLocaleDateString("en-GB", {
-    day: "2-digit", month: "short", year: "numeric", timeZone: "UTC",
+    day: "2-digit", month: "short", year: "numeric", timeZone: ZONE,
   });
 
 const daysSince = (iso: string) => Math.floor((Date.now() - Date.parse(iso)) / 86400_000);

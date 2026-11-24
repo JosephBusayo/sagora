@@ -1,3 +1,4 @@
+import { ZONE } from "./zone";
 /**
  * The three land questions on the booking flow, in the designer's words (frame 465:11158).
  *
@@ -59,7 +60,7 @@ export const asksHarvestDetails = (service: string) => service === "harvesting";
 type Harvest = { service: string; landType: string; cropVariety: string; plantedOn: string; cropReadiness: string };
 
 const shortDate = (iso: string) =>
-  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: ZONE });
 
 /** The answers beyond the designed three, as rows any screen can list. Unasked ones are left out. */
 export function extraDetails(r: Harvest): { label: string; value: string }[] {

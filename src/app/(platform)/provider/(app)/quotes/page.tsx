@@ -13,12 +13,13 @@ import { formatAmount } from "@/lib/money";
 import { serviceLabel } from "@/lib/requests";
 import { QUOTE_STATUS_LABEL, isExpired, listForBusiness } from "@/lib/quotes";
 import { withdrawQuoteAction } from "../requests/quote-actions";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "My quotes" };
 export const dynamic = "force-dynamic";
 
 const fmt = (iso: string) =>
-  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+  new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: ZONE });
 
 /** One colour per state, reusing the request pills. */
 const PILL: Record<string, string> = {

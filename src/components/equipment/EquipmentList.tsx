@@ -12,13 +12,14 @@ import { Icon } from "@/components/app/Icon";
 import { AssetModal } from "./AssetModal";
 import { FaultModal } from "./FaultModal";
 import {
-  addGalleryPhotoAction, cancelDowntimeAction, recordDowntimeAction, removeGalleryPhotoAction, resolveFaultAction, restoreAssetAction, retireAssetAction, revokeShareAction, savePairingAction, setAvailabilityAction, setPhotoAction, shareAssetAction,
+  addGalleryPhotoAction, cancelDowntimeAction, grantViewerAction, recordDowntimeAction, removeGalleryPhotoAction, resolveFaultAction, restoreAssetAction, retireAssetAction, revokeShareAction, revokeViewerAction, savePairingAction, setAvailabilityAction, setPhotoAction, shareAssetAction,
 } from "@/app/(platform)/provider/(app)/equipment/actions";
 import { PhotoPicker } from "./PhotoPicker";
 import { Field } from "@/components/auth/Field";
 import { FormNotice } from "@/components/app/FormNotice";
 import { useSafely } from "@/components/app/safely";
 import type { FormState } from "@/lib/auth-flows";
+import { ZONE } from "@/lib/zone";
 
 /**
  * One fault. `resolvedAt` is null while it is open.
@@ -49,6 +50,8 @@ export type DowntimeView = { id: string; kind: string; kindLabel: string; fromDa
 export type ShareableProvider = { id: string; name: string; district: string };
 /** Who a machine is currently lent to. */
 export type ShareView = { businessId: string; businessName: string; note: string; grantedAt: string };
+/** Somebody outside Sagora who may see this machine's utilisation and nothing else. */
+export type ViewerView = { email: string; label: string };
 
 export type PairingView = { implementId: string; service: string; verdict: string; basis: string; decidedAt: string };
 
@@ -68,6 +71,8 @@ export type AssetView = {
   allFaults: FaultView[];
   /** Providers this machine is lent to right now. Empty on almost every machine. */
   shares: ShareView[];
+  /** Authorised asset-owner viewers: a donor or lessor who may see this machine's use. */
+  viewers: ViewerView[];
   /**
    * The districts this machine has actually worked in, for the district filter.
    *
@@ -308,7 +313,7 @@ type Tab = (typeof TABS)[number]["id"];
 
 const day = (iso: string) =>
   iso ? new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-GB",
-    { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : "";
+    { day: "2-digit", month: "short", year: "numeric", timeZone: ZONE }) : "";
 
 /** A span, said once when it is a single day rather than "14 Dec to 14 Dec". */
 const span = (from: string, to: string) => (from === to ? day(from) : `${day(from)} to ${day(to)}`);
@@ -457,6 +462,36 @@ function FaultsTab({ a, canEdit, onFault }: { a: AssetView; canEdit: boolean; on
         <button type="button" className="resend__button asset__report" onClick={onFault}>Report a fault</button>
       ) : null}
     </>
+  );
+}
+
+/**
+ * Grants one person sight of one machine.
+ *
+ * An email rather than an account, because the people this is for — a programme officer, a
+ * lessor's clerk — do not have Sagora logins, and making them sign up to read one number would
+ * mean nobody ever uses it.
+ */
+function ViewerForm({ a }: { a: AssetView }) {
+  const [state, action] = useActionState(useSafely(grantViewerAction), {} as FormState);
+  return (
+    <details className="viewers__add">
+      <summary>Give someone access</summary>
+      <form action={action} className="form-soft">
+        <input type="hidden" name="equipmentId" value={a.id} />
+        <Field name="label" label="Who they are" required={false} maxLength={80}
+          placeholder="eg: FFSL programme office" />
+        <Field name="email" label="Their email address" type="email" placeholder="name@example.org" />
+        <p className="field__helper">
+          They will see this machine&rsquo;s condition, how many days it has worked and how many days it has
+          been out of action. They will not see your farmers, your prices, your other equipment or where
+          it is — and they do not need a Sagora account.
+        </p>
+        {state.error ? <p className="notice notice--error" role="alert">{state.error}</p> : null}
+        <FormNotice state={state} />
+        <PendingButton className="button button--inline">Give access</PendingButton>
+      </form>
+    </details>
   );
 }
 
@@ -674,6 +709,41 @@ function DetailsModal({ a, canEdit, availability, assets, verdicts, pairableServ
         {/* Open faults used to be listed here and are now on their own tab, with the resolved ones
             for company — a machine's fault history is the thing a provider actually wants when
             deciding whether to keep it. Overview still says the condition, at the top. */}
+        {/* A15: "an authorised asset-owner viewer, scoped to named assets only." For the donor or
+            lessor who paid for the machine. They see its condition and how many days it has worked;
+            they see nothing of this business's customers, prices or other equipment, and they need
+            no Sagora account to look. */}
+        {a.status === "retired" ? null : (
+          <section className="viewers">
+            <h4 className="field__label">Who else can see this machine</h4>
+            {a.viewers.length === 0 ? (
+              <p className="field__helper">
+                Nobody outside your business. If a donor or a lessor paid for this machine, you can let
+                them see how much it is used — and nothing else.
+              </p>
+            ) : (
+              <ul className="shares__list">
+                {a.viewers.map((v) => (
+                  <li key={v.email}>
+                    <span className="shares__who">
+                      <strong>{v.label || v.email}</strong>
+                      {v.label ? <span className="field__helper">{v.email}</span> : null}
+                    </span>
+                    {canEdit ? (
+                      <form action={revokeViewerAction}>
+                        <input type="hidden" name="equipmentId" value={a.id} />
+                        <input type="hidden" name="email" value={v.email} />
+                        <PendingButton className="button button--soft">Withdraw</PendingButton>
+                      </form>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canEdit ? <ViewerForm a={a} /> : null}
+          </section>
+        )}
+
         {a.faults.length > 0 ? (
           <p className="field__helper">
             {a.faults.length === 1 ? "There is one open fault" : `There are ${a.faults.length} open faults`} on this

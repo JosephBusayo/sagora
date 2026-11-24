@@ -4,6 +4,7 @@ import { db, type Queries } from "./db";
 import { audit } from "./business";
 import { getSetting } from "./follow-ups";
 import { downtimeClash, downtimeLabel } from "./downtime";
+import { ZONE } from "./zone";
 
 /**
  * Capacity held by a sent quote (Karim's handover, 23 November 2026).
@@ -110,7 +111,7 @@ export type Window = { from: string; to: string };
 const onDay = (iso: string): string =>
   /^\d{4}-\d{2}-\d{2}$/.test(iso)
     ? new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB",
-        { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })
+        { day: "2-digit", month: "short", year: "numeric", timeZone: ZONE })
     : iso;
 
 /** The work dates widened by travel each side. Both ends, because the machine has to come back. */

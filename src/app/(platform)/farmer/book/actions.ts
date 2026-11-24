@@ -8,6 +8,7 @@ import { DISTRICTS, SERVICES, districtLabel, getApprovedBusiness } from "@/lib/b
 import { createRequest, providersCovering, serviceLabel, updateRequest } from "@/lib/requests";
 import { coverageOf, inAreas } from "@/lib/coverage";
 import { MAX_OPERATIONS, leadService, packageProblem } from "@/lib/operations";
+import { recordRouting } from "@/lib/routing";
 import { inFieldOrder, serviceLabelOf } from "@/lib/catalogue";
 import { requireFarmer, type SessionUser } from "@/lib/session";
 import { guestRequestId, issueTrackingCode, rememberGuest, showCodeOnce } from "@/lib/guest";
@@ -203,11 +204,42 @@ async function book(fd: FormData, who: Who): Promise<BookState> {
   if (requestId) {
     // A guest can only ever edit the one request their tracking code let them into.
     if (!farmer && (await guestRequestId()) !== requestId) return { step: 2, values, error: "Find your request with its tracking code first." };
+
+    if (!farmer) {
+      // Karim's handover, 23 November 2026: "harden the guest code route — rate limiting, an
+      // identity check on changes, and staff-assisted changes recorded."
+      //
+      // The identity check, and it closes a real hole. A guest edit used to overwrite
+      // contact_phone with whatever the form sent, on the authority of a thirty-day cookie — and
+      // because findByCode matches on the code AND the phone, changing the number locked the
+      // farmer whose request it was out of their own request for good. Anybody who got at that
+      // cookie, on a shared phone or a browser left open at a market stall, could take a request
+      // over silently.
+      //
+      // So the number has to match the one already on the request. A farmer who has genuinely
+      // changed number cannot do it themselves; staff can, on a call, and that is recorded —
+      // which is the right way round, because a number change is exactly the moment to check who
+      // you are talking to.
+      const onFile = await db.get(
+        "SELECT contact_phone FROM service_request WHERE id=? AND farmer_id IS NULL",
+        requestId) as { contact_phone: string } | undefined;
+      const same = onFile ? normaliseSierraLeonePhone(onFile.contact_phone) ?? onFile.contact_phone : null;
+      if (!onFile || !same || same !== phone) {
+        return {
+          step: 2,
+          fieldErrors: { contactPhone: "This has to be the number the request was sent with. Ring us if it has changed." },
+          values,
+        };
+      }
+    }
+
     const saved = await updateRequest(farmer ? farmer.id : guestActor(requestId), requestId, details);
     if (!saved) return { step: 2, values, error: "This request can no longer be edited: a provider has quoted it." };
     if (!farmer) {
-      await db.run("UPDATE service_request SET contact_name=?, contact_phone=?, contact_email=? WHERE id=? AND farmer_id IS NULL",
-        contact.contactName, phone, contact.contactEmail, requestId);
+      // The phone is deliberately left out: it was just checked to be unchanged, and the only way
+      // it should ever move is through staff, on a call, with the change recorded.
+      await db.run("UPDATE service_request SET contact_name=?, contact_email=? WHERE id=? AND farmer_id IS NULL",
+        contact.contactName, contact.contactEmail, requestId);
     }
     redirect(farmer ? `/farmer/requests/${requestId}` : "/request/track?saved=1");
   }
@@ -248,7 +280,17 @@ async function book(fd: FormData, who: Who): Promise<BookState> {
 
   // Only the work itself: a provider gets no farmer's name or number from this.
   const covering = await providersCovering({ ...d, services: stages });
-  for (const p of chosen ? covering.filter((c) => c.businessId === chosen.id) : covering) {
+  const told = chosen ? covering.filter((c) => c.businessId === chosen.id) : covering;
+
+  // A01: record who heard about this and who did not, and why. Written before the notices go out,
+  // so the log exists even if the outbox is having a bad day. It never decides anything and never
+  // throws — see lib/routing.ts.
+  await recordRouting(
+    { id: created.id, district: d.district, service: d.service, services: stages, directTo: chosen?.id ?? null },
+    told.map((t) => t.businessId),
+  );
+
+  for (const p of told) {
     await notify({
       kind: "request.new",
       dedupeKey: `request.new:${created.id}:${p.businessId}`,

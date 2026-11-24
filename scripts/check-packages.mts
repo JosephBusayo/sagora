@@ -299,8 +299,10 @@ ok("and is told whose it is",
   (await shares.getUsableAsset(borrower.biz, owner.machine))?.ownerName === "Business Owner");
 ok("but it is not on their register",
   !(await equipment.listAssets(borrower.biz)).some((a) => a.id === owner.machine));
+// retireAsset reports why it refused rather than returning a bare false, so the check reads .ok.
+// A machine that is not on your register is not yours to retire — the query cannot even see it.
 ok("so they cannot retire it",
-  !(await equipment.retireAsset(borrower.biz, borrower.owner, owner.machine, "Not mine")));
+  !(await equipment.retireAsset(borrower.biz, borrower.owner, owner.machine, "Not mine")).ok);
 ok("nor fault it",
   !(await equipment.reportFault(borrower.biz, borrower.owner, owner.machine, "blocking", "Not mine")));
 
