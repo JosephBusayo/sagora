@@ -1279,6 +1279,12 @@ form.resend { margin: 0; }
   .tables-labelled .table-card:not(.schedule) .table td + td { border-top: 1px solid var(--color-hairline); }
   .tables-labelled .table-card:not(.schedule) .table td[data-label]::before { content: attr(data-label); flex: none; color: #808080; font: 500 13px/21px var(--font-sans); text-align: left; }
   .tables-labelled .table-card:not(.schedule) .table td[data-label=""]::before { content: none; }
+  /* A cell written as a value with a note under it — "MM-QA-0001" over its request, "Full payment"
+     over "Mobile money" — is two lines separated by a <br>, and a flex row collapses that break and
+     stands them side by side instead. The note wraps onto its own line again here, under the value
+     it belongs to rather than beside it. */
+  .tables-labelled .table-card:not(.schedule) .table td { flex-wrap: wrap; }
+  .tables-labelled .table-card:not(.schedule) .table td > .field__helper { flex-basis: 100%; text-align: right; }
   .tables-labelled .table-card:not(.schedule) .table td[data-label=""] { justify-content: flex-end; }
 }
 
@@ -1353,8 +1359,12 @@ a.overview__card:hover { background: var(--color-hover); border-color: var(--col
   .wallet__label { padding: 20px; }
   .wallet__body { padding: 20px; }
   .notif { flex-wrap: wrap; padding: 14px 16px; }
+  /* The row wraps, but the message itself was still sharing line one with View and Mark as read,
+     which left it 48px wide and every word on a line of its own. It takes the rest of line one,
+     and the two buttons drop underneath it. */
+  .notif__body { flex-basis: calc(100% - 68px); }
+  .notif > form { flex: none; }
   .asset__photo { width: 72px; height: 72px; }
-  .asset__head { flex-wrap: wrap; }
   .settings-row { min-height: 0; }
   .settings-row__body h2 { font-size: 18px; line-height: 24px; }
   .settings-row__body p { font-size: 14px; line-height: 20px; }
@@ -1479,6 +1489,10 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .asset__gallery-add { width: 72px; }
 .asset__gallery-add .photo-pick__box { height: 72px; width: 72px; border-radius: 12px; padding: 0; font-size: 0; }
 .asset__gallery-add .field__label { display: none; }
+/* The tile is 72px square and shows the plus alone. font-size: 0 shrank the words but left their
+   white pill behind, which read as a blob stuck to the corner of the icon; this takes the label
+   out of the picture while leaving it for a screen reader. */
+.asset__gallery-add .photo-pick__text { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; background: none; }
 
 /* ==========================================================================
    "Make a quick request" — the voice-note flow, to the designer's screens
@@ -1878,6 +1892,13 @@ button.chip:hover:not(:disabled) { background: #ececec; }
   min-height: 44px;
 }
 .tabs__tab--on { color: #191919; border-bottom-color: var(--brand, #1a7f4b); }
+/* "Two rows of two" only happens if the rows are made: left to wrap on their own the four names
+   fall 2-1-1, because "Faults and repairs" is two-thirds of the width on its own. A grid on a
+   phone makes the two even rows the line above promises. */
+@media (max-width: 480px) {
+  .modal--asset .tabs { display: grid; grid-template-columns: 1fr 1fr; }
+  .modal--asset .tabs__tab { justify-content: center; white-space: normal; text-align: center; }
+}
 .tabs__tab:focus-visible { outline: 2px solid var(--brand, #1a7f4b); outline-offset: -2px; border-radius: 6px; }
 /* The open-fault count. A number, not a dot: condition is never carried by colour alone. */
 .tabs__count {

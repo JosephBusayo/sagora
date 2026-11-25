@@ -6,11 +6,13 @@ import type { Metadata } from "next";
 import { requireStaff } from "@/lib/session";
 import { counts, listProblems } from "@/lib/outbox";
 import { retryMessageAction } from "../outbox-actions";
+import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Notification queue" };
 export const dynamic = "force-dynamic";
 
-const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: ZONE });
 
 /**
  * The staff queue the brief asks for: every notification that did not go out first time,

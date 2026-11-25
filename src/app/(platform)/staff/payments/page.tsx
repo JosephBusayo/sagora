@@ -1,3 +1,4 @@
+import { ZONE } from "@/lib/zone";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
 import { StaffShell } from "@/components/staff/StaffShell";
@@ -28,7 +29,8 @@ const TABS = [
   { id: "books", label: "Reconciliation" },
 ] as const;
 
-const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+const when = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: ZONE });
 
 function MethodSelect({ name = "method" }: { name?: string }) {
   return (

@@ -319,7 +319,7 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
                   {formatAmount(p.amountMinor)} by {methodLabel(p.method)} · {p.externalRef}
                 </span>
                 <span className="field__helper">
-                  {new Date(p.recordedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                  {fmt(p.recordedAt.slice(0, 10))}
                 </span>
               </li>
             ))}

@@ -71,10 +71,22 @@ export async function farmerBlockers(userId: string): Promise<Blocker[]> {
 
 export type ActionResult = { ok: true; message: string } | { ok: false; reason: string };
 
+/**
+ * "1 quote", not "1 quotes". The blockers are named in the plural because that is how they read
+ * most of the time, and the one time they do not is the first thing an admin sees.
+ */
+const counted = (count: number, what: string): string => {
+  if (count !== 1) return `${count} ${what}`;
+  const words = what.split(" ");
+  const i = words.findIndex((w) => /(ies|s)$/.test(w));
+  if (i >= 0) words[i] = words[i].endsWith("ies") ? `${words[i].slice(0, -3)}y` : words[i].slice(0, -1);
+  return `1 ${words.join(" ")}`;
+};
+
 /** The same sentence everywhere, so an admin learns one rule rather than three. */
 const refuse = (noun: string, blockers: Blocker[], instead: string): ActionResult => ({
   ok: false,
-  reason: `This ${noun} cannot be deleted: it has ${blockers.map((b) => `${b.count} ${b.what}`).join(", ")}. ` +
+  reason: `This ${noun} cannot be deleted: it has ${blockers.map((b) => counted(b.count, b.what)).join(", ")}. ` +
     `Deleting it would leave those records pointing at nothing. ${instead}`,
 });
 

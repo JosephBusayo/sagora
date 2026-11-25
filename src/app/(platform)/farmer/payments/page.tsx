@@ -14,13 +14,12 @@ import { bookingsForFarmer } from "@/lib/jobs";
 import { LAND_ACCESS, LAND_CONDITION, landLabel } from "@/lib/land";
 import { getById, serviceLabel } from "@/lib/requests";
 import { landSize } from "@/lib/land-size";
-import { ZONE } from "@/lib/zone";
+import { ZONE, onDay } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Payments" };
 export const dynamic = "force-dynamic";
 
-const when = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+const when = onDay;
 
 /**
  * The farmer's transactions, as the design's table lists them: Transaction ID, Type, Amount in

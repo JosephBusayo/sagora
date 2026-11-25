@@ -53,3 +53,25 @@ export async function openForm(page: Page): Promise<void> {
   const tab = page.getByRole("tab", { name: "Fill a form" });
   if (await tab.isVisible().catch(() => false)) await tab.click();
 }
+
+/**
+ * Picks the work a request is for.
+ *
+ * It used to be one `<select>`; since a request became a list of operations it is a tick box per
+ * service, and several may be ticked for a package. Every spec asks through here so the next
+ * change to that control is one edit rather than twenty.
+ */
+const WORK_LABEL: Record<string, string> = {
+  ploughing: "Ploughing", harvesting: "Harvesting", planting: "Planting",
+};
+
+export async function pickWork(page: Page, ...services: string[]): Promise<void> {
+  for (const s of services) {
+    await page.getByRole("checkbox", { name: WORK_LABEL[s] ?? s, exact: true }).check();
+  }
+}
+
+/** Whether that work is currently ticked. */
+export function workBox(page: Page, service: string) {
+  return page.getByRole("checkbox", { name: WORK_LABEL[service] ?? service, exact: true });
+}

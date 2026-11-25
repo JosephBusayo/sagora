@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { confirmChecks, completeApplication } from "./checks";
+import { completeApplication, confirmChecks, pickWork } from "./checks";
 import { testAll, testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -114,7 +114,7 @@ test.beforeAll(async ({ browser }) => {
   await enterCode(f.page, FARMER.email);
 
   await f.page.goto("/farmer/book");
-  await f.page.getByLabel("What work do you need?").selectOption("ploughing");
+  await pickWork(f.page, "ploughing");
   await f.page.getByLabel("Land size").fill("6");
   await f.page.getByLabel("Easy access").check();
   await f.page.getByLabel("Cleared").check();
@@ -248,7 +248,7 @@ test("an expired quote cannot be accepted", async ({ page, browser }) => {
   const f = await fresh(browser);
   await signInFarmer(f.page);
   await f.page.goto("/farmer/book");
-  await f.page.getByLabel("What work do you need?").selectOption("ploughing");
+  await pickWork(f.page, "ploughing");
   await f.page.getByLabel("Land size").fill("2");
   await f.page.getByLabel("Easy access").check();
   await f.page.getByLabel("Cleared").check();

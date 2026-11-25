@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { confirmChecks, completeApplication } from "./checks";
+import { completeApplication, confirmChecks, pickWork } from "./checks";
 import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -64,7 +64,7 @@ async function agreedJob(browser: Browser, acres: string, village: string): Prom
   const f = await fresh(browser);
   await signInFarmer(f.page);
   await f.page.goto("/farmer/book");
-  await f.page.getByLabel("What work do you need?").selectOption("ploughing");
+  await pickWork(f.page, "ploughing");
   await f.page.getByLabel("Land size").fill(acres);
   await f.page.getByLabel("Easy access").check();
   await f.page.getByLabel("Cleared").check();

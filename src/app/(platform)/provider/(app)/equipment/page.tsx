@@ -116,8 +116,9 @@ export default async function Page() {
 
   return (
     <Shell crumb={{ label: "Equipment", icon: "equipment" }} user={{ name: user.name }}>
+      {/* "Equipment", like the tab, the crumb and the menu item beside it. */}
       <PageHead
-        title="Equipments"
+        title="Equipment"
         subtitle="Manage the equipment you use for farm services"
       />
       <EquipmentList

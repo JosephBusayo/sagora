@@ -8,11 +8,12 @@ import { formatAmount } from "@/lib/money";
 import { methodLabel } from "@/lib/payments";
 import { transactionsFor } from "@/lib/settlement";
 import { agreementFor } from "@/lib/quotes";
+import { onDay } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Payments" };
 export const dynamic = "force-dynamic";
 
-const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+const when = onDay;
 
 /** The money on a request sent without an account, in the same columns as the farmer Payments screen. */
 export default async function Page() {

@@ -8,6 +8,7 @@ import { STATUS_LABEL, serviceLabel, type RequestStatus } from "@/lib/requests";
 import { requireAdmin } from "@/lib/session";
 import { OUTCOME_LABEL, routingFor, summarise, unroutedRequests } from "@/lib/routing";
 import { landSize } from "@/lib/land-size";
+import { onDay } from "@/lib/zone";
 import { cancelRequestAction, deleteRequestAction, updateRequestAction } from "../actions";
 
 export const metadata: Metadata = { title: "All requests" };
@@ -60,7 +61,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
               </li>
             ))}
           </ul>
-          Nobody approved covers that service in that district. The farmers are waiting on a quote
+          Nobody approved covers that service in that district.{" "}
+          {unrouted.length === 1 ? "The farmer is waiting" : "Those farmers are waiting"} on a quote
           that cannot come.
         </div>
       ) : null}
@@ -76,8 +78,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
                 <span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status as RequestStatus] ?? r.status}</span>
               </div>
               <p className="field__helper">
-                {r.service} · {landSize(r.acres)} · {r.village}{r.chiefdom ? `, ${r.chiefdom}` : ""}, {districtLabel(r.district)}
-                {" · "}wants {r.preferredDate}
+                {serviceLabel(r.service)} · {landSize(r.acres)} · {r.village}{r.chiefdom ? `, ${r.chiefdom}` : ""}, {districtLabel(r.district)}
+                {" · "}wants {onDay(r.preferredDate)}
                 {r.farmerId ? " · has an account" : " · no account"}
               </p>
 

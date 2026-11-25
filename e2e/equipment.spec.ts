@@ -99,7 +99,7 @@ test.beforeAll(async ({ browser }) => {
 test("a machine is validated, then added", async ({ page }) => {
   await signIn(page, P.email, P.password);
   await page.goto("/provider/equipment");
-  await expect(page.getByRole("heading", { name: "Equipments", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Equipment", exact: true })).toBeVisible();
   await expect(page.getByText("No equipment on your register yet.")).toBeVisible();
 
   await page.getByRole("button", { name: "Add equipment" }).click();

@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { confirmChecks } from "./checks";
+import { confirmChecks, pickWork } from "./checks";
 import { testAll, testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -100,7 +100,7 @@ test("the same event queued twice only sends once", async ({ page }) => {
   await expect(page).not.toHaveURL(/sign-in/);
 
   await page.goto("/farmer/book");
-  await page.getByLabel("What work do you need?").selectOption("ploughing");
+  await pickWork(page, "ploughing");
   await page.getByLabel("Land size").fill("2");
   await page.getByLabel("Easy access").check();
   await page.getByLabel("Cleared").check();

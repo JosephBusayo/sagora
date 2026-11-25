@@ -153,7 +153,11 @@ export async function unroutedRequests(limit = 50): Promise<
 > {
   const rows = await db.all(`SELECT sr.id, sr.reference, sr.service, sr.district, sr.created_at
        FROM service_request sr
-       WHERE sr.status NOT IN ('cancelled','completed')
+       -- Only a request still waiting for its first quote. One that has been quoted, accepted or
+       -- started is not a coverage gap whatever the routing log says about the day it was made —
+       -- somebody reached it, through the direct provider link or through staff — and listing it
+       -- sends a coordinator chasing coverage for work already under way.
+       WHERE sr.status = 'awaiting_quotes'
          AND EXISTS (SELECT 1 FROM routing_decision d WHERE d.request_id = sr.id)
          AND NOT EXISTS (
            SELECT 1 FROM routing_decision d

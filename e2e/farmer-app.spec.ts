@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { confirmChecks, completeApplication } from "./checks";
+import { completeApplication, confirmChecks, pickWork, workBox } from "./checks";
 import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -162,15 +162,18 @@ test("the home tiles pre-choose the service on the booking form", async ({ page 
   await page.getByRole("link", { name: /Book harvesting/ }).click();
   await expect(page).toHaveURL(/service=harvesting/);
   await expect(page.getByRole("heading", { name: "Harvesting service" })).toBeVisible();
-  await expect(page.getByLabel("What work do you need?")).toHaveCount(0);
+  // The work is a list now, so the tile ticks its service rather than taking the question away:
+  // a farmer who came for harvesting can add the ploughing that has to happen first.
+  await expect(workBox(page, "harvesting")).toBeChecked();
+  await expect(workBox(page, "ploughing")).not.toBeChecked();
 
   // And the plain link does not pre-choose anything.
   await page.goto("/farmer/book");
-  await expect(page.getByLabel("What work do you need?")).toHaveValue("");
+  await expect(page.getByRole("checkbox", { checked: true })).toHaveCount(0);
 
   // Picking Harvesting there shows Crop at once, not after a failed submit.
   await expect(page.getByLabel("Crop")).toHaveCount(0);
-  await page.getByLabel("What work do you need?").selectOption("harvesting");
+  await pickWork(page, "harvesting");
   await expect(page.getByLabel("Crop")).toBeVisible();
   await expect(page.getByLabel("Additional notes")).toHaveAttribute("placeholder", /rice is ready/);
 });
@@ -178,7 +181,7 @@ test("the home tiles pre-choose the service on the booking form", async ({ page 
 test("a farmer books work and the provider quotes it", async ({ page, browser }) => {
   await signIn(page, FARMER, "farmer");
   await page.goto("/farmer/book");
-  await page.getByLabel("What work do you need?").selectOption("ploughing");
+  await pickWork(page, "ploughing");
   await page.getByLabel("Land size").fill("5");
   await page.getByLabel("Easy access").check();
   await page.getByLabel("Cleared").check();

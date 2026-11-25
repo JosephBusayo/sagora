@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { completeApplication, confirmChecks } from "./checks";
+import { completeApplication, confirmChecks, pickWork } from "./checks";
 import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -113,7 +113,7 @@ test("farmers see a WhatsApp button before they sign in", async ({ page }) => {
 test("a harvest request with details the farmer does not know reaches the provider flagged", async ({ page, browser }) => {
   await signIn(page, FARMER, "farmer");
   await page.goto("/farmer/book");
-  await page.getByLabel("What work do you need?").selectOption("harvesting");
+  await pickWork(page, "harvesting");
   // The harvest questions appear as soon as the work is picked.
   await expect(page.getByText("Is the crop ready to harvest?")).toBeVisible();
   await page.getByLabel("Land size").fill("5");

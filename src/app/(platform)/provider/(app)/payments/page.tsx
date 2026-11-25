@@ -16,12 +16,12 @@ import {
 } from "@/lib/settlement";
 import { requestPayoutAction } from "./actions";
 import { DestinationForm } from "@/components/payments/DestinationForm";
-import { ZONE } from "@/lib/zone";
+import { ZONE, onDay } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "Payments" };
 export const dynamic = "force-dynamic";
 
-const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+const when = onDay;
 /** "15 Sep 2026, 10:24 AM", as the design writes when a payout was asked for. */
 const at = (iso: string) => {
   const d = new Date(iso);

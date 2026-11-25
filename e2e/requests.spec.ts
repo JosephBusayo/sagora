@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { confirmChecks, completeApplication } from "./checks";
+import { completeApplication, confirmChecks, pickWork } from "./checks";
 import { testGet, testRun } from "./testdb";
 import fs from "node:fs";
 import path from "node:path";
@@ -51,7 +51,7 @@ type Booking = { service: string; acres: string; unit?: string; district: string
 /** Everything up to the summary, without sending it. */
 async function fillBooking(page: Page, opts: Booking) {
   await page.goto("/farmer/book");
-  await page.getByLabel("What work do you need?").selectOption(opts.service);
+  await pickWork(page, opts.service);
   await page.getByLabel("Land size").fill(opts.acres);
   if (opts.unit) await page.getByLabel("Unit").selectOption(opts.unit);
   await page.getByLabel("Easy access").check();
@@ -133,7 +133,7 @@ test("the booking form refuses incomplete and impossible requests", async ({ pag
   await expect(page.getByText("Choose the land access")).toBeVisible();
   await expect(page.getByText("Choose the land clearance")).toBeVisible();
 
-  await page.getByLabel("What work do you need?").selectOption("ploughing");
+  await pickWork(page, "ploughing");
   await page.getByLabel("Land size").fill("5");
   await page.getByLabel("Moderate access").check();
   await page.getByLabel("Flat").check();
@@ -358,7 +358,7 @@ test("a bad link is not a dead end", async ({ browser }) => {
 test("the farmer checks a summary before the request is sent, with chiefdom, Dry and planting", async ({ page }) => {
   await signInFarmer(page);
   await page.goto("/farmer/book");
-  await page.getByLabel("What work do you need?").selectOption("planting");
+  await pickWork(page, "planting");
   // Planting asks for the crop, as harvesting does.
   await expect(page.getByLabel("Crop")).toBeVisible();
   await page.getByLabel("Crop").fill("Rice");

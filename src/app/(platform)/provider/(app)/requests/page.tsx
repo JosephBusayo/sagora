@@ -24,11 +24,6 @@ const fmt = (iso: string) =>
   new Date(iso + (iso.length === 10 ? "T00:00:00Z" : "")).toLocaleDateString("en-GB", {
     day: "2-digit", month: "short", year: "numeric", timeZone: ZONE,
   });
-const fmtLong = (iso: string) =>
-  new Date(iso + (iso.length === 10 ? "T00:00:00Z" : "")).toLocaleDateString("en-GB", {
-    day: "numeric", month: "long", year: "numeric", timeZone: ZONE,
-  });
-
 type Params = { service?: string; district?: string; window?: string; page?: string; open?: string };
 
 /** The filters submit on change with JavaScript, and with a button without it. */
@@ -111,7 +106,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
     missing: missingDetails(r),
     direct: Boolean(r.directTo),
     preferredDate: fmt(r.preferredDate),
-    alternateDate: r.alternateDate ? fmtLong(r.alternateDate) : null,
+    // The same spelling as the preferred date it sits beside. One panel, one date format.
+    alternateDate: r.alternateDate ? fmt(r.alternateDate) : null,
     district: districtLabel(r.district),
     chiefdom: r.chiefdom,
     village: r.village,

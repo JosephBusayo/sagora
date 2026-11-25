@@ -5,6 +5,7 @@ import { openNotificationAction } from "@/app/(platform)/notification-actions";
 import { PendingButton } from "@/components/app/PendingButton";
 import { Icon, type IconName } from "./Icon";
 import { FILTERS, type Filter, type Notification } from "@/lib/notifications";
+import { onDay } from "@/lib/zone";
 
 const when = (iso: string) => {
   const d = new Date(iso);
@@ -13,7 +14,7 @@ const when = (iso: string) => {
   if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
   const hours = Math.round(mins / 60);
   if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return onDay(iso);
 };
 
 /**

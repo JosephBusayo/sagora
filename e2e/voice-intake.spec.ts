@@ -120,7 +120,7 @@ test("a refused transcription says so and offers the mic again, instead of a cra
 
   // The form is still there as the other way in.
   await page.getByRole("tab", { name: "Fill a form" }).click();
-  await expect(page.getByLabel("What work do you need?")).toBeVisible();
+  await expect(page.getByRole("group", { name: "What work do you need?" })).toBeVisible();
 });
 
 test("a second recording is not answered by the first one's result", async ({ page }) => {

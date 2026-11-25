@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { confirmChecks, openForm } from "./checks";
+import { confirmChecks, openForm, pickWork, workBox } from "./checks";
 
 /**
  * A half-filled quick request is kept in the browser. A farmer who looks at the voice note and
@@ -10,7 +10,7 @@ import { confirmChecks, openForm } from "./checks";
 test.beforeEach(async ({ page }) => { await confirmChecks(page); });
 
 async function fillFirstStep(page: Page) {
-  await page.getByLabel("What work do you need?").selectOption("harvesting");
+  await pickWork(page, "harvesting");
   await page.getByLabel("Land size").fill("12");
   await page.getByLabel("Crop", { exact: true }).fill("Cassava");
   await page.getByLabel("Moderate access").check();
@@ -19,7 +19,7 @@ async function fillFirstStep(page: Page) {
 }
 
 async function expectFirstStepKept(page: Page) {
-  await expect(page.getByLabel("What work do you need?")).toHaveValue("harvesting");
+  await expect(workBox(page, "harvesting")).toBeChecked();
   await expect(page.getByLabel("Land size")).toHaveValue("12");
   // Crop only exists once the service is known, so this also proves the service was put back
   // in a way the form itself noticed, not merely written into the page.
@@ -81,6 +81,6 @@ test("a sent request is not kept, so the next one starts clean", async ({ page }
 
   await page.goto("/request");
   await openForm(page);
-  await expect(page.getByLabel("What work do you need?")).toHaveValue("");
+  await expect(page.getByRole("checkbox", { checked: true })).toHaveCount(0);
   await expect(page.getByLabel("Land size")).toHaveValue("");
 });
