@@ -121,7 +121,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Par
       const i = await inspectionFor(r.id, business.id);
       return i ? {
         status: i.status, scheduledFor: i.scheduledFor, findings: i.findings,
-        openQuestions: i.openQuestions, proposedFor: i.proposedFor,
+        openQuestions: i.openQuestions, proposedFor: i.proposedFor, proposedTime: i.proposedTime,
+        proposedSide: i.proposedSide, scheduledTime: i.scheduledTime,
       } : null;
     })(),
     activity: (await activityFor(r.id, business.id, r.createdAt)).map((a) => ({ when: fmt(a.at.slice(0, 10)), text: a.text })),

@@ -10,7 +10,9 @@ import { selectableAssets } from "@/lib/equipment";
 import { getById } from "@/lib/requests";
 import { coverageOf, covers } from "@/lib/coverage";
 import { notify } from "@/lib/outbox";
-import { inspectionBlocksQuote, saveInspection, type InspectionInput } from "@/lib/inspections";
+import { acceptInspectionTime, inspectionBlocksQuote, inspectionFor, proposeInspectionTime, saveInspection, type InspectionInput } from "@/lib/inspections";
+import { visitWhen } from "@/lib/visit-time";
+import { redirect } from "next/navigation";
 import { kitProblem, pairingEnforced } from "@/lib/pairing";
 import { coversEveryStage, operationsFor, planTotal, spanOf, stagesNotCovered, type PlannedOperation } from "@/lib/operations";
 import { selectableUsableAssets } from "@/lib/shares";
@@ -255,6 +257,10 @@ export async function saveInspectionAction(_prev: FormState, fd: FormData): Prom
   else if (status === "completed" && input.scheduledFor > today()) fieldErrors.scheduledFor = "An inspection that is done cannot be in the future";
   if (status === "completed" && input.findings.length < 3) fieldErrors.findings = "Say what you found";
   if (input.findings.length > 500 || input.openQuestions.length > 500) fieldErrors.findings ??= "Use 500 characters or fewer";
+  // A visit is booked when one side accepts the other's day, never by the provider alone.
+  if (status === "scheduled" && (await inspectionFor(requestId, business.id))?.status !== "scheduled") {
+    return { error: "A visit is booked when the farmer agrees a day. Suggest a day and time above.", values };
+  }
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
   await saveInspection(requestId, business.id, user.id, input);
 
@@ -279,6 +285,69 @@ export async function saveInspectionAction(_prev: FormState, fd: FormData): Prom
   revalidatePath("/provider/requests");
   revalidatePath("/farmer/requests");
   return { notice: status === "none" ? "No inspection needed." : "Inspection saved. The farmer has been told.", values };
+}
+
+/** Back to the request the provider was answering, with the window open on it. */
+const backTo = (reference: string) => `/provider/requests?open=${encodeURIComponent(reference)}`;
+
+/** The provider accepts the day and time the farmer suggested, which books the visit. */
+export async function acceptVisitAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  const requestId = String(fd.get("requestId") ?? "");
+  const target = await getById(requestId);
+  if (!target || permission === "view_jobs" || !covers(await coverageOf(business), target)) redirect("/provider/requests");
+  const booked = await acceptInspectionTime(requestId, business.id, user.id, "provider");
+  if (!booked) {
+    await flash("That suggestion is no longer waiting for you.", "error");
+    redirect(backTo(target.reference));
+  }
+  const when = visitWhen(booked.day, booked.time);
+  if (target.contactEmail) {
+    await notify({
+      kind: "inspection.scheduled",
+      dedupeKey: `inspection.booked:${requestId}:${business.id}:${booked.day}:${booked.time}`,
+      to: target.contactEmail,
+      subject: `Farm visit booked for ${when}`,
+      text: `${business.name} accepted ${when} for the visit to your farm (request ${target.reference}). ` +
+        "Please make sure someone can show them the land. Your price comes after the visit.",
+    });
+  }
+  revalidatePath("/provider/requests");
+  await flash(`Booked for ${when}. The farmer has been told.`);
+  redirect(backTo(target.reference));
+}
+
+/** The provider suggests a day and time for the visit, or a different one from the farmer's. */
+export async function suggestVisitAction(fd: FormData) {
+  const { user, business, permission } = await requireWorkspace();
+  const requestId = String(fd.get("requestId") ?? "");
+  const day = String(fd.get("day") ?? "").trim();
+  const time = String(fd.get("time") ?? "").trim();
+  const target = await getById(requestId);
+  if (!target || permission === "view_jobs" || !covers(await coverageOf(business), target)) redirect("/provider/requests");
+  const bad = !/^d{4}-d{2}-d{2}$/.test(day) ? "Choose a day for the visit."
+    : day < today() ? "Choose a day that has not already passed."
+      : time && !/^d{2}:d{2}$/.test(time) ? "Choose a time for the visit." : "";
+  if (bad || !(await proposeInspectionTime(requestId, business.id, user.id, day, time, "provider"))) {
+    await flash(bad || "This request has no visit waiting for a time.", "error");
+    redirect(backTo(target.reference));
+  }
+  const when = visitWhen(day, time);
+  if (target.contactEmail) {
+    await notify({
+      kind: "inspection.proposed",
+      dedupeKey: `inspection.proposed:${requestId}:${business.id}:provider:${day}:${time}`,
+      to: target.contactEmail,
+      subject: `${business.name} suggested ${when} to visit your farm`,
+      text: `${business.name} would like to visit your farm on ${when} (request ${target.reference}).
+
+` +
+        "Open your request to accept it, or choose another day and time. Nothing is booked until you accept.",
+    });
+  }
+  revalidatePath("/provider/requests");
+  await flash("Sent. The farmer will accept it or suggest another time.");
+  redirect(backTo(target.reference));
 }
 
 export async function withdrawQuoteAction(fd: FormData) {

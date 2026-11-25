@@ -5,6 +5,8 @@ import { useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/app/Icon";
 import { QuoteForm, type MyQuote, type QuotableAsset, type QuotableOperator, type QuotableStage } from "./QuoteForm";
 import { InspectionForm, type MyInspection } from "./InspectionForm";
+import { VisitPanel } from "./VisitPanel";
+import { acceptVisitAction, suggestVisitAction } from "@/app/(platform)/provider/(app)/requests/quote-actions";
 import { landSize } from "@/lib/land-size";
 
 export type RequestDetail = {
@@ -156,13 +158,12 @@ export function RequestModal({ request, myQuote, job, assets, operators, respons
               <div className="quote-summary">
                 <p className="notice notice--warn" role="status">
                   {inspection?.status === "required"
-                    ? "You said this farm needs a visit before it can be priced. The farmer has been told, and can put a day forward for you to confirm."
-                    : `The visit is booked for ${inspection?.scheduledFor}. Record what you find, and the price fields come back.`}
+                    ? "You asked to visit this farm before pricing it. Agree a day with the farmer below."
+                    : "The visit is booked. Record what you find, and the price fields come back."}
                 </p>
-                {inspection?.proposedFor ? (
-                  <p className="notice notice--success" role="status">
-                    The farmer suggested {inspection.proposedFor}. Choose <strong>Inspection booked</strong> above with that date to confirm it.
-                  </p>
+                {inspection ? (
+                  <VisitPanel me="provider" visit={inspection} requestId={request.id} idPrefix={`pv-${request.id}`}
+                    accept={acceptVisitAction} suggest={suggestVisitAction} otherName="the farmer" />
                 ) : null}
                 <p className="field__helper">
                   Once the visit is done, set the inspection to <strong>Inspection done</strong> and say what you found. You can

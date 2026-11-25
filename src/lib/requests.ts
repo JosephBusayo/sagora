@@ -428,3 +428,17 @@ export async function contactsFor(requestId: string): Promise<ContactEntry[]> {
 export async function logContact(staffId: string, requestId: string, outcome: string): Promise<void> {
   await db.run("INSERT INTO request_contact (id, request_id, staff_id, outcome, created_at) VALUES (?,?,?,?,?)", randomUUID(), requestId, staffId, outcome, new Date().toISOString());
 }
+
+/**
+ * How many providers have answered each of these requests: asked to visit the farm, or sent a
+ * quote that still stands. Counted from the records, so a list can say it without opening each one.
+ */
+export async function respondersFor(requestIds: readonly string[]): Promise<Record<string, number>> {
+  if (requestIds.length === 0) return {};
+  const marks = requestIds.map(() => "?").join(",");
+  const rows = await db.all(`SELECT request_id, COUNT(DISTINCT business_id) AS n FROM (
+         SELECT request_id, business_id FROM inspection WHERE request_id IN (${marks})
+         UNION SELECT request_id, business_id FROM quote WHERE request_id IN (${marks}) AND status IN ('sent','accepted','not_selected')
+       ) x GROUP BY request_id`, ...requestIds, ...requestIds) as { request_id: string; n: number | string }[];
+  return Object.fromEntries(rows.map((r) => [r.request_id, Number(r.n)]));
+}

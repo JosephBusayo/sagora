@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireFarmer } from "@/lib/session";
 import { districtLabel } from "@/lib/business";
-import { STATUS_LABEL, listForFarmer, serviceLabel } from "@/lib/requests";
+import { STATUS_LABEL, listForFarmer, respondersFor, serviceLabel } from "@/lib/requests";
 import { describeOperations, operationsFor } from "@/lib/operations";
 import { Shell } from "@/components/app/Shell";
 import { placeLine } from "@/lib/chiefdoms";
@@ -42,6 +42,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
   // work happens — not only the one it leads with.
   const openStages = open ? await operationsFor(open.id) : [];
   const back = page > 1 ? `/farmer/requests?page=${page}` : "/farmer/requests";
+  const responses = await respondersFor(rows.map((r) => r.id));
 
   return (
     <Shell
@@ -50,7 +51,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
       audience="farmer"
       unread={await unreadCount(farmer)}
     >
-      <FarmerRequestsList rows={rows} page={page} pages={pages} justCreated={justCreated} />
+      <FarmerRequestsList rows={rows} page={page} pages={pages} justCreated={justCreated} responses={responses} />
 
       {open ? (
         <ModalShell closeHref={back} label="Request details" className="modal--request">

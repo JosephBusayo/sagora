@@ -336,8 +336,8 @@ test("a farmer edits a request nobody has quoted, in the design's two steps", as
   await page.getByRole("button", { name: "Next" }).click();
   await expect(page.getByRole("heading", { name: "Check your request" })).toBeVisible();
   await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByRole("heading", { name: "Request details" })).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "Request details" }).getByText("9 acres")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "People interested in your request" })).toBeVisible();
+  await expect(page.locator(".req-hub__head")).toContainText("9 acres");
 });
 
 test("a request reaches only the providers covering its district and service", async ({ page }) => {
@@ -402,18 +402,21 @@ test("the farmer checks a summary before the request is sent, with chiefdom, Dry
   expect(rows).toMatchObject({ service: "planting", crop: "Rice", land_condition: "dry", chiefdom: "Kpaka" });
 });
 
-test("a request opens as a window over My requests, and closing it goes back to the list", async ({ page }) => {
+test("a request opens as its own page, responses first, and Back goes to the list", async ({ page }) => {
   await signInFarmer(page);
   await page.goto("/farmer/requests");
+  // The list says whether anyone has answered, without opening a request.
+  await expect(page.locator(".table--requests").getByRole("columnheader", { name: "Responses" })).toBeVisible();
   await page.locator(".table--requests").getByRole("link", { name: /^SG-/ }).first().click();
-  const window = page.getByRole("dialog", { name: "Request details" });
-  await expect(window).toBeVisible();
-  await expect(window).toContainText("Pujehun");
-  // The list stays behind it.
-  await expect(page.getByRole("heading", { name: "My requests" })).toBeAttached();
-  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/\/farmer\/requests\/[^/?]+$/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".req-hub__head")).toContainText("Pujehun");
+  await expect(page.getByRole("heading", { name: "People interested in your request" })).toBeVisible();
+  // The request's own answers are there, folded away under the responses.
+  await page.getByText("Request details", { exact: true }).click();
+  await expect(page.locator(".req-hub__details")).toContainText("Land access");
+  await page.getByRole("link", { name: "Back to my requests" }).click();
   await expect(page).toHaveURL(/\/farmer\/requests$/);
-  await expect(window).toHaveCount(0);
 });
 
 test("a form reads the answers back, and nothing is sent until they are confirmed", async ({ browser }) => {

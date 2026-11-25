@@ -195,8 +195,11 @@ test("the farmer compares both quotes and accepts one", async ({ page, browser }
   await signInFarmer(page);
   await page.goto("/farmer/requests");
   await page.getByRole("link", { name: reference }).click();
-  await expect(page.getByRole("heading", { name: "Request details" })).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "Request details" }).getByText(reference)).toBeVisible();
+  // The request is its own page, with who answered first.
+  await expect(page.getByRole("heading", { name: "People interested in your request" })).toBeVisible();
+  await expect(page.getByText(`Request ${reference}`)).toBeVisible();
+  await expect(page.getByRole("list", { name: "Provider responses" })).toContainText("2 quotes received");
+  await expect(page.getByRole("link", { name: "Review quotes" })).toBeVisible();
   await expect(page.getByText("Le 1,200.50")).toBeVisible();
   await expect(page.getByText("Le 1,350.00")).toBeVisible();
   await page.waitForLoadState("networkidle");

@@ -19,20 +19,30 @@ export const INSPECTION_LABEL: Record<InspectionStatus, string> = {
 export type Inspection = {
   id: string; requestId: string; businessId: string; status: InspectionStatus;
   scheduledFor: string; findings: string; openQuestions: string; updatedAt: string;
-  /** A time the farmer put forward, waiting on the provider. Empty once it is confirmed or dropped. */
+  /** A day put forward and waiting on the other side. Empty once it is accepted or dropped. */
   proposedFor: string; proposedAt: string;
+  /** The time on that day ("09:30"), or empty when only a day was given. */
+  proposedTime: string;
+  /** Whose suggestion is waiting: the one who did not make it is the one who answers. */
+  proposedSide: "farmer" | "provider" | "";
+  /** The agreed time on scheduledFor, when one was agreed. */
+  scheduledTime: string;
 };
 
 type Row = {
   id: string; request_id: string; business_id: string; status: InspectionStatus; scheduled_for: string;
   findings: string; open_questions: string; updated_at: string;
   proposed_for?: string | null; proposed_at?: string | null;
+  proposed_time?: string | null; proposed_side?: string | null; scheduled_time?: string | null;
 };
 
 const fromRow = (r: Row): Inspection => ({
   id: r.id, requestId: r.request_id, businessId: r.business_id, status: r.status, scheduledFor: r.scheduled_for,
   findings: r.findings, openQuestions: r.open_questions, updatedAt: r.updated_at,
   proposedFor: r.proposed_for ?? "", proposedAt: r.proposed_at ?? "",
+  proposedTime: r.proposed_time ?? "",
+  proposedSide: r.proposed_side === "farmer" || r.proposed_side === "provider" ? r.proposed_side : "",
+  scheduledTime: r.scheduled_time ?? "",
 });
 
 export async function inspectionFor(requestId: string, businessId: string): Promise<Inspection | null> {
@@ -72,7 +82,7 @@ export async function saveInspection(requestId: string, businessId: string, acto
     randomUUID(), requestId, businessId, input.status, input.scheduledFor, input.findings, input.openQuestions, actorId, now, now);
   // Confirming a date answers whatever the farmer put forward, so the proposal stops standing.
   if (input.status !== "required") {
-    await db.run("UPDATE inspection SET proposed_for='', proposed_at='' WHERE request_id=? AND business_id=?", requestId, businessId);
+    await db.run("UPDATE inspection SET proposed_for='', proposed_at='', proposed_time='', proposed_side='' WHERE request_id=? AND business_id=?", requestId, businessId);
   }
   await audit(actorId, `inspection.${input.status}`, requestId, input.scheduledFor || undefined);
 }
@@ -84,13 +94,36 @@ export async function saveInspection(requestId: string, businessId: string, acto
  * confirming is what sets the date. Keeping the two apart means nothing the farmer types can
  * read as a booking the provider has not agreed to.
  */
-export async function proposeInspectionTime(requestId: string, businessId: string, farmerId: string, day: string): Promise<boolean> {
+export async function proposeInspectionTime(
+  requestId: string, businessId: string, actorId: string, day: string, time: string, side: "farmer" | "provider",
+): Promise<boolean> {
   const now = new Date().toISOString();
-  const res = await db.run(`UPDATE inspection SET proposed_for=?, proposed_by=?, proposed_at=?, updated_at=?
+  const res = await db.run(`UPDATE inspection SET proposed_for=?, proposed_time=?, proposed_side=?, proposed_by=?, proposed_at=?, updated_at=?
        WHERE request_id=? AND business_id=? AND status IN ('required','scheduled')`,
-    day, farmerId, now, now, requestId, businessId);
-  if (res.changes) await audit(farmerId, "inspection.proposed", requestId, day);
+    day, time, side, actorId, now, now, requestId, businessId);
+  if (res.changes) await audit(actorId, "inspection.proposed", requestId, `${side}:${day} ${time}`.trim());
   return res.changes > 0;
+}
+
+/**
+ * Accepts the day the other side put forward, which is the only way a visit becomes booked: the
+ * farmer accepts the provider's suggestion, or the provider accepts the farmer's. Returns the
+ * booked day and time, or null when there is no suggestion from the other side to accept.
+ */
+export async function acceptInspectionTime(
+  requestId: string, businessId: string, actorId: string, side: "farmer" | "provider",
+): Promise<{ day: string; time: string } | null> {
+  const other = side === "farmer" ? "provider" : "farmer";
+  const i = await inspectionFor(requestId, businessId);
+  if (!i || i.status === "completed" || i.proposedSide !== other || !i.proposedFor) return null;
+  const now = new Date().toISOString();
+  const res = await db.run(`UPDATE inspection SET status='scheduled', scheduled_for=proposed_for, scheduled_time=proposed_time,
+         proposed_for='', proposed_time='', proposed_side='', proposed_at='', updated_by=?, updated_at=?
+       WHERE request_id=? AND business_id=? AND proposed_side=? AND status IN ('required','scheduled')`,
+    actorId, now, requestId, businessId, other);
+  if (!res.changes) return null;
+  await audit(actorId, "inspection.scheduled", requestId, `${i.proposedFor} ${i.proposedTime}`.trim());
+  return { day: i.proposedFor, time: i.proposedTime };
 }
 
 /** Every inspection still open, with both sides' contact details, for the coordinators (UC14). */

@@ -166,6 +166,41 @@ test("a provider who needs to see the farm cannot quote until the inspection is 
   await dialog.getByRole("button", { name: "Send a quote" }).click();
   await expect(dialog.getByText(/needs an inspection\. Book it and record what you find/)).toBeVisible();
 
+  // Agreeing the visit, on the request itself: the farmer suggests a day, the provider suggests
+  // another, and only the farmer accepting it books the visit.
+  const rid = (await testGet("SELECT id FROM service_request WHERE reference=?", reference) as { id: string }).id;
+  const fctx = await page.context().browser()!.newContext();
+  const fpg = await confirmChecks(await fctx.newPage());
+  await signIn(fpg, FARMER, "farmer");
+  await fpg.goto(`/farmer/requests/${rid}`);
+  await expect(fpg.getByText(/wants to visit your farm before giving a price/)).toBeVisible();
+  await fpg.getByRole("link", { name: "Choose a date" }).click();
+  await fpg.getByLabel("Day").fill(inDays(3));
+  await fpg.getByLabel("Time").fill("10:00");
+  await fpg.getByRole("button", { name: "Send this day" }).click();
+  await expect(fpg.getByText(/You suggested .* at 10:00\. Waiting for/)).toBeVisible();
+
+  await page.goto(`/provider/requests?open=${reference}`);
+  if (!(await dialog.count())) await page.getByRole("button", { name: `Open request ${reference}` }).click();
+  await dialog.getByRole("button", { name: "Send a quote" }).click();
+  await expect(dialog.getByText(/The farmer suggested .* at 10:00/)).toBeVisible();
+  await dialog.getByLabel("Day").fill(inDays(4));
+  await dialog.getByLabel("Time").fill("14:30");
+  await dialog.getByRole("button", { name: "Send this day" }).click();
+  await expect(page.getByText("Sent. The farmer will accept it or suggest another time.").first()).toBeVisible();
+
+  await fpg.reload();
+  await expect(fpg.getByText(/suggested .* at 14:30/)).toBeVisible();
+  await fpg.getByRole("button", { name: "Accept this time" }).click();
+  await expect(fpg.getByText(/Visit booked for .* at 14:30/)).toBeVisible();
+  expect((await testGet("SELECT status, scheduled_time FROM inspection WHERE request_id=?", rid))).toMatchObject({ status: "scheduled", scheduled_time: "14:30" });
+  await fctx.close();
+
+  await page.goto(`/provider/requests?open=${reference}`);
+  if (!(await dialog.count())) await page.getByRole("button", { name: `Open request ${reference}` }).click();
+  await dialog.getByRole("button", { name: "Send a quote" }).click();
+  await expect(dialog.getByText(/Visit booked for .* at 14:30/)).toBeVisible();
+
   await dialog.getByLabel("Do you need to see the farm before pricing?").selectOption("completed");
   await dialog.getByLabel("Inspected on").fill(inDays(0));
   await dialog.getByLabel("What you found").fill("Water ankle deep at the south end; rice ready in 10 days");
@@ -180,7 +215,7 @@ test("a provider who needs to see the farm cannot quote until the inspection is 
   const fp = await confirmChecks(await f.newPage());
   await signIn(fp, FARMER, "farmer");
   await fp.goto(`/farmer/requests/${row.id}`);
-  await expect(fp.getByText(/Done: Water ankle deep/)).toBeVisible();
+  await expect(fp.getByText(/Visited your farm.*Water ankle deep/)).toBeVisible();
   await f.close();
 });
 

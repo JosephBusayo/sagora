@@ -24,7 +24,9 @@ const fmt = (iso: string) =>
  * The My requests screen's content. On its own because a request opens as a window over it, as
  * the design draws every detail window: the list stays behind, blurred.
  */
-export function FarmerRequestsList({ rows, page, pages, justCreated }: {
+export function FarmerRequestsList({ rows, page, pages, justCreated, responses = {} }: {
+  /** How many providers have answered each request, by id, so the list says it without opening one. */
+  responses?: Record<string, number>;
   rows: ServiceRequest[]; page: number; pages: number; justCreated?: string;
 }) {
   return (
@@ -63,6 +65,7 @@ export function FarmerRequestsList({ rows, page, pages, justCreated }: {
                   <th scope="col">Farm size</th>
                   <th scope="col">Preferred date</th>
                   <th scope="col">Status</th>
+                  <th scope="col">Responses</th>
                   <th scope="col"><span className="sr-only">Open</span></th>
                 </tr>
               </thead>
@@ -75,6 +78,7 @@ export function FarmerRequestsList({ rows, page, pages, justCreated }: {
                     <td className="table__size">{landSize(r.acres)}</td>
                     <td>{fmt(r.preferredDate)}</td>
                     <td><span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
+                    <td>{responses[r.id] ? `${responses[r.id]} ${responses[r.id] === 1 ? "provider" : "providers"}` : "None yet"}</td>
                     <td className="table__go">
                       <Link href={`/farmer/requests?${page > 1 ? `page=${page}&` : ""}open=${r.id}`} aria-label="Request details"><Icon name="chevron" size={24} /></Link>
                     </td>

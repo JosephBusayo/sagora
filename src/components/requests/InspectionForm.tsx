@@ -9,8 +9,9 @@ import type { FormState } from "@/lib/auth-flows";
 
 export type MyInspection = {
   status: "required" | "scheduled" | "completed"; scheduledFor: string; findings: string; openQuestions: string;
-  /** A day the farmer put forward, waiting on this provider to confirm it. */
-  proposedFor: string;
+  /** A day put forward and waiting on the other side; proposedSide says whose it is. */
+  proposedFor: string; proposedTime: string; proposedSide: "farmer" | "provider" | "";
+  scheduledTime: string;
 } | null;
 
 const CHOICES = [
@@ -58,13 +59,16 @@ export function InspectionForm({ requestId, existing, onChange }: {
         findings: saved.findings ?? "",
         openQuestions: saved.openQuestions ?? "",
         proposedFor: saved.status === "required" ? existing?.proposedFor ?? "" : "",
+        proposedTime: saved.status === "required" ? existing?.proposedTime ?? "" : "",
+        proposedSide: saved.status === "required" ? existing?.proposedSide ?? "" : "",
+        scheduledTime: existing?.scheduledTime ?? "",
       },
     );
   }, [state.notice, state.values, onChange, existing?.proposedFor]);
 
   return (
     <details className="inspection" open={status !== "none"}>
-      <summary>Farm inspection{existing ? `: ${CHOICES.find((c) => c.id === existing.status)?.label}` : ""}</summary>
+      <summary>{existing ? `Farm inspection: ${CHOICES.find((c) => c.id === existing.status)?.label}` : "Request an inspection, or send a quote"}</summary>
       <form action={action} className="form-soft inspection__form">
         <input type="hidden" name="requestId" value={requestId} />
         {/* The decision and the progress through it are two questions, not one dropdown. Karim's
@@ -76,12 +80,12 @@ export function InspectionForm({ requestId, existing, onChange }: {
           <label className="readiness__item">
             <input type="radio" name="decision" value="not_needed" checked={status === "none"}
               onChange={() => setStatus("none")} />
-            <span>No, I can price it from the request</span>
+            <span>No inspection needed: send a quote</span>
           </label>
           <label className="readiness__item">
             <input type="radio" name="decision" value="needed" checked={status !== "none"}
               onChange={() => setStatus(status === "none" ? "required" : status)} />
-            <span>Yes, an inspection is needed</span>
+            <span>Request an inspection first</span>
           </label>
         </fieldset>
 
@@ -91,7 +95,10 @@ export function InspectionForm({ requestId, existing, onChange }: {
             <label className="field__label" htmlFor="i-status">Where has the visit got to?</label>
             <div className="field__box">
               <select id="i-status" name="status" className="field__input" value={status} onChange={(ev) => setStatus(ev.target.value)}>
-                {PROGRESS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                {/* "Booked" is reached by agreeing a day with the farmer, not chosen here; it is
+                    listed only once it is true, so findings can still be saved against it. */}
+                {PROGRESS.filter((c) => c.id !== "scheduled" || existing?.status === "scheduled")
+                  .map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
             </div>
             <p className="field__helper">You cannot send a price until the visit is done.</p>
@@ -100,13 +107,6 @@ export function InspectionForm({ requestId, existing, onChange }: {
           // The server reads `status`, so the answer still posts when the progress select is hidden.
           <input type="hidden" name="status" value="none" />
         )}
-        {/* What the farmer suggested, where the provider is deciding the date. Confirming it is
-            the ordinary "Inspection booked" save, so there is one way to set a date, not two. */}
-        {existing?.proposedFor && status !== "completed" ? (
-          <p className="notice notice--success" role="status">
-            The farmer suggested {existing.proposedFor}. Choose <strong>Inspection booked</strong> to confirm that day, or set another.
-          </p>
-        ) : null}
         {status === "scheduled" || status === "completed" ? (
           <div className={`field${e.scheduledFor ? " field--invalid" : ""}`}>
             <label className="field__label" htmlFor="i-date">{status === "completed" ? "Inspected on" : "Inspection date"}</label>

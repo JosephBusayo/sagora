@@ -1,6 +1,7 @@
 import { inspectionsForRequest } from "@/lib/inspections";
 import { kindLabel } from "@/lib/equipment";
-import { proposeInspectionAction } from "@/app/(platform)/farmer/requests/inspection-actions";
+import { acceptInspectionAction, proposeInspectionAction } from "@/app/(platform)/farmer/requests/inspection-actions";
+import { VisitPanel } from "./VisitPanel";
 import { placeLine } from "@/lib/chiefdoms";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PendingButton } from "@/components/app/PendingButton";
@@ -174,63 +175,61 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
   const overdue = agreement ? paymentOverdue(agreement) : false;
   const scheduled = Boolean(job?.startDate && job.assetIds.length);
 
+  // Everyone who has answered this request, one card each: a provider who wants to visit first and
+  // later quotes is one person, not two entries in two different sections.
+  const quoting = quotes.filter((q) => q.status !== "withdrawn");
+  const responders = [...new Set([...inspections.map((i) => i.businessId), ...quoting.map((q) => q.businessId)])];
+  const names = new Map(await Promise.all(responders.map(async (b) => [b, await businessName(b)] as const)));
+  const visitsOpen = inspections.filter((i) => i.status === "required" || i.status === "scheduled");
+  const liveQuotes = quoting.filter((q) => q.status === "sent" && !isExpired(q));
+  const open = request.status === "awaiting_quotes" || request.status === "quotes_sent";
+
+  // The one thing the farmer should do now, worked out from the records, in the order it matters.
+  const visitAsk = inspections.find((i) => i.status === "required" && i.proposedSide !== "farmer");
+  const next: { text: string; href: string; action: string } | null = agreement
+    ? null
+    : visitAsk
+      ? visitAsk.proposedSide === "provider"
+        ? { text: `${names.get(visitAsk.businessId)} suggested a day to visit your farm. Accept it, or choose another day.`, href: `#visit-${visitAsk.businessId}`, action: "Choose a date" }
+        : { text: `${names.get(visitAsk.businessId)} wants to visit your farm before giving a price. Choose a day that suits you.`, href: `#visit-${visitAsk.businessId}`, action: "Choose a date" }
+      : liveQuotes.length > 0
+        ? { text: liveQuotes.length === 1 ? "You have a quote to review." : `You have ${liveQuotes.length} quotes to compare.`, href: "#responses", action: liveQuotes.length === 1 ? "Review quote" : "Review quotes" }
+        : null;
+
   return (
     <>
-    <section className="request-card">
-      <div className="request-card__banner" aria-hidden="true">
-        <span className="banner__ring banner__outer" />
-        <span className="banner__ring banner__mid" />
-        <span className="banner__ring banner__inner"><Icon name="payments" size={48} /></span>
-      </div>
-      <div className="request-card__body">
-        <div className="request-card__title">
-          <h1>Request details</h1>
-          {request.status === "awaiting_quotes" || request.status === "quotes_sent" ? (
-            <form action={cancelRequest}>
-              <input type="hidden" name="id" value={request.id} />
-              <PendingButton confirm="Withdraw this request?" confirmBody="Providers will no longer see it." confirmAction="Withdraw request" className="request-card__delete" aria-label="Withdraw request"><Icon name="trash" size={24} /></PendingButton>
-            </form>
-          ) : null}
+    <section className="req-hub__head" aria-labelledby="req-title">
+      <div className="req-hub__title">
+        <div>
+          <p className="req-hub__eyebrow">Request {request.reference}</p>
+          <h1 id="req-title">{whatWasAsked}</h1>
+          <p className="req-hub__meta">
+            {placeLine(request.village, request.chiefdom, districtLabel(request.district))} · {landSize(request.acres)} · Sent {fmt(request.createdAt.slice(0, 10))}
+          </p>
         </div>
-        <dl className="request-rows">
-          <Detail label="Request ID" value={request.reference} />
-          <Detail label="Requested on" value={fmtTime(request.createdAt)} />
-          <Detail label={stages.length > 1 ? "Services, in order" : "Service"} value={whatWasAsked} />
-          <Detail label="Land size" value={landSize(request.acres)} />
-          <Detail label="Location" value={placeLine(request.village, request.chiefdom, districtLabel(request.district))} />
-          <Detail label="Preferred start date" value={fmt(request.preferredDate)} />
-          {request.crop ? <Detail label="Crop" value={request.crop} /> : null}
-          <Detail label="Land access" value={landLabel(LAND_ACCESS, request.landAccess)} />
-          <Detail label="Land condition" value={landLabel(LAND_CONDITION, request.landCondition)} />
-          <Detail label="Land clearance" value={landLabel(LAND_CLEARANCE, request.landClearance)} />
-          {extraDetails(request).map((x) => <Detail key={x.label} label={x.label} value={x.value} />)}
-          {inspections.map((i) => (
-            <Detail key={i.id} label="Farm inspection"
-              value={i.status === "completed" ? `Done${i.findings ? `: ${i.findings}` : ""}` : i.status === "scheduled" ? `Booked for ${fmt(i.scheduledFor)}` : i.proposedFor ? `You suggested ${fmt(i.proposedFor)} — waiting for the provider to confirm` : "The provider needs to see the farm before pricing"} />
-          ))}
-          <div className="request-row">
-            <dt>Status</dt>
-            <dd>
-              {booking && request.status === "in_progress"
-                ? <span className="pill pill--quotes_sent">Booked</span>
-                : <span className={`pill pill--${request.status}`}>{STATUS_LABEL[request.status]}</span>}
-            </dd>
-          </div>
-        </dl>
-        <div className="request-card__actions">
-          {booking && request.status === "in_progress" ? (
-            <Link href={links.close} className="button">Done</Link>
-          ) : (
-            <>
-              <Link href={links.close} className="button button--soft">Close</Link>
-              {request.status === "awaiting_quotes" ? <Link href={links.edit} className="button">Edit request</Link> : null}
-              {request.status === "quotes_sent" ? <a href="#quotes" className="button">View quotes</a> : null}
-              {request.status === "completed" && links.again ? <Link href={links.again} className="button">Book again</Link> : null}
-            </>
-          )}
-        </div>
+        {booking && request.status === "in_progress"
+          ? <span className="pill pill--quotes_sent">Booked</span>
+          : <span className={`pill pill--${request.status}`}>{STATUS_LABEL[request.status]}</span>}
       </div>
+      {/* Counted from the records every time the page is drawn: who answered, who wants a visit,
+          who has priced it. */}
+      {responders.length > 0 ? (
+        <ul className="req-hub__counts" aria-label="Provider responses">
+          <li><strong>{responders.length}</strong> {responders.length === 1 ? "provider interested" : "providers interested"}</li>
+          {inspections.length > 0 ? <li><strong>{inspections.length}</strong> {inspections.length === 1 ? "wants to visit your farm" : "want to visit your farm"}</li> : null}
+          <li><strong>{quoting.length}</strong> {quoting.length === 1 ? "quote received" : "quotes received"}</li>
+        </ul>
+      ) : open ? (
+        <p className="req-hub__waiting">No provider has responded yet. Providers who do this work in your district can see your request, and we will tell you when one responds.</p>
+      ) : null}
     </section>
+
+    {next ? (
+      <div className="req-hub__next" role="status">
+        <p><strong>Next step:</strong> {next.text}</p>
+        <a href={next.href} className="button button--inline">{next.action}</a>
+      </div>
+    ) : null}
 
     {error ? <p className="notice notice--error" role="alert">{error}</p> : null}
     {payment === "received" ? (
@@ -422,148 +421,177 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
       </section>
     ) : null}
 
-    {/* A provider who needs to walk the land before pricing it. The farmer answers with a day
-        that suits them and the provider confirms it; nothing here books anything on its own. */}
-    {inspections.filter((i) => i.status === "required" || i.status === "scheduled").map((i) => (
-      <section key={i.id} className="panel panel--wide">
-        <h2 className="quotes__heading">Farm visit</h2>
-        {i.status === "scheduled" ? (
-          <p className="offer__text">
-            <strong>{businessName(i.businessId)}</strong> will visit your farm on {fmt(i.scheduledFor)}. Please make sure
-            someone can show them the land that day. Your price comes after the visit.
-          </p>
-        ) : (
-          <>
-            <p className="offer__text">
-              <strong>{businessName(i.businessId)}</strong> would like to see your farm before they give you a price. There is
-              no charge for the visit, and you will not see a price from them until it is done.
-            </p>
-            {i.proposedFor ? (
-              <p className="notice notice--success" role="status">
-                You suggested {fmt(i.proposedFor)}. We have asked them to confirm it. You can suggest a different day below.
-              </p>
-            ) : null}
-            <form action={proposeInspectionAction} className="form-soft">
-              <input type="hidden" name="requestId" value={request.id} />
-              <input type="hidden" name="businessId" value={i.businessId} />
-              <div className="field">
-                <label className="field__label" htmlFor={`visit-${i.id}`}>Which day suits you?</label>
-                <div className="field__box">
-                  <input id={`visit-${i.id}`} name="day" type="date" className="field__input" suppressHydrationWarning />
-                </div>
-                <p className="field__helper">They will confirm it, or ring you to agree another day.</p>
-              </div>
-              <PendingButton className="button button--inline">Suggest this day</PendingButton>
-            </form>
-          </>
-        )}
-      </section>
-    ))}
+    {/* Everyone who answered, one card each, with what they asked for (a visit) and what they
+        offered (a quote) together. This is the part of the page a farmer opens it to see. */}
+    <section className="req-hub__section" id="responses" aria-labelledby="responses-title">
+      <h2 className="quotes__heading" id="responses-title">People interested in your request</h2>
+      {responders.length === 0 ? (
+        <EmptyState icon="quotes" title="No responses yet" body={noQuotes} />
+      ) : (
+        <div className="quote-cards">
+          {responders.map((businessId) => {
+            const visit = inspections.find((i) => i.businessId === businessId);
+            const q = quoting.find((x) => x.businessId === businessId);
+            const name = names.get(businessId) ?? "A provider";
+            const expired = q ? isExpired(q) : false;
+            const isAgreed = agreement?.businessId === businessId;
+            const response = q
+              ? q.status === "accepted" ? "Quote accepted" : q.declinedAt ? "Quote declined" : q.status === "not_selected" ? "Not chosen" : expired ? "Quote expired" : "Quote received"
+              : visit?.status === "completed" ? "Farm visited" : visit?.status === "scheduled" ? "Visit booked" : "Inspection requested";
+            const pill = q
+              ? q.status === "accepted" ? "completed" : q.status === "sent" && !expired && !q.declinedAt ? "in_progress" : "cancelled"
+              : visit?.status === "scheduled" || visit?.status === "completed" ? "quotes_sent" : "awaiting_quotes";
+            return (
+              <article key={businessId} id={`visit-${businessId}`} className={`offer${isAgreed ? " offer--agreed" : ""}`}>
+                {q ? (
+                  <div className="offer__price">
+                    <div>
+                      <p className="offer__amount">{formatAmount(q.amountMinor)}</p>
+                      <p>Total price for {whatWasAsked.toLowerCase()} {landSize(request.acres)}</p>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="offer__body">
+                  <div className="offer__who">
+                    <h3>{name}</h3>
+                    <span className={`pill pill--${pill}`}>{response}</span>
+                  </div>
+                  <p className="offer__meta">
+                    <span>{q ? `Quote sent on ${fmt(q.createdAt.slice(0, 10))}` : `Responded on ${fmt((visit?.updatedAt ?? request.createdAt).slice(0, 10))}`}</span>
+                  </p>
 
-    <h2 className="quotes__heading" id="quotes">Quotes</h2>
-    {quotes.length === 0 ? (
-      <EmptyState icon="quotes" title="No quotes yet" body={noQuotes} />
-    ) : (
-      <div className="quote-cards">
-        {quotes.map((q) => {
-          const expired = isExpired(q);
-          const isAgreed = agreement?.businessId === q.businessId;
-          return (
-            <article key={q.id} className={`offer${isAgreed ? " offer--agreed" : ""}`}>
-              <div className="offer__price">
-                <div>
-                  <p className="offer__amount">{formatAmount(q.amountMinor)}</p>
-                  <p>Total price for {whatWasAsked.toLowerCase()} {landSize(request.acres)}</p>
+                  {/* The farm visit, when this provider asked for one. Agreed here, on the request,
+                      by suggesting a day or accepting theirs. */}
+                  {visit && visit.status !== "completed" && !agreement ? (
+                    <>
+                      {visit.status === "required" ? (
+                        <p className="offer__text">
+                          {name} would like to see your farm before giving you a price. The visit is free, and their price comes after it.
+                        </p>
+                      ) : null}
+                      <VisitPanel me="farmer" visit={visit} requestId={request.id} businessId={businessId} idPrefix={`fv-${visit.id}`}
+                        accept={acceptInspectionAction} suggest={proposeInspectionAction} otherName={name} />
+                    </>
+                  ) : visit?.status === "completed" ? (
+                    <p className="field__helper">Visited your farm{visit.scheduledFor ? ` on ${fmt(visit.scheduledFor)}` : ""}{visit.findings ? `: ${visit.findings}` : "."}</p>
+                  ) : null}
+
+                  {q ? (
+                    <>
+                      {q.includes ? (
+                        <>
+                          <p className="offer__label">Includes</p>
+                          <p className="offer__text">{q.includes}</p>
+                        </>
+                      ) : null}
+                      {/* The three things Karim asked a farmer be able to compare, not just the price:
+                          how long the work takes, which machines come, and how long the offer stands. */}
+                      <p className="offer__label">How long it takes</p>
+                      <p className="offer__text">
+                        {q.daysToComplete} {q.daysToComplete === 1 ? "day" : "days"} &mdash; {fmt(q.startDate)} to {fmt(endDateOf(q))}
+                      </p>
+                      <Stages quoteId={q.id} />
+                      <Machines assetIds={q.assetIds} />
+                      {land.length > 0 ? (
+                        <ul className="offer__chips">
+                          {land.map((l) => <li key={l}><span className="chip__icon" aria-hidden="true" />{l}</li>)}
+                        </ul>
+                      ) : null}
+                      {/* The breakdown, before they accept and before they pay. Sagora's fee is added
+                          to the provider's price, so the total is never a surprise at the payment screen. */}
+                      <p className="offer__label">What you pay</p>
+                      <dl className="offer__breakdown">
+                        <div><dt>{name}&rsquo;s price</dt><dd>{formatAmount(q.amountMinor)}</dd></div>
+                        <div><dt>Sagora service fee</dt><dd>{formatAmount(serviceFeeOn(q.amountMinor))}</dd></div>
+                        <div className="offer__breakdown-total">
+                          <dt>Total</dt><dd>{formatAmount(q.amountMinor + serviceFeeOn(q.amountMinor))}</dd>
+                        </div>
+                      </dl>
+                      {q.dailyRateMinor > 0 ? (
+                        <p className="offer__text">
+                          {q.daysToComplete} working {q.daysToComplete === 1 ? "day" : "days"} at {formatAmount(q.dailyRateMinor)} a day,
+                          finishing by {fmt(endDateOf(q))}.
+                        </p>
+                      ) : null}
+                      {q.note ? (
+                        <>
+                          <p className="offer__label">Message from provider</p>
+                          <p className="offer__text">{q.note}</p>
+                        </>
+                      ) : null}
+                      {q.status === "sent" ? (
+                        <p className={expired ? "notice notice--error" : "offer__deadline"} role={expired ? "alert" : undefined}>
+                          {expired
+                            ? `This quote was not answered within ${RESPONSE_HOURS} hours, so it can no longer be accepted.`
+                            : timeLeft(expiresAt(q))}
+                        </p>
+                      ) : null}
+                      {q.status === "accepted" ? (
+                        <p className="notice notice--success">You accepted this quote (version {q.version}).</p>
+                      ) : q.declinedAt ? (
+                        <p className="field__helper">You declined this quote.</p>
+                      ) : q.status === "not_selected" ? (
+                        <p className="field__helper">You chose another provider.</p>
+                      ) : expired ? (
+                        <p className="field__helper">This price has expired. Ask the provider for a new one.</p>
+                      ) : agreement ? (
+                        <p className="field__helper">You have already accepted a quote on this request.</p>
+                      ) : (
+                        <div className="request-card__actions">
+                          <form action={declineQuoteAction}>
+                            <input type="hidden" name="quoteId" value={q.id} />
+                            <input type="hidden" name="requestId" value={request.id} />
+                            <PendingButton confirm="Decline this quote?" confirmBody="The provider will be told." confirmAction="Decline quote" className="button button--soft">Decline</PendingButton>
+                          </form>
+                          <form action={acceptQuoteAction}>
+                            <input type="hidden" name="quoteId" value={q.id} />
+                            <input type="hidden" name="requestId" value={request.id} />
+                            <PendingButton className="button" confirm="Accept this quote?" confirmBody="The price and terms become fixed, and the other quotes close. The work is booked once your payment is in and the equipment is still free." confirmAction="Accept quote">Accept quote</PendingButton>
+                          </form>
+                        </div>
+                      )}
+                    </>
+                  ) : visit && visit.status !== "required" ? (
+                    <p className="field__helper">Their price comes after the visit. We will tell you when it arrives.</p>
+                  ) : null}
                 </div>
-                {q.status === "sent" && !expired ? <span className="pill pill--in_progress">Pending approval</span> : null}
-              </div>
-              <div className="offer__body">
-                <h3>{businessName(q.businessId)}</h3>
-                <p className="offer__meta">
-                  <span>{whatWasAsked} request</span>
-                  <span>Submitted on {fmt(q.createdAt.slice(0, 10))}</span>
-                </p>
-                {q.includes ? (
-                  <>
-                    <p className="offer__label">Includes</p>
-                    <p className="offer__text">{q.includes}</p>
-                  </>
-                ) : null}
-                {/* The three things Karim asked a farmer be able to compare, not just the price:
-                    how long the work takes, which machines come, and how long the offer stands. */}
-                <p className="offer__label">How long it takes</p>
-                <p className="offer__text">
-                  {q.daysToComplete} {q.daysToComplete === 1 ? "day" : "days"} &mdash; {fmt(q.startDate)} to {fmt(endDateOf(q))}
-                </p>
-                <Stages quoteId={q.id} />
-                <Machines assetIds={q.assetIds} />
-                {land.length > 0 ? (
-                  <ul className="offer__chips">
-                    {land.map((l) => <li key={l}><span className="chip__icon" aria-hidden="true" />{l}</li>)}
-                  </ul>
-                ) : null}
-                {q.note ? (
-                  <>
-                    {/* The breakdown, before they accept and before they pay. Sagora's 10% is added
-                    to the provider's price, so the farmer sees all three figures and the total is
-                    never a surprise at the payment screen (Karim's handover, 23 Nov 2026). */}
-                <p className="offer__label">What you pay</p>
-                <dl className="offer__breakdown">
-                  <div><dt>{businessName(q.businessId)}&rsquo;s price</dt><dd>{formatAmount(q.amountMinor)}</dd></div>
-                  <div><dt>Sagora service fee</dt><dd>{formatAmount(serviceFeeOn(q.amountMinor))}</dd></div>
-                  <div className="offer__breakdown-total">
-                    <dt>Total</dt><dd>{formatAmount(q.amountMinor + serviceFeeOn(q.amountMinor))}</dd>
-                  </div>
-                </dl>
-                {q.dailyRateMinor > 0 ? (
-                  <p className="offer__text">
-                    {q.daysToComplete} working {q.daysToComplete === 1 ? "day" : "days"} at {formatAmount(q.dailyRateMinor)} a day,
-                    finishing by {fmt(endDateOf(q))}.
-                  </p>
-                ) : null}
-                <p className="offer__label">Message from provider</p>
-                    <p className="offer__text">{q.note}</p>
-                  </>
-                ) : null}
-                {/* One rule for every quote, counted from when it was sent. It replaced the date
-                    each provider used to pick, which farmers had no way to compare. */}
-                {q.status === "sent" ? (
-                  <p className={expired ? "notice notice--error" : "offer__deadline"} role={expired ? "alert" : undefined}>
-                    {expired
-                      ? `This quote was not answered within ${RESPONSE_HOURS} hours, so it can no longer be accepted.`
-                      : timeLeft(expiresAt(q))}
-                  </p>
-                ) : null}
-                {q.status === "accepted" ? (
-                  <p className="notice notice--success">You accepted this quote (version {q.version}).</p>
-                ) : q.declinedAt ? (
-                  <p className="field__helper">You declined this quote.</p>
-                ) : q.status === "not_selected" ? (
-                  <p className="field__helper">You chose another provider.</p>
-                ) : expired ? (
-                  <p className="field__helper">This price has expired. Ask the provider for a new one.</p>
-                ) : agreement ? (
-                  <p className="field__helper">You have already accepted a quote on this request.</p>
-                ) : (
-                  <div className="request-card__actions">
-                    <form action={declineQuoteAction}>
-                      <input type="hidden" name="quoteId" value={q.id} />
-                      <input type="hidden" name="requestId" value={request.id} />
-                      <PendingButton confirm="Decline this quote?" confirmBody="The provider will be told." confirmAction="Decline quote" className="button button--soft">Decline</PendingButton>
-                    </form>
-                    <form action={acceptQuoteAction}>
-                      <input type="hidden" name="quoteId" value={q.id} />
-                      <input type="hidden" name="requestId" value={request.id} />
-                      <PendingButton className="button" confirm="Accept this quote?" confirmBody="The price and terms become fixed, and the other quotes close. The work is booked once your payment is in and the equipment is still free." confirmAction="Accept quote">Accept quote</PendingButton>
-                    </form>
-                  </div>
-                )}
-              </div>
-            </article>
-          );
-        })}
-      </div>
-    )}
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+
+    {/* What the farmer asked for, and the ways to change it: there when wanted, never in the way of
+        the responses above. */}
+    <details className="req-hub__details">
+      <summary>Request details</summary>
+      <dl className="request-rows">
+        <Detail label="Request ID" value={request.reference} />
+        <Detail label="Requested on" value={fmtTime(request.createdAt)} />
+        <Detail label={stages.length > 1 ? "Services, in order" : "Service"} value={whatWasAsked} />
+        <Detail label="Land size" value={landSize(request.acres)} />
+        <Detail label="Location" value={placeLine(request.village, request.chiefdom, districtLabel(request.district))} />
+        <Detail label="Preferred start date" value={fmt(request.preferredDate)} />
+        {request.crop ? <Detail label="Crop" value={request.crop} /> : null}
+        <Detail label="Land access" value={landLabel(LAND_ACCESS, request.landAccess)} />
+        <Detail label="Land condition" value={landLabel(LAND_CONDITION, request.landCondition)} />
+        <Detail label="Land clearance" value={landLabel(LAND_CLEARANCE, request.landClearance)} />
+        {extraDetails(request).map((x) => <Detail key={x.label} label={x.label} value={x.value} />)}
+      </dl>
+    </details>
+
+    <div className="req-hub__manage">
+      <Link href={links.close} className="button button--soft button--inline">Back to my requests</Link>
+      {request.status === "awaiting_quotes" ? <Link href={links.edit} className="button button--soft button--inline">Edit request</Link> : null}
+      {request.status === "completed" && links.again ? <Link href={links.again} className="button button--inline">Book again</Link> : null}
+      {open ? (
+        <form action={cancelRequest}>
+          <input type="hidden" name="id" value={request.id} />
+          <PendingButton confirm="Withdraw this request?" confirmBody="Providers will no longer see it." confirmAction="Withdraw request" className="button button--soft button--inline">Withdraw request</PendingButton>
+        </form>
+      ) : null}
+    </div>
     </>
   );
 }

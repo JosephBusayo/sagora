@@ -772,16 +772,27 @@ a.topbar__round:hover, a.topbar__user:hover { background: var(--color-hover); te
 .quote-summary { display: flex; flex-direction: column; gap: 14px; }
 
 /* -------- equipment register -------- */
-.equipment__top { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-height: 49px; margin: -72px 0 23px; }
+/* The filters carry labels above their boxes, so the bar lines up on the boxes' bottom edge, and
+   Add equipment is the boxes' height: one toolbar, not a button floating above it. */
+.equipment__top { display: flex; align-items: flex-end; justify-content: flex-end; gap: 10px; min-height: 49px; margin: -72px 0 23px; }
+.equipment__top > .button { flex: none; height: 50px; }
 .equipment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(440px, 100%), 1fr)); gap: 13px 28px; }
 .asset { display: flex; flex-direction: column; gap: 12px; padding: 24px; background: var(--color-surface);
   border: 1px solid var(--color-hairline); border-radius: 16px; }
 .asset--retired { background: #fbfbf8; }
 .asset--retired .asset__title h3 { color: var(--color-text-muted); }
-.asset__head { display: flex; align-items: center; gap: 12px; }
+/* The name never gets less than 160px: on a narrow card the status pill drops under it instead of
+   squeezing the name into one letter per line. */
+.asset__head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.asset__head > .pill { flex: none; }
 .asset__photo { flex: none; display: grid; place-items: center; width: 116px; height: 102px; border-radius: 22px; background: #eff2e0; outline: 2px solid #d9d9d9; }
-.asset__title { flex: 1; min-width: 0; }
-.asset__title h3 { margin: 0 0 4px; color: var(--color-card-title); font: 600 20px/31px var(--font-sans); overflow-wrap: anywhere; }
+.asset__title { flex: 1 1 160px; min-width: 0; }
+.asset__title h3 { margin: 0 0 4px; color: var(--color-card-title); font: 600 20px/31px var(--font-sans); overflow-wrap: break-word; }
+/* The search above the assisted-request form: one row, the same width as the form under it. */
+.caller-search { flex-direction: row; align-items: flex-end; gap: 10px; }
+.caller-search > .field { flex: 1 1 auto; min-width: 0; margin: 0; }
+.caller-search > .button { flex: none; height: 50px; }
+@media (max-width: 480px) { .caller-search { flex-direction: column; align-items: stretch; } }
 .asset__title p { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; color: var(--color-text-muted); font: 500 16px/24px var(--font-sans); }
 .asset__title p span { display: inline-flex; align-items: center; gap: 5px; }
 .asset__state { margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -1923,3 +1934,47 @@ button.chip:hover:not(:disabled) { background: #ececec; }
   .timeline__item { grid-template-columns: 1fr; }
   .shares__list li, .flags__list li { flex-direction: column; align-items: stretch; }
 }
+
+/* ---------------------------------------------------------------------------
+   One request, as a full page (25 Nov 2026): what was asked and who answered first, the request's
+   own details last. Built from the card, pill and button styles already used across the app. */
+.req-hub { display: flex; flex-direction: column; gap: 22px; max-width: 980px; }
+.req-hub__head { display: flex; flex-direction: column; gap: 16px; padding: 24px; background: var(--color-surface);
+  border: 1px solid var(--color-hairline); border-radius: 16px; }
+.req-hub__title { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.req-hub__title > div { flex: 1 1 260px; min-width: 0; }
+.req-hub__title > .pill { flex: none; }
+.req-hub__eyebrow { margin: 0 0 4px; font: 500 13px/20px var(--font-sans); color: #808080; }
+.req-hub__title h1 { margin: 0; font: 600 24px/32px var(--font-sans); color: #191919; overflow-wrap: break-word; }
+.req-hub__meta { margin: 6px 0 0; font: 500 14px/21px var(--font-sans); color: #808080; }
+.req-hub__counts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.req-hub__counts li { padding: 8px 14px; border-radius: 18px; background: #f5f5f5; font: 500 14px/21px var(--font-sans); color: #373737; }
+.req-hub__counts strong { color: #191919; }
+.req-hub__waiting { margin: 0; font: 500 14px/21px var(--font-sans); color: #808080; }
+.req-hub__next { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap;
+  padding: 16px 20px; border-radius: 16px; background: #eff2e0; border: 1px solid #dfe6c4; }
+.req-hub__next p { flex: 1 1 260px; margin: 0; font: 500 15px/22px var(--font-sans); color: #373737; }
+.req-hub__next .button { flex: none; height: 46px; }
+.req-hub__section { display: flex; flex-direction: column; gap: 14px; scroll-margin-top: 80px; }
+.req-hub__section .quotes__heading { margin: 0; }
+.req-hub .offer { scroll-margin-top: 80px; }
+.offer__who { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.offer__who > .pill { flex: none; }
+.req-hub__details { padding: 18px 24px; background: var(--color-surface); border: 1px solid var(--color-hairline); border-radius: 16px; }
+.req-hub__details > summary { cursor: pointer; font: 600 16px/24px var(--font-sans); color: #191919; }
+.req-hub__details[open] > summary { margin-bottom: 14px; }
+.req-hub__manage { display: flex; flex-wrap: wrap; gap: 10px; }
+.req-hub__manage form { display: contents; }
+
+/* Agreeing the day of a farm visit, on both the farmer's and the provider's screens. */
+.visit { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; border-radius: 14px; background: #fafbf6; border: 1px solid var(--color-hairline); }
+.visit__state { margin: 0; font: 500 14px/21px var(--font-sans); color: #373737; }
+.visit__state--booked { color: var(--color-brand); }
+.visit__ask { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.visit__legend { margin: 0; }
+.visit__form { display: flex; flex-direction: column; gap: 8px; }
+.visit__fields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.visit__fields > .field { flex: 1 1 150px; min-width: 0; margin: 0; }
+.visit__fields .field__label { font: 500 12px/18px var(--font-sans); }
+.visit__fields > .button, .visit__ask .button { flex: none; height: 50px; }
+@media (max-width: 480px) { .visit__fields > .button { flex: 1 1 100%; } }

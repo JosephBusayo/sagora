@@ -1,11 +1,8 @@
-import { ModalShell } from "@/components/app/ModalShell";
-import { FarmerRequestsList } from "@/components/requests/FarmerRequestsList";
-import { pageOf } from "@/components/app/Pager";
 import { RequestDetail } from "@/components/requests/RequestDetail";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireFarmer } from "@/lib/session";
-import { getById, listForFarmer } from "@/lib/requests";
+import { getById } from "@/lib/requests";
 import { Shell } from "@/components/app/Shell";
 import { unreadCount } from "@/lib/notifications";
 import { monimeOfferedTo } from "@/lib/monime";
@@ -24,8 +21,6 @@ export default async function Page({ params, searchParams }: {
   const request = await getById(id);
   if (!request || request.farmerId !== farmer.id) notFound(); // never reveal another farmer's request
 
-  // The list behind the window: its first page, as the My requests screen opens.
-  const { rows, pages } = pageOf(await listForFarmer(farmer.id), "1");
 
   return (
     <Shell
@@ -34,9 +29,9 @@ export default async function Page({ params, searchParams }: {
       audience="farmer"
       unread={await unreadCount(farmer)}
     >
-      <FarmerRequestsList rows={rows} page={1} pages={pages} />
-      {/* The request opens over the list, as every detail window in the design does. */}
-      <ModalShell closeHref="/farmer/requests" label="Request details" className="modal--request-page">
+      {/* A full page, not a window over the list: this is where a farmer follows everything that
+          happens to the request, so it gets the room to show it (Joseph, 25 Nov 2026). */}
+      <div className="req-hub">
         <RequestDetail
           request={request}
           flags={flags}
@@ -49,7 +44,7 @@ export default async function Page({ params, searchParams }: {
             invoice: `/farmer/requests/${request.id}/invoice`,
           }}
         />
-      </ModalShell>
+      </div>
     </Shell>
   );
 }
