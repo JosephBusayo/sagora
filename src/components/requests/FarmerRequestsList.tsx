@@ -21,8 +21,8 @@ const fmt = (iso: string) =>
   });
 
 /**
- * The My requests screen's content. On its own because a request opens as a window over it, as
- * the design draws every detail window: the list stays behind, blurred.
+ * The My requests screen's content. A whole row is one link to the request's own page, where the
+ * farmer sees who answered and can edit or withdraw it: one way in, not two.
  */
 export function FarmerRequestsList({ rows, page, pages, justCreated, responses = {} }: {
   /** How many providers have answered each request, by id, so the list says it without opening one. */
@@ -66,22 +66,19 @@ export function FarmerRequestsList({ rows, page, pages, justCreated, responses =
                   <th scope="col">Preferred date</th>
                   <th scope="col">Status</th>
                   <th scope="col">Responses</th>
-                  <th scope="col"><span className="sr-only">Open</span></th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td><span className="table__ref"><ServiceIcon service={r.service} /><Link href={`/farmer/requests/${r.id}`}>{r.reference}</Link></span></td>
+                  <tr key={r.id} className="table__row--link">
+                    {/* One real link, stretched over the row by CSS, so tapping anywhere opens it. */}
+                    <td><span className="table__ref"><ServiceIcon service={r.service} /><Link href={`/farmer/requests/${r.id}`} className="table__stretch">{r.reference}</Link></span></td>
                     <td>{serviceLabel(r.service)}</td>
                     <td>{districtLabel(r.district)}</td>
                     <td className="table__size">{landSize(r.acres)}</td>
                     <td>{fmt(r.preferredDate)}</td>
                     <td><span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
                     <td>{responses[r.id] ? `${responses[r.id]} ${responses[r.id] === 1 ? "provider" : "providers"}` : "None yet"}</td>
-                    <td className="table__go">
-                      <Link href={`/farmer/requests?${page > 1 ? `page=${page}&` : ""}open=${r.id}`} aria-label="Request details"><Icon name="chevron" size={24} /></Link>
-                    </td>
                   </tr>
                 ))}
               </tbody>

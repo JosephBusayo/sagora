@@ -407,9 +407,18 @@ test("a request opens as its own page, responses first, and Back goes to the lis
   await page.goto("/farmer/requests");
   // The list says whether anyone has answered, without opening a request.
   await expect(page.locator(".table--requests").getByRole("columnheader", { name: "Responses" })).toBeVisible();
-  await page.locator(".table--requests").getByRole("link", { name: /^SG-/ }).first().click();
+  // One way in: the row has a single link and no arrow, and tapping anywhere on it opens the page.
+  const row = page.locator(".table--requests tbody tr").first();
+  await expect(row.getByRole("link")).toHaveCount(1);
+  // By position, as a finger would: the stretched link sits over the cell, which is the point.
+  const cell = (await row.locator("td").nth(2).boundingBox())!;
+  await page.mouse.click(cell.x + 10, cell.y + cell.height / 2);
   await expect(page).toHaveURL(/\/farmer\/requests\/[^/?]+$/);
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  // A link to the old details window goes to the request's page instead.
+  const id = page.url().split("/").pop();
+  await page.goto(`/farmer/requests?open=${id}`);
+  await expect(page).toHaveURL(new RegExp(`/farmer/requests/${id}$`));
   await expect(page.locator(".req-hub__head")).toContainText("Pujehun");
   await expect(page.getByRole("heading", { name: "People interested in your request" })).toBeVisible();
   // The request's own answers are there, folded away under the responses.

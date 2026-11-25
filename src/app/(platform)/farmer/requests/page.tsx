@@ -1,47 +1,24 @@
-import { Icon } from "@/components/app/Icon";
 import type { Metadata } from "next";
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireFarmer } from "@/lib/session";
-import { districtLabel } from "@/lib/business";
-import { STATUS_LABEL, listForFarmer, respondersFor, serviceLabel } from "@/lib/requests";
-import { describeOperations, operationsFor } from "@/lib/operations";
+import { listForFarmer, respondersFor } from "@/lib/requests";
 import { Shell } from "@/components/app/Shell";
-import { placeLine } from "@/lib/chiefdoms";
 import { pageOf } from "@/components/app/Pager";
 import { FarmerRequestsList } from "@/components/requests/FarmerRequestsList";
 import { unreadCount } from "@/lib/notifications";
-import { ModalShell } from "@/components/app/ModalShell";
-import { LAND_ACCESS, LAND_CONDITION, landLabel } from "@/lib/land";
-import { landSize } from "@/lib/land-size";
-import { ZONE } from "@/lib/zone";
 
 export const metadata: Metadata = { title: "My requests" };
 export const dynamic = "force-dynamic";
-
-const fmt = (iso: string) =>
-  new Date(iso + (iso.length === 10 ? "T00:00:00Z" : "")).toLocaleDateString("en-GB", {
-    day: "2-digit", month: "short", year: "numeric", timeZone: ZONE,
-  });
-
-const at = (iso: string) =>
-  new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="detail-row"><span className="detail-row__label">{label}</span><span className="detail-row__value">{children}</span></div>;
-}
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ new?: string; page?: string; open?: string }> }) {
   const farmer = await requireFarmer();
   const sp = await searchParams;
   const justCreated = sp.new;
   const all = await listForFarmer(farmer.id);
+  // A request used to open as a window over this list (?open=). It has its own page now; a link
+  // to the old window, from a bookmark or an earlier email, goes there instead.
+  if (sp.open && all.some((r) => r.id === sp.open)) redirect(`/farmer/requests/${sp.open}`);
   const { rows, page, pages } = pageOf(all, sp.page);
-  // The design's Request details window, opened from a row's arrow.
-  const open = all.find((r) => r.id === sp.open);
-  // A farmer reading their own request back should see every stage they asked for, in the order the
-  // work happens — not only the one it leads with.
-  const openStages = open ? await operationsFor(open.id) : [];
-  const back = page > 1 ? `/farmer/requests?page=${page}` : "/farmer/requests";
   const responses = await respondersFor(rows.map((r) => r.id));
 
   return (
@@ -52,46 +29,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ n
       unread={await unreadCount(farmer)}
     >
       <FarmerRequestsList rows={rows} page={page} pages={pages} justCreated={justCreated} responses={responses} />
-
-      {open ? (
-        <ModalShell closeHref={back} label="Request details" className="modal--request">
-          <div className="modal__banner" aria-hidden="true">
-            <span className="banner__ring banner__outer" />
-            <span className="banner__ring banner__mid" />
-            <span className="banner__ring banner__inner"><Icon name="payments" size={34} /></span>
-          </div>
-          <article className="asset asset--plain">
-            <header className="modal__head"><h2>Request details</h2></header>
-            <div className="detail-list">
-              <Row label="Request ID">#{open.reference}</Row>
-              <Row label="Requested on">{at(open.createdAt)}</Row>
-              <Row label={openStages.length > 1 ? "Services, in order" : "Service"}>
-                {openStages.length > 0 ? describeOperations(openStages) : serviceLabel(open.service)}
-              </Row>
-              <Row label="Land size">{landSize(open.acres)}</Row>
-              <Row label="Location">{placeLine(open.village, open.chiefdom, districtLabel(open.district))}</Row>
-              <Row label="Preferred start date">{fmt(open.preferredDate)}</Row>
-              {open.landAccess ? <Row label="Land access">{landLabel(LAND_ACCESS, open.landAccess)}</Row> : null}
-              {open.landCondition ? <Row label="Land condition">{landLabel(LAND_CONDITION, open.landCondition)}</Row> : null}
-              <Row label="Status">
-                {open.status === "quotes_sent" ? (
-                  <Link href={`/farmer/requests/${open.id}`} className="pill pill--link">View quotes <Icon name="arrowOut" size={16} /></Link>
-                ) : (
-                  <span className={`pill pill--${open.status}`}>{STATUS_LABEL[open.status]}</span>
-                )}
-              </Row>
-            </div>
-            <div className="form-actions">
-              <Link href={back} className="button button--soft">Close</Link>
-              {open.status === "awaiting_quotes" ? (
-                <Link href={`/farmer/requests/${open.id}/edit`} className="button">Edit request</Link>
-              ) : (
-                <Link href={`/farmer/requests/${open.id}`} className="button">Open request</Link>
-              )}
-            </div>
-          </article>
-        </ModalShell>
-      ) : null}
     </Shell>
   );
 }

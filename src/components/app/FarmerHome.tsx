@@ -111,19 +111,17 @@ export function FarmerHome({ name, requests }: { name: string; requests: Service
                   <th scope="col">Farm size</th>
                   <th scope="col">Preferred date</th>
                   <th scope="col">Status</th>
-                  <th scope="col"><span className="sr-only">Open</span></th>
                 </tr>
               </thead>
               <tbody>
-                {/* The whole row opens the request, not just the reference: a farmer taps the
-                    row they are reading. It goes to My requests with the details window already
-                    open — the same window that screen shows — rather than a page of its own. */}
+                {/* The whole row opens the request's own page, not just the reference: a farmer taps
+                    the row they are reading. One real link, stretched over the row by CSS. */}
                 {requests.map((r) => (
                   <tr key={r.id} className="table__row--link">
                     <td>
                       <span className="table__ref">
                         <ServiceIcon service={r.service} />
-                        {r.reference}
+                        <Link href={`/farmer/requests/${r.id}`} className="table__stretch">{r.reference}</Link>
                       </span>
                     </td>
                     <td>{serviceLabel(r.service)}</td>
@@ -131,13 +129,6 @@ export function FarmerHome({ name, requests }: { name: string; requests: Service
                     <td className="table__size">{landSize(r.acres)}</td>
                     <td>{fmt(r.preferredDate)}</td>
                     <td><span className={`pill pill--${r.status}`}>{STATUS_LABEL[r.status]}</span></td>
-                    <td className="table__go">
-                      {/* One real link, stretched over the row by CSS: a row cannot be wrapped
-                          in a link, and nested links would be two targets in one row. */}
-                      <Link href={`/farmer/requests?open=${r.id}`} className="table__stretch" aria-label={`Request ${r.reference} details`}>
-                        <Icon name="chevron" size={22} />
-                      </Link>
-                    </td>
                   </tr>
                 ))}
               </tbody>
