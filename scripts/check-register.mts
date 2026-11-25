@@ -36,11 +36,18 @@ const ok = (what: string, cond: boolean) => {
 };
 
 const p = await providerFixture("Register", "Bo", ["ploughing"]);
-const tractor = await equipment.addAsset(p.biz, p.owner, {
+const reviewer = await user("Register Staff", "admin");
+/** Adds a machine and approves it, which is what Sagora does before it may be used. */
+const approved = async (input: Parameters<typeof equipment.addAsset>[2]) => {
+  const a = await equipment.addAsset(p.biz, p.owner, input);
+  await equipment.reviewEquipment(reviewer, a.id, "approved", "");
+  return (await equipment.getAsset(p.biz, a.id))!;
+};
+const tractor = await approved({
   kind: "tractor", name: "Register tractor", identifier: "SN-REG-1", ownership: "owned", notes: "",
   specs: { power: "90", hitch: "Three-point category 2", lift: "2500" },
 });
-const plough = await equipment.addAsset(p.biz, p.owner, {
+const plough = await approved({
   kind: "plough", name: "Register plough", identifier: "SN-REG-2", ownership: "owned", notes: "",
   specs: { powerNeeded: "70", hitch: "Three-point category 2" },
 });
@@ -220,6 +227,54 @@ ok("and blocks the capacity check like any other job",
     { from: inDays(120), to: inDays(120) }, null, p.biz)).length === 1);
 ok("and shows on the machine's schedule",
   (await detail.scheduleFor(p.biz, tractor.id)).some((c) => c.what.includes("My own farm")));
+
+/* ------------------------------------------- Sagora has to see a machine before it works */
+
+console.log("\nNewly registered equipment waits for Sagora");
+const fresh = await equipment.addAsset(p.biz, p.owner, {
+  kind: "tractor", name: "Brand new tractor", identifier: "SN-REG-NEW", ownership: "owned", notes: "",
+  specs: { power: "95", hitch: "Three-point category 2", lift: "2600" },
+});
+ok("it saves", Boolean(fresh.id));
+ok("and it is on the provider's own register", (await equipment.listAssets(p.biz)).some((a) => a.id === fresh.id));
+ok("but it is waiting for approval", fresh.review === "pending");
+ok("so it cannot be used", (equipment.unavailableReason(fresh) ?? "").includes("approve"));
+ok("and a quote cannot choose it", !(await equipment.selectableAssets(p.biz)).some((a) => a.id === fresh.id));
+const queue = await equipment.equipmentAwaitingReview();
+ok("it is in the queue staff read", queue.some((r) => r.equipmentId === fresh.id));
+ok("the queue names the provider, not just the machine",
+  queue.some((r) => r.equipmentId === fresh.id && r.businessName.length > 0));
+ok("and says what kind of machine it is", queue.some((r) => r.equipmentId === fresh.id && r.kindLabel === "Tractor"));
+
+console.log("\nA rejection has to say why, and the provider can answer it");
+ok("rejecting with no reason is refused", !(await equipment.reviewEquipment(reviewer, fresh.id, "rejected", "")).ok);
+ok("rejecting with one is accepted",
+  (await equipment.reviewEquipment(reviewer, fresh.id, "rejected", "The serial in the photo does not match the one typed in")).ok);
+const rejected = (await equipment.getAsset(p.biz, fresh.id))!;
+ok("the provider sees the reason", rejected.reviewNote.includes("does not match"));
+ok("and it still cannot be used", (equipment.unavailableReason(rejected) ?? "").includes("Not approved"));
+await equipment.updateAsset(p.biz, p.owner, fresh.id, {
+  kind: "tractor", name: "Brand new tractor", identifier: "SN-REG-NEW-FIXED", ownership: "owned", notes: "",
+  specs: { power: "95", hitch: "Three-point category 2", lift: "2600" },
+});
+const corrected = (await equipment.getAsset(p.biz, fresh.id))!;
+ok("correcting it sends it back for review", corrected.review === "pending");
+ok("and clears the old reason", corrected.reviewNote === "");
+
+console.log("\nApproval is what lets it work");
+ok("approving needs no note", (await equipment.reviewEquipment(reviewer, fresh.id, "approved", "")).ok);
+const liveAsset = (await equipment.getAsset(p.biz, fresh.id))!;
+ok("it is approved", liveAsset.review === "approved");
+ok("nothing blocks it now", equipment.unavailableReason(liveAsset) === null);
+ok("and a quote may choose it", (await equipment.selectableAssets(p.biz)).some((a) => a.id === liveAsset.id));
+ok("who decided is recorded", liveAsset.reviewedBy === reviewer && liveAsset.reviewedAt.length > 0);
+ok("an approved machine is not disturbed by an ordinary edit", await (async () => {
+  await equipment.updateAsset(p.biz, p.owner, fresh.id, {
+    kind: "tractor", name: "Renamed tractor", identifier: "SN-REG-NEW-FIXED", ownership: "owned", notes: "",
+    specs: { power: "95", hitch: "Three-point category 2", lift: "2600" },
+  });
+  return (await equipment.getAsset(p.biz, fresh.id))!.review === "approved";
+})());
 
 console.log("\nNothing here touched the money");
 ok("the ledger was never involved", (await db.all("SELECT 1 FROM ledger_entry")).length === 0);

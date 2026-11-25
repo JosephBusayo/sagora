@@ -105,6 +105,10 @@ export type AssetView = {
   ownership: "owned" | "leased"; status: "active" | "retired"; notes: string; retiredReason: string;
   brand: string; model: string; year: string; horsepower: string; implements: string; services: string[];
   availability: string; unavailable: string | null; faults: FaultView[];
+  /** Where this machine stands with Sagora: pending, approved or rejected (migration 035). */
+  review: "pending" | "approved" | "rejected";
+  /** Why it was rejected, in the reviewer's words. Empty unless it was. */
+  reviewNote: string;
   /** Where its photo is served from, or null with no photo yet. */
   photo: string | null;
   /** Further photos, beyond the one cover photo. WAITING-ON (7 Nov): "several equipment photos". */
@@ -112,6 +116,34 @@ export type AssetView = {
   galleryFull: boolean;
 };
 type Option = { id: string; label: string };
+
+/**
+ * Where this machine stands with Sagora, said plainly.
+ *
+ * "Do not leave providers guessing whether their equipment upload was successful." The pill above
+ * already carries the state; this carries what to do about it — nothing, for one that is being
+ * checked, and the reviewer's own words for one that was turned down.
+ */
+function ReviewState({ a }: { a: AssetView }) {
+  if (a.status === "retired" || a.review === "approved") return null;
+  // No pill of its own: the one beside the machine's name already carries the state, and two
+  // chips saying the same thing is how a card stops being read at all. This is the sentence
+  // that says what to do about it.
+  if (a.review === "pending") {
+    return (
+      <p className="asset__review field__helper">
+        Sagora is checking this machine. It is saved and you can keep editing it; it can go on a
+        quote as soon as it is approved.
+      </p>
+    );
+  }
+  return (
+    <p className="asset__review field__helper">
+      {a.reviewNote || "Sagora did not approve this machine."}
+      {" "}Edit it, put that right and save — that sends it back to us.
+    </p>
+  );
+}
 
 /** Green when it can be booked, amber while it is being worked on, red when it cannot be used. */
 const pillFor = (a: AssetView) =>
@@ -963,6 +995,7 @@ export function EquipmentList({
               {a.faults.some((f) => f.severity === "minor") && a.status === "active" ? (
                 <p className="asset__state"><span className="pill pill--in_progress">Needs attention</span></p>
               ) : null}
+              <ReviewState a={a} />
             </article>
           ))}
         </div>

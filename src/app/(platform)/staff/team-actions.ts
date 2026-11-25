@@ -27,6 +27,8 @@ export async function inviteStaffAction(_prev: FormState, fd: FormData): Promise
   const link = `${siteUrl()}/staff/join/${result.token}`;
   await notify({
     kind: "staff.invited",
+    // One invitation, one email. A fresh invitation makes a fresh token and so a fresh key.
+    dedupeKey: `staff.invited:${result.token}`,
     to: email,
     subject: "You have been invited to Sagora staff",
     text: `${admin.name} invited you to Sagora staff. Set up your account here within 7 days:\n\n${link}`,

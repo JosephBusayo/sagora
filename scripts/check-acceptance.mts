@@ -23,6 +23,22 @@ const holds = await import("../src/lib/holds");
 const payments = await import("../src/lib/payments");
 const ledger = await import("../src/lib/ledger");
 const equipment = await import("../src/lib/equipment");
+
+/**
+ * Registers a machine and has Sagora approve it.
+ *
+ * Since migration 035 a newly registered machine waits for approval before it can be put on any
+ * work. That gate has its own checks in check-register.mts; everything here is about what happens
+ * once a machine is accepted, so these go through the review rather than around it.
+ */
+const addApproved = async (
+  businessId: string, actorId: string, input: Parameters<typeof equipment.addAsset>[2],
+) => {
+  const a = await equipment.addAsset(businessId, actorId, input);
+  await equipment.reviewEquipment("suite-reviewer", a.id, "approved", "");
+  return (await equipment.getAsset(businessId, a.id))!;
+};
+
 const pairing = await import("../src/lib/pairing");
 const shares = await import("../src/lib/shares");
 const flags = await import("../src/lib/flags");
@@ -61,10 +77,10 @@ const TRACTOR = { power: "90", hitch: "Three-point category 2", lift: "2500" };
 const PLOUGH = { powerNeeded: "70", hitch: "Three-point category 2" };
 
 const p = await providerFixture("Acceptance", "Bo", ["ploughing", "harvesting", "planting"]);
-const tractor = await equipment.addAsset(p.biz, p.owner, {
+const tractor = await addApproved(p.biz, p.owner, {
   kind: "tractor", name: "A-Tractor", identifier: "AC-T1", ownership: "owned", notes: "", specs: TRACTOR,
 });
-const plough = await equipment.addAsset(p.biz, p.owner, {
+const plough = await addApproved(p.biz, p.owner, {
   kind: "plough", name: "A-Plough", identifier: "AC-P1", ownership: "owned", notes: "", specs: PLOUGH,
 });
 const kit = { assetIds: [tractor.id, plough.id] };
@@ -200,13 +216,13 @@ await acceptance("A05", "Two providers cannot both reserve the same machine for 
 /* ===================================================================== A06 */
 
 await acceptance("A06", "Condition, lease and travel all block capacity; a stale check blocks dispatch", async () => {
-  const lease = await equipment.addAsset(p.biz, p.owner, {
+  const lease = await addApproved(p.biz, p.owner, {
     kind: "tractor", name: "A-Leased", identifier: "AC-L1", ownership: "leased", notes: "",
     specs: TRACTOR, lessor: "A lessor", leaseFrom: inDays(1), leaseTo: inDays(3),
   });
   if (equipment.unavailableReason(lease, inDays(60)) === null) return "a lapsed lease did not block the machine";
 
-  const repair = await equipment.addAsset(p.biz, p.owner, {
+  const repair = await addApproved(p.biz, p.owner, {
     kind: "tractor", name: "A-Repair", identifier: "AC-R1", ownership: "owned", notes: "", specs: TRACTOR,
   });
   await equipment.setCondition(p.biz, p.owner, repair.id, "repair", "Gearbox");
@@ -349,7 +365,7 @@ await acceptance("A10", "A duplicate payment is refused, and money after the hol
 /* ===================================================================== A11 */
 
 await acceptance("A11", "An unreadable serial permits draft and review only; an exception is an admin's to grant", async () => {
-  const unreadable = await equipment.addAsset(p.biz, p.owner, {
+  const unreadable = await addApproved(p.biz, p.owner, {
     kind: "tractor", name: "A-NoPlate", identifier: "", ownership: "owned", notes: "",
     specs: TRACTOR, serialStatus: "unreadable",
   });
@@ -367,10 +383,10 @@ await acceptance("A11", "An unreadable serial permits draft and review only; an 
 
 await acceptance("A12", "Compatibility is a recorded judgement; correcting a critical spec sends it back", async () => {
   const fresh = await providerFixture("A12", "Bo", ["ploughing"]);
-  const t = await equipment.addAsset(fresh.biz, fresh.owner, {
+  const t = await addApproved(fresh.biz, fresh.owner, {
     kind: "tractor", name: "A12-T", identifier: "A12-T", ownership: "owned", notes: "", specs: TRACTOR,
   });
-  const pl = await equipment.addAsset(fresh.biz, fresh.owner, {
+  const pl = await addApproved(fresh.biz, fresh.owner, {
     kind: "plough", name: "A12-P", identifier: "A12-P", ownership: "owned", notes: "", specs: PLOUGH,
   });
   let ready = (await pairing.readinessFor(fresh.biz, ["ploughing"]))[0]!;
@@ -445,7 +461,7 @@ await acceptance("A14", "Revenue per machine is net of fees and attributable ref
 /* ===================================================================== A15 */
 
 await acceptance("A15", "Retired assets cannot be quoted, referenced assets are never deleted, and a viewer sees one machine", async () => {
-  const spare = await equipment.addAsset(p.biz, p.owner, {
+  const spare = await addApproved(p.biz, p.owner, {
     kind: "tractor", name: "A-Spare", identifier: "AC-S1", ownership: "owned", notes: "", specs: TRACTOR,
   });
   const retired = await equipment.retireAsset(p.biz, p.owner, spare.id, "Sold");
@@ -479,10 +495,10 @@ await acceptance("A15", "Retired assets cannot be quoted, referenced assets are 
 
 await acceptance("A16", "A retry creates no duplicate, and dates are shown in one time zone", async () => {
   const key = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
-  const once = await equipment.addAsset(p.biz, p.owner, {
+  const once = await addApproved(p.biz, p.owner, {
     kind: "trailer", name: "A-Trailer", identifier: "AC-TR1", ownership: "owned", notes: "", submissionKey: key,
   });
-  const retry = await equipment.addAsset(p.biz, p.owner, {
+  const retry = await addApproved(p.biz, p.owner, {
     kind: "trailer", name: "A-Trailer", identifier: "AC-TR1", ownership: "owned", notes: "", submissionKey: key,
   });
   if (once.id !== retry.id) return "a retried Add made a second machine";

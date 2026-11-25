@@ -131,7 +131,15 @@ export async function resolveDisputeAction(fd: FormData) {
     const who = await contactsFor(requestId);
     const text = outcome === "refund" ? `Sagora has decided to refund the farmer. Note: ${note}` : `Sagora has decided the work stands, and the provider will be paid. Note: ${note}`;
     for (const to of [who?.farmerEmail, who?.providerEmail]) {
-      if (to) await notify({ kind: "job.dispute_resolved", to, subject: `The concern on ${who?.reference} is resolved`, text });
+      // The same key for both people: since migration 036 the key is unique per recipient, so
+      // one decision reaches each of them exactly once.
+      if (to) {
+        await notify({
+          kind: "job.dispute_resolved",
+          dedupeKey: `job.dispute_resolved:${requestId}:${outcome}`,
+          to, subject: `The concern on ${who?.reference} is resolved`, text,
+        });
+      }
     }
   }
   revalidatePath("/staff/payments");

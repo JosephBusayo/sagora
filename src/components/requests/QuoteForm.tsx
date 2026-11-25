@@ -116,7 +116,9 @@ export function QuoteForm({ requestId, service, stages, existing, assets, operat
       <div className="quote-summary">
         <p className={`pill pill--${existing.status === "accepted" ? "quotes_sent" : "cancelled"}`}>{existing.statusLabel}</p>
         <dl className="setup__summary">
-          <dt>Price</dt><dd>{existing.amount}</dd>
+          {/* Daily rate, then the total it comes to (Joseph, 25 Nov 2026). */}
+          {existing.dailyRate ? <><dt>Daily rate</dt><dd>{existing.dailyRate}</dd></> : null}
+          <dt>Total price</dt><dd>{existing.amount}</dd>
           <dt>Covers</dt><dd>{existing.includes}</dd>
           <dt>Can start</dt><dd>{existing.startDate}</dd>
           <dt>Days to finish</dt><dd>{existing.days}</dd>
@@ -192,8 +194,12 @@ export function QuoteForm({ requestId, service, stages, existing, assets, operat
         </fieldset>
       ) : (
         <>
-          <Field name="amount" label="Total price (Le)" type="text" inputMode="numeric" placeholder="1,500.00"
-            defaultValue={v.amount ?? existing?.amountInput} error={e.amount} />
+          {/* Days times rate is the total. Karim's handover asks for all three on the record —
+              "numeric working days, daily rate and service total" — and the rate comes first,
+              because it is the figure a provider actually knows and the total is what it adds up
+              to (Joseph, 25 Nov 2026). */}
+          <Field name="dailyRate" label="Your rate for one working day (Le)" type="text" inputMode="numeric" placeholder="750.00"
+            defaultValue={v.dailyRate ?? existing?.dailyRateInput} error={e.dailyRate} />
           <div className="form-row">
             <DateField name="startDate" label="Can start on" defaultValue={v.startDate ?? existing?.startDate} error={e.startDate} />
             <div className={`field${e.days ? " field--invalid" : ""}`}>
@@ -206,11 +212,8 @@ export function QuoteForm({ requestId, service, stages, existing, assets, operat
             </div>
           </div>
 
-          {/* Days times rate is the total. Karim's handover asks for all three on the record —
-              "numeric working days, daily rate and service total" — and for the unit to stay
-              explicit, so hectares per day is never assumed anywhere. */}
-          <Field name="dailyRate" label="Your rate for one working day (Le)" type="text" inputMode="numeric" placeholder="750.00"
-            defaultValue={v.dailyRate ?? existing?.dailyRateInput} error={e.dailyRate} />
+          <Field name="amount" label="Total price (Le)" type="text" inputMode="numeric" placeholder="1,500.00"
+            defaultValue={v.amount ?? existing?.amountInput} error={e.amount} />
         </>
       )}
 

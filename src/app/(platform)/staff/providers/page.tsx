@@ -5,7 +5,9 @@ import type { Metadata } from "next";
 import { BUSINESS_TYPES, PRICING_BASES, districtLabel, listForReview, optionLabel, SERVICES } from "@/lib/business";
 import { byDistrict, pendingChanges, type Area } from "@/lib/coverage";
 import { PendingButton } from "@/components/app/PendingButton";
-import { decideAreasAction } from "../actions";
+import { decideAreasAction, reviewEquipmentAction } from "../actions";
+import { describeSpecs } from "@/lib/specs";
+import { equipmentAwaitingReview } from "@/lib/equipment";
 import { documentKindLabel, listDocuments } from "@/lib/business-documents";
 import { requireStaff } from "@/lib/session";
 import { ReviewForm } from "@/components/staff/ReviewForm";
@@ -21,6 +23,10 @@ export default async function Page() {
   const staff = await requireStaff();
   const items = await Promise.all((await listForReview()).map(async (b) => ({ ...b, docs: await listDocuments(b.id) })));
   const changes = await pendingChanges();
+  // Equipment a provider registered that nobody has checked yet. Its own queue on this page
+  // rather than buried inside each provider's profile: a machine submitted today by a provider
+  // approved months ago would otherwise never be looked at.
+  const machines = await equipmentAwaitingReview();
   return (
     <StaffShell staff={staff} crumb={{ label: "Provider review", icon: "store" }}>
         <PageHead title="Providers waiting for review" />
@@ -53,7 +59,48 @@ export default async function Page() {
             </ul>
           </section>
         ) : null}
-        {items.length === 0 ? <div className="table-card"><EmptyState icon="store" title="Nothing is waiting" body="New businesses appear here when they submit for review." /></div> : null}
+        {machines.length > 0 ? (
+          <section className="staff__item" aria-labelledby="equipment-review">
+            <h2 id="equipment-review">Equipment waiting for approval</h2>
+            <p className="field__helper">
+              A provider registered these. They are saved on the provider&rsquo;s own register but cannot be
+              put on a farmer&rsquo;s work until somebody here has checked them.
+            </p>
+            <ul className="asset__faults">
+              {machines.map((m) => (
+                <li key={m.equipmentId} className="coverage-change">
+                  <span className="asset__fault-text">
+                    <strong>{m.businessName}</strong> registered <strong>{m.name}</strong>
+                    <br />
+                    <span className="field__helper">
+                      {[m.kindLabel,
+                        m.identifier ? `serial ${m.identifier}` : "no serial given",
+                        m.services.length ? `for ${serviceNames(m.services)}` : null,
+                        describeSpecs(m.kind, m.specs).map((x) => `${x.label}: ${x.value}`).join(", ") || null,
+                        m.hasPhoto ? "photo attached" : "no photo",
+                        `submitted ${m.submittedAt.slice(0, 10)}`,
+                      ].filter(Boolean).join(" · ")}
+                    </span>
+                    {m.notes ? <><br /><span className="field__helper">{m.notes}</span></> : null}
+                  </span>
+                  {/* Rejecting asks for a reason in the same breath: the provider has to be able to
+                      put it right, and "no" on its own sends them to the phone. */}
+                  <form action={reviewEquipmentAction} className="coverage-change__actions equipment-review__form">
+                    <input type="hidden" name="equipmentId" value={m.equipmentId} />
+                    <label className="field__label" htmlFor={`note-${m.equipmentId}`}>Reason, if you are rejecting it</label>
+                    <input id={`note-${m.equipmentId}`} name="note" className="field__input" maxLength={300}
+                      placeholder="eg: the serial in the photo does not match the one typed in" />
+                    <span className="coverage-change__actions">
+                      <PendingButton name="decision" value="reject" className="button button--soft button--inline">Reject</PendingButton>
+                      <PendingButton name="decision" value="approve" className="button button--inline">Approve</PendingButton>
+                    </span>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+        {items.length === 0 && changes.length === 0 && machines.length === 0 ? <div className="table-card"><EmptyState icon="store" title="Nothing is waiting" body="New businesses appear here when they submit for review." /></div> : null}
         {items.map((b) => (
           <section key={b.id} className="staff__item">
             <h2>{b.name}</h2>

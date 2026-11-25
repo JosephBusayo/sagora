@@ -498,13 +498,21 @@ export async function RequestDetail({ request, links, flags, online, noQuotes = 
                         </ul>
                       ) : null}
                       {/* The breakdown, before they accept and before they pay. Sagora's fee is added
-                          to the provider's price, so the total is never a surprise at the payment screen. */}
+                          to the provider's price, so the total is never a surprise at the payment screen.
+                          The daily rate is read first and the total last (Joseph, 25 Nov 2026): a farmer
+                          comparing two quotes compares the rate, and the total is what it comes to. */}
                       <p className="offer__label">What you pay</p>
                       <dl className="offer__breakdown">
+                        {q.dailyRateMinor > 0 ? (
+                          <div>
+                            <dt>Daily rate</dt>
+                            <dd>{formatAmount(q.dailyRateMinor)} × {q.daysToComplete} {q.daysToComplete === 1 ? "day" : "days"}</dd>
+                          </div>
+                        ) : null}
                         <div><dt>{name}&rsquo;s price</dt><dd>{formatAmount(q.amountMinor)}</dd></div>
                         <div><dt>Sagora service fee</dt><dd>{formatAmount(serviceFeeOn(q.amountMinor))}</dd></div>
                         <div className="offer__breakdown-total">
-                          <dt>Total</dt><dd>{formatAmount(q.amountMinor + serviceFeeOn(q.amountMinor))}</dd>
+                          <dt>Total price</dt><dd>{formatAmount(q.amountMinor + serviceFeeOn(q.amountMinor))}</dd>
                         </div>
                       </dl>
                       {q.dailyRateMinor > 0 ? (

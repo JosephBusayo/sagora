@@ -32,7 +32,9 @@
     "dev:seed-equipment": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/seed-dev-equipment.mts",
     "db:delete-fixtures": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/delete-test-fixtures.mts",
     "check:acceptance": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-acceptance.mts",
-    "check:register": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-register.mts"
+    "check:register": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-register.mts",
+    "check:notices": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-notices.mts",
+    "check:locations": "tsx --conditions react-server --env-file-if-exists=.env.local scripts/check-locations.mts"
   },
   "dependencies": {
     "@central-icons-react/round-filled-radius-2-stroke-2": "^1.2.22",

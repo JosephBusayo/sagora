@@ -74,7 +74,9 @@ export async function drain(limit = 25): Promise<{ sent: number; failed: number 
     if (!claimed.changes) continue;
 
     try {
-      await sendEmail({ to: row.recipient, subject: row.subject, text: row.body });
+      // The row's own id is the key: one outbox row is one email, however many times this loop
+      // has to try it. See the note on Email.idempotencyKey.
+      await sendEmail({ to: row.recipient, subject: row.subject, text: row.body, idempotencyKey: row.id });
       await db.run("UPDATE notification_outbox SET status='sent', sent_at=?, last_error='' WHERE id=?", new Date().toISOString(), row.id);
       sent++;
     } catch (err) {

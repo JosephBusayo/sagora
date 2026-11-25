@@ -796,6 +796,9 @@ a.topbar__round:hover, a.topbar__user:hover { background: var(--color-hover); te
 .asset__title p { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; color: var(--color-text-muted); font: 500 16px/24px var(--font-sans); }
 .asset__title p span { display: inline-flex; align-items: center; gap: 5px; }
 .asset__state { margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* The approval line carries a sentence as well as a pill, so it reads as a paragraph rather
+   than forcing the explanation onto one long line beside the chip. */
+.asset__review { margin: 0; }
 .asset__notes { margin: 0; color: var(--color-text-muted); font: 400 13px/1.45 var(--font-sans); }
 .asset__faults { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;
   border-top: 1px solid var(--color-hairline); padding-top: 12px; }
@@ -1736,6 +1739,11 @@ button.chip:hover:not(:disabled) { background: #ececec; }
 .work-areas__add { margin-top: 20px; max-width: 520px; }
 .coverage-change { align-items: center; }
 .coverage-change__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Equipment waiting for approval: the reason field sits with its two buttons, and the whole
+   row stacks on a phone rather than squeezing a text box between them. */
+.equipment-review__form { display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-width: 240px; }
+.equipment-review__form .field__input { height: 40px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
 
 .guest__title { margin: 0 0 8px; font-size: 24px; font-weight: 600; }
 

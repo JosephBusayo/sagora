@@ -1,7 +1,7 @@
 import { ModalShell } from "@/components/app/ModalShell";
 import type { Metadata } from "next";
 import { randomUUID } from "node:crypto";
-import { DISTRICTS, SERVICES, getApprovedBusiness } from "@/lib/business";
+import { OPERATING_DISTRICTS, SERVICES, getApprovedBusiness } from "@/lib/business";
 import { requireFarmer } from "@/lib/session";
 import { Shell } from "@/components/app/Shell";
 import { FarmerHome } from "@/components/app/FarmerHome";
@@ -39,7 +39,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
       {/* Rendered by the server over Home, so it opens with JavaScript off. The voice note is on
           "Make a quick request" (/request), the screen the designer drew; this modal is the form. */}
       <ModalShell closeHref="/farmer/home" label="Book a service" className="modal--book">
-        <BookForm services={SERVICES} districts={DISTRICTS} service={previous?.service ?? service} initial={previous} direct={direct} submissionKey={randomUUID()} />
+        <BookForm services={SERVICES} districts={OPERATING_DISTRICTS} service={previous?.service ?? service} initial={previous} direct={direct} submissionKey={randomUUID()} />
       </ModalShell>
     </Shell>
   );

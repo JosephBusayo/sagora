@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "./db";
 import { audit } from "./business";
 import { getSetting } from "./follow-ups";
-import { canPower, implementKindsFor, isSelfContainedFor, kindLabelOf, kitFor, serviceLabelOf } from "./catalogue";
+import { article, canPower, implementKindsFor, isSelfContainedFor, kindLabelOf, kitFor, kitSentence, serviceLabelOf } from "./catalogue";
 import { listAssets, unavailableReason, type Asset } from "./equipment";
 
 /**
@@ -220,14 +220,79 @@ function readinessOf(service: string, assets: readonly Asset[], pairings: readon
  * Whether the machines are free for the dates is a third question entirely, answered in
  * lib/holds.ts inside the transaction that writes the hold.
  */
-export type KitProblem = { why: string; pairing: boolean };
+/**
+ * Why a quote cannot go out, and whose problem it is.
+ *
+ * `cause` exists because four quite different situations used to come out of here reading the
+ * same, and a provider cannot act on "equipment error" (Joseph, 25 Nov 2026):
+ *
+ *  - `none_registered` — nothing on their register can do this work at all. The answer is to add
+ *    a machine, and the message says which kind.
+ *  - `awaiting_approval` — they have the right machine and Sagora has not approved it yet. The
+ *    answer is to wait, and nothing they do to the quote will help.
+ *  - `unavailable` — the right machine is theirs and approved, but it is broken, under repair or
+ *    off lease. The answer is on the Equipment screen.
+ *  - `wrong_kit` — what they actually ticked cannot do the work. The answer is to tick something
+ *    else, and the message says what is missing.
+ *  - `pairing` — the kit is right but nobody has confirmed those two particular machines go
+ *    together. The only one gated behind `pairing_enforced`.
+ */
+export type KitCause = "none_registered" | "awaiting_approval" | "unavailable" | "wrong_kit" | "pairing";
 
-const kitFault = (why: string): KitProblem => ({ why, pairing: false });
-const pairingFault = (why: string): KitProblem => ({ why, pairing: true });
+export type KitProblem = { why: string; pairing: boolean; cause: KitCause };
+
+const kitFault = (why: string, cause: KitCause = "wrong_kit"): KitProblem => ({ why, pairing: false, cause });
+const pairingFault = (why: string): KitProblem => ({ why, pairing: true, cause: "pairing" });
+
+/**
+ * The same question asked of the whole register rather than of one quote: can this business do
+ * this work with anything it owns, and if not, why not?
+ *
+ * Answered before the chosen equipment is judged, so "you have no harvester" is never dressed up
+ * as "the equipment you chose is wrong".
+ */
+async function registerProblem(businessId: string, service: string): Promise<KitProblem | null> {
+  const all = await listAssets(businessId);
+  const live = all.filter((a) => a.condition !== "retired" && a.status !== "retired");
+  const relevant = (a: Asset) => canPower(service, a.kind) || implementKindsFor(service).includes(a.kind);
+  const usable = live.filter((a) => relevant(a) && a.review === "approved" && unavailableReason(a) === null);
+  if (usable.length > 0) return null;
+
+  const work = serviceLabelOf(service).toLowerCase();
+  const waiting = live.filter((a) => relevant(a) && a.review === "pending");
+  if (waiting.length > 0) {
+    return kitFault(
+      `${waiting.map((a) => a.name).join(" and ")} ${waiting.length === 1 ? "is" : "are"} still waiting for Sagora to approve ` +
+      `${waiting.length === 1 ? "it" : "them"}. You can quote for ${work} as soon as that is done.`,
+      "awaiting_approval");
+  }
+  const refused = live.filter((a) => relevant(a) && a.review === "rejected");
+  if (refused.length > 0) {
+    return kitFault(
+      `${refused.map((a) => a.name).join(" and ")} was not approved by Sagora. Open it on the Equipment screen to see why, ` +
+      "put it right and send it back.",
+      "awaiting_approval");
+  }
+  const blocked = live.filter((a) => relevant(a) && a.review === "approved" && unavailableReason(a) !== null);
+  if (blocked.length > 0) {
+    return kitFault(
+      blocked.map((a) => `${a.name} — ${(unavailableReason(a) ?? "").toLowerCase()}`).join("; ") +
+      `. Nothing you can put on ${work} is available at the moment.`,
+      "unavailable");
+  }
+  return kitFault(
+    `You have no equipment registered for ${work}. It takes ${kitSentence(service)}.`,
+    "none_registered");
+}
 
 export async function kitProblem(
   businessId: string, service: string, assetIds: readonly string[],
 ): Promise<KitProblem | null> {
+  // First: is this even possible for this business? A provider with no plough at all should be
+  // told that, not told that the tractor they ticked is the wrong thing to tick.
+  const register = await registerProblem(businessId, service);
+  if (register) return register;
+
   if (assetIds.length === 0) return kitFault("Choose the equipment for this work.");
   const assets = (await listAssets(businessId)).filter((a) => assetIds.includes(a.id));
   if (assets.length !== assetIds.length) return kitFault("Some of that equipment is not on your register.");
@@ -235,8 +300,8 @@ export async function kitProblem(
   const kit = kitFor(service);
   const powered = assets.filter((a) => canPower(service, a.kind));
   if (powered.length === 0) {
-    const wanted = [...kit.power, ...(kit.selfContained ?? [])].map(kindLabelOf).join(" or ");
-    return kitFault(`${serviceLabelOf(service)} needs ${wanted.toLowerCase() || "a suitable machine"}. None of the equipment you chose can do it.`);
+    return kitFault(
+      `${serviceLabelOf(service)} takes ${kitSentence(service)}. None of the equipment you chose can do it.`);
   }
 
   // A self-contained unit among them settles it: no implement is required alongside.
@@ -246,7 +311,7 @@ export async function kitProblem(
   for (const group of kit.implements) {
     const chosen = assets.filter((a) => group.includes(a.kind));
     if (chosen.length === 0) {
-      return kitFault(`${serviceLabelOf(service)} needs ${group.map(kindLabelOf).join(" or ").toLowerCase()}. Add one to this quote.`);
+      return kitFault(`${serviceLabelOf(service)} needs ${article(group.map(kindLabelOf).join(" or ").toLowerCase())}. Add one to this quote.`);
     }
     // At least one machine-and-implement pair among those chosen has to be verified.
     const anyVerified = powered.some((m) => chosen.some((c) =>

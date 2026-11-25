@@ -24,21 +24,21 @@ type Req = {
   id: string; reference: string; service: string; district: string; chiefdom: string | null;
   village: string; status: string; private_to: string | null; direct_to: string | null;
 };
-type Biz = { id: string; name: string; district: string; services: string; status: string };
+type Biz = { id: string; name: string; operating_districts: string; services: string; status: string };
 
 const requests = await db.all<Req>(
   `SELECT id, reference, service, district, chiefdom, village, status, private_to, direct_to
      FROM service_request WHERE status NOT IN ('cancelled','completed') ORDER BY created_at DESC`);
 const businesses = await db.all<Biz>(
-  "SELECT id, name, district, services, status FROM provider_business ORDER BY name");
+  "SELECT id, name, operating_districts, services, status FROM provider_business ORDER BY name");
 
 if (requests.length === 0) console.log("No open requests.\n");
 
 // Every business's coverage, read the same way the website reads it.
 const coverage = new Map<string, { district: string; service: string; status: string }[]>();
 for (const b of businesses) {
-  const parsed: string[] = (() => { try { return JSON.parse(b.services || "[]"); } catch { return []; } })();
-  coverage.set(b.id, await coverageRows({ id: b.id, district: b.district, services: parsed }));
+  const list = (raw: string) => { try { const v = JSON.parse(raw || "[]"); return Array.isArray(v) ? v as string[] : []; } catch { return []; } };
+  coverage.set(b.id, await coverageRows({ id: b.id, operatingDistricts: list(b.operating_districts), services: list(b.services) }));
 }
 
 console.log("PROVIDERS\n");

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { BUSINESS_TYPES, DISTRICTS, PRICING_BASES, SERVICES, getBusinessForUser, saveBusiness } from "@/lib/business";
+import { BUSINESS_TYPES, DISTRICTS, PRICING_BASES, SERVICES, getBusinessForUser, isOperatingDistrict, saveBusiness } from "@/lib/business";
 import { addDocument, listDocuments, missingDocuments, removeDocument } from "@/lib/business-documents";
 import { flash } from "@/lib/flash";
 import { normaliseSierraLeonePhone } from "@/lib/phone";
@@ -20,8 +20,14 @@ const serviceIds = SERVICES.map((s) => s.id) as string[];
 const submitSchema = z.object({
   name: z.string().min(2, "Enter your business name").max(100, "Use 100 characters or fewer"),
   email: z.string().toLowerCase().pipe(z.email("Enter a valid email address")),
-  district: z.enum(DISTRICTS, { error: "Choose your district" }),
+  // The office. Any of the sixteen: a business may be registered anywhere, and where its desk
+  // sits has nothing to do with where its tractors go.
+  district: z.enum(DISTRICTS, { error: "Choose the district your office is in" }),
   town: z.string().min(2, "Enter your town or village").max(100, "Use 100 characters or fewer"),
+  officeAddress: z.string().min(3, "Enter your office or business address").max(200, "Use 200 characters or fewer"),
+  // Where the work happens. Only the districts Sagora operates in, and this is what brings
+  // requests — see migration 034.
+  operatingDistricts: z.array(z.string()).min(1, "Choose at least one district you work in"),
   services: z.array(z.string()).min(1, "Choose at least one service"),
   description: z.string().max(500, "Use 500 characters or fewer"),
   businessType: z.string().refine((v) => BUSINESS_TYPES.some((t) => t.id === v), "Choose what kind of business this is"),
@@ -37,7 +43,7 @@ const submitSchema = z.object({
 const SECTIONS: [string, string[]][] = [
   ["Business details", ["name", "phone", "email", "businessType"]],
   ["Person in charge", ["authorisedName", "authorisedRole"]],
-  ["Where and what", ["district", "town", "services"]],
+  ["Where and what", ["district", "town", "officeAddress", "operatingDistricts", "services"]],
   ["Prices and terms", ["pricingBasis", "includedCosts", "depositTerms", "cancellationTerms"]],
 ];
 
@@ -51,6 +57,8 @@ export async function saveSetup(_prev: FormState, fd: FormData): Promise<FormSta
     email: str(fd, "email"),
     district: str(fd, "district"),
     town: str(fd, "town"),
+    officeAddress: str(fd, "officeAddress"),
+    operatingDistricts: fd.getAll("operatingDistricts").filter((d): d is string => typeof d === "string" && isOperatingDistrict(d)),
     services: fd.getAll("services").filter((s): s is string => typeof s === "string" && serviceIds.includes(s)),
     description: str(fd, "description"),
     businessType: str(fd, "businessType"),
@@ -61,7 +69,7 @@ export async function saveSetup(_prev: FormState, fd: FormData): Promise<FormSta
     depositTerms: str(fd, "depositTerms"),
     cancellationTerms: str(fd, "cancellationTerms"),
   };
-  const values = { ...raw, services: raw.services.join(",") };
+  const values = { ...raw, services: raw.services.join(","), operatingDistricts: raw.operatingDistricts.join(",") };
 
   const phone = normaliseSierraLeonePhone(raw.phone);
   if (submit) {
@@ -91,6 +99,8 @@ export async function saveSetup(_prev: FormState, fd: FormData): Promise<FormSta
       email: raw.email.toLowerCase(),
       district: (DISTRICTS as readonly string[]).includes(raw.district) ? raw.district : "",
       town: raw.town,
+      officeAddress: raw.officeAddress,
+      operatingDistricts: raw.operatingDistricts.filter(isOperatingDistrict),
       services: raw.services,
       description: raw.description,
       businessType: BUSINESS_TYPES.some((t) => t.id === raw.businessType) ? raw.businessType : "",

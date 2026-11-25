@@ -28,8 +28,19 @@ const biz = await business(owner, "Pairing Co");
 const staff = await user("Pairing Staff", "admin");
 
 let sn = 0;
-const add = (kind: string, name: string, specs: Record<string, string>) =>
-  eq.addAsset(biz, owner, { kind, name, identifier: `P-${++sn}`, ownership: "owned" as const, notes: "", specs });
+/**
+ * A machine on the register, approved.
+ *
+ * Approval is Sagora's, not the provider's, and migration 035 leaves anything newly added
+ * waiting for it — so these go through the real review call rather than an UPDATE, which also
+ * keeps this suite honest about the gate existing. What is being tested below is what happens
+ * *after* a machine is accepted: whether it fits another one.
+ */
+const add = async (kind: string, name: string, specs: Record<string, string>) => {
+  const a = await eq.addAsset(biz, owner, { kind, name, identifier: `P-${++sn}`, ownership: "owned" as const, notes: "", specs });
+  await eq.reviewEquipment(staff, a.id, "approved", "");
+  return (await eq.getAsset(biz, a.id))!;
+};
 
 const TRACTOR = { power: "90", hitch: "Three-point category 2", lift: "2500" };
 const PLOUGH = { powerNeeded: "70", hitch: "Three-point category 2" };
@@ -38,7 +49,10 @@ console.log("\nThe catalogue carries all twenty services, and offers only the li
 ok("twenty-three services in the catalogue", cat.SERVICES.length === 23);
 ok("three are active", cat.activeServices().length === 3);
 ok("the three are the ones Sagora already sold",
-  cat.activeServices().map((s) => s.id).join(",") === "ploughing,harvesting,planting");
+  cat.activeServices().map((s) => s.id).join(",") === "ploughing,planting,harvesting");
+// The farmer's form reads this list straight down, so its order is the order of the tick-boxes.
+ok("and they are offered in the order the work happens, not alphabetically",
+  cat.activeServices().map((s) => s.label).join(" → ") === "Ploughing → Planting → Harvesting");
 ok("harrowing is described but not offered", cat.isService("harrowing") && !cat.isActiveService("harrowing"));
 ok("a self-contained combine needs no tractor", cat.isSelfContainedFor("combine_harvesting", "combine"));
 ok("a drum seeder is independent equipment", cat.isSelfContainedFor("rice_direct_seeding", "rice_seeder"));
@@ -88,10 +102,14 @@ await pairing.savePairing(biz, owner, {
   machineId: tractor.id, implementId: plough.id, service: "ploughing", verdict: "compatible", basis: "Re-measured",
 });
 ok("a verified pair passes", (await pairing.kitProblem(biz, "ploughing", [tractor.id, plough.id])) === null);
-ok("a tractor on its own does not",
-  Boolean((await pairing.kitProblem(biz, "ploughing", [tractor.id]))?.why.includes("needs plough")));
-ok("nor a plough on its own",
-  Boolean((await pairing.kitProblem(biz, "ploughing", [plough.id]))?.why.includes("needs tractor")));
+// The wording matters as much as the refusal: a provider who is told "equipment error" has
+// nothing to act on, so each of these says what is missing and what kind of problem it is.
+const tractorAlone = await pairing.kitProblem(biz, "ploughing", [tractor.id]);
+ok("a tractor on its own does not", Boolean(tractorAlone?.why.includes("needs a plough")));
+ok("and it is the choice that is wrong, not the register", tractorAlone?.cause === "wrong_kit");
+const ploughAlone = await pairing.kitProblem(biz, "ploughing", [plough.id]);
+ok("nor a plough on its own", Boolean(ploughAlone?.why.includes("tractor")));
+ok("which is also the choice, not the register", ploughAlone?.cause === "wrong_kit");
 ok("a missing implement is a catalogue fact, so it always blocks",
   (await pairing.kitProblem(biz, "ploughing", [tractor.id]))?.pairing === false);
 

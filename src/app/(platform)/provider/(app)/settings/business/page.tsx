@@ -14,7 +14,8 @@ export default async function Page() {
     <Shell crumb={{ label: "Settings", icon: "settings" }} user={{ name: user.name }}>
       <PageHead title="Business details" subtitle="Update your business information. This information is used to match you with requests." />
       <BusinessForm
-        initial={{ name: business.name, phone: business.phone.replace(/^\+232/, ""), email: business.email, town: business.town, description: business.description }}
+        initial={{ name: business.name, phone: business.phone.replace(/^\+232/, ""), email: business.email, town: business.town,
+          officeAddress: business.officeAddress, description: business.description }}
       />
       <WorkAreas rows={await coverageRows(business)} canEdit={permission === "full_access"} />
       <section className="panel">

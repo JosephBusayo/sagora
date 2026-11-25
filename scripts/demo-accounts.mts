@@ -44,10 +44,10 @@ if (provider) {
   const now = new Date().toISOString();
   const businessId = randomUUID();
   // Approved from the start: Sagora's review is not what these accounts are for testing.
-  await db.run(`INSERT INTO provider_business (id, user_id, name, phone, email, district, town, services, description, status, submitted_at, reviewed_at, reviewed_by, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,'approved',?,?,'demo-script',?,?)`,
+  await db.run(`INSERT INTO provider_business (id, user_id, name, phone, email, district, town, operating_districts, services, description, status, submitted_at, reviewed_at, reviewed_by, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,'approved',?,?,'demo-script',?,?)`,
     businessId, provider.id, PROVIDER.business, PROVIDER.phone, PROVIDER.email, "Bombali", "Makeni",
-    JSON.stringify(["ploughing", "harvesting"]), "A test business for trying Sagora.", now, now, now, now);
+    JSON.stringify(["Bombali"]), JSON.stringify(["ploughing", "harvesting"]), "A test business for trying Sagora.", now, now, now, now);
   await ensureOwner(businessId, { id: provider.id, name: PROVIDER.name, email: PROVIDER.email, phone: PROVIDER.phone });
   console.log(`Provider  ${PROVIDER.email}\n          password: ${provider.pass}\n`);
 } else {

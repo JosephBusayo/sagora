@@ -4,8 +4,8 @@ import { flash } from "@/lib/flash";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { DISTRICTS, SERVICES, districtLabel, getApprovedBusiness } from "@/lib/business";
-import { createRequest, providersCovering, serviceLabel, updateRequest } from "@/lib/requests";
+import { SERVICES, districtChoicesFor, districtLabel, getApprovedBusiness } from "@/lib/business";
+import { createRequest, getById, providersCovering, serviceLabel, updateRequest } from "@/lib/requests";
 import { coverageOf, inAreas } from "@/lib/coverage";
 import { MAX_OPERATIONS, leadService, packageProblem } from "@/lib/operations";
 import { recordRouting } from "@/lib/routing";
@@ -63,7 +63,9 @@ const land = z.object({
 const schema = land.extend({
   preferredDate: z.string().min(1, "Choose a date").refine((v) => v >= today(), "Choose a date in the future"),
   alternateDate: z.string(),
-  district: z.enum(DISTRICTS, { error: "Choose your district" }),
+  // Checked below against districtChoicesFor, which is the three Sagora operates in plus, when an
+  // older request is being edited, the district it already has.
+  district: z.string().min(1, "Choose your district"),
   village: z.string().min(2, "Enter your community or village").max(100, "Use 100 characters or fewer"),
 });
 
@@ -142,6 +144,14 @@ async function book(fd: FormData, who: Who): Promise<BookState> {
   const parsed = schema.safeParse(raw);
   const fieldErrors: Record<string, string> = {};
   if (!parsed.success) for (const i of parsed.error.issues) fieldErrors[String(i.path[0])] ??= i.message;
+  // Only where Sagora operates: a request somewhere else has nobody who could quote it, so it is
+  // refused at the form rather than accepted and left waiting (Joseph, 25 Nov 2026). A request
+  // raised before the pilot narrowed to three districts may still be edited where it stands,
+  // which is why the district it already has is allowed through.
+  const editing = str(fd, "requestId") ? await getById(str(fd, "requestId")) : null;
+  if (raw.district && !districtChoicesFor(editing?.district).includes(raw.district)) {
+    fieldErrors.district ??= "Sagora works in Bombali, Tonkolili and Port Loko at the moment";
+  }
   if (raw.alternateDate && raw.alternateDate < raw.preferredDate) {
     fieldErrors.alternateDate = "The latest start date must be on or after the preferred start date";
   }

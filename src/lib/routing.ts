@@ -27,6 +27,17 @@ import { serviceLabelOf } from "./catalogue";
  *    missing is a nuisance; a request failing because of it would be a fault.
  */
 
+/** A JSON array column read back defensively: anything unreadable counts as nothing covered. */
+const jsonList = (raw: string | null | undefined): string[] => {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
 export type Outcome = "notified" | "eligible" | "excluded";
 
 export const OUTCOME_LABEL: Record<Outcome, string> = {
@@ -55,10 +66,11 @@ export async function recordRouting(
     const stages = request.services?.length ? request.services : [request.service];
     const now = new Date().toISOString();
 
-    // district and services come along because coverageOf falls back to them for a business with
-    // no coverage rows of its own yet — the same fallback the real routing uses.
-    const businesses = await db.all(`SELECT id, name, status, email, district, services FROM provider_business`) as
-      { id: string; name: string; status: string; email: string; district: string; services: string }[];
+    // operating_districts and services come along because coverageOf falls back to them for a
+    // business with no coverage rows of its own yet — the same fallback the real routing uses.
+    // The office district is deliberately not read here: it decides nothing (migration 034).
+    const businesses = await db.all(`SELECT id, name, status, email, operating_districts, services FROM provider_business`) as
+      { id: string; name: string; status: string; email: string; operating_districts: string; services: string }[];
 
     const rows: { businessId: string; outcome: Outcome; reason: string }[] = [];
     for (const b of businesses) {
@@ -73,8 +85,9 @@ export async function recordRouting(
       }
 
       const areas = (await coverageOf({
-        id: b.id, district: b.district,
-        services: (() => { try { return JSON.parse(b.services) as string[]; } catch { return []; } })(),
+        id: b.id,
+        operatingDistricts: jsonList(b.operating_districts),
+        services: jsonList(b.services),
       })).areas;
       const missing = stages.filter(
         (service) => !areas.some((a) => a.district === request.district && a.service === service));

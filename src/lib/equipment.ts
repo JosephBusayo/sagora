@@ -29,6 +29,7 @@ export const OWNERSHIP = [
 ] as const;
 
 export { kindLabelOf as kindLabel } from "./catalogue";
+import { kindLabelOf } from "./catalogue";
 
 /** The provider's own say on whether a machine can be booked, as the design's three chips put it. */
 export const AVAILABILITY = [
@@ -72,6 +73,15 @@ export type Fault = {
   reportedAt: string; resolvedAt: string | null; resolution: string;
 };
 
+/** Where a machine stands with Sagora's review. */
+export type Review = "pending" | "approved" | "rejected";
+
+export const REVIEW_LABEL: Record<Review, string> = {
+  pending: "Waiting for approval",
+  approved: "Approved",
+  rejected: "Not approved",
+};
+
 export type Asset = {
   id: string; businessId: string; kind: string; name: string; identifier: string;
   ownership: "owned" | "leased"; status: "active" | "retired"; notes: string;
@@ -93,6 +103,21 @@ export type Asset = {
 
   condition: Condition;
   conditionNote: string;
+
+  /**
+   * Whether Sagora has looked at this machine yet.
+   *
+   * Its own question, separate from `status` (the machine's life) and `condition` (whether it
+   * works): a provider can register anything, and nothing a form accepts is thereby true. Only an
+   * approved machine may be quoted or scheduled — see `unavailableReason`.
+   */
+  review: Review;
+  /** Why it was rejected. Shown to the provider, who may correct it and send it back. */
+  reviewNote: string;
+  reviewedBy: string;
+  reviewedAt: string;
+  /** When it was last put up for review, so the queue reads oldest-first. */
+  submittedAt: string;
 
   /** Where somebody last said it was, and when they said it. */
   location: string;
@@ -128,6 +153,8 @@ type Row = {
   asset_ref?: string | null; serial_status?: string | null;
   serial_exception_by?: string | null; serial_exception_note?: string | null;
   condition?: string | null; condition_note?: string | null;
+  review?: string | null; review_note?: string | null; reviewed_by?: string | null;
+  reviewed_at?: string | null; submitted_at?: string | null;
   location?: string | null; custodian?: string | null; location_at?: string | null; location_by?: string | null;
   lessor?: string | null; lease_from?: string | null; lease_to?: string | null; lease_notes?: string | null;
   authorised_by?: string | null; specs?: string | null;
@@ -165,6 +192,11 @@ async function withFaults(r: Row): Promise<Asset> {
       ? r.condition
       : r.status === "retired" ? "retired" : r.availability === "available" ? "working" : "repair") as Condition,
     conditionNote: r.condition_note ?? "",
+    // A row written before migration 035 reads as approved, which is what that migration set it
+    // to: those machines were already quoting and working.
+    review: (r.review === "pending" || r.review === "rejected" ? r.review : "approved") as Review,
+    reviewNote: r.review_note ?? "", reviewedBy: r.reviewed_by ?? "", reviewedAt: r.reviewed_at ?? "",
+    submittedAt: r.submitted_at ?? "",
     location: r.location ?? "", custodian: r.custodian ?? "",
     locationAt: r.location_at ?? "", locationBy: r.location_by ?? "",
     lessor: r.lessor ?? "", leaseFrom: r.lease_from ?? "", leaseTo: r.lease_to ?? "", leaseNotes: r.lease_notes ?? "",
@@ -188,6 +220,13 @@ async function withFaults(r: Row): Promise<Asset> {
  */
 export function unavailableReason(a: Asset, on?: string): string | null {
   if (a.condition === "retired" || a.status === "retired") return "Retired";
+
+  // Sagora has to have seen it. This sits here rather than in the quote form because here is the
+  // one place everything asks — browsing, readiness, quoting, scheduling and the shared-asset
+  // view all funnel through it, so the gate cannot be stepped around by posting a form by hand.
+  if (a.review === "pending") return "Waiting for Sagora to approve it";
+  if (a.review === "rejected") return "Not approved by Sagora";
+
   const blocking = a.openFaults.find((f) => f.severity === "blocking");
   if (blocking) return "Out of service";
   if (a.condition === "repair") return "Under repair";
@@ -208,7 +247,11 @@ export function unavailableReason(a: Asset, on?: string): string | null {
   // "Record unknown critical details as needing review... unknown critical details block the
   // affected service." Without the hitch or the power it needs, no pairing can be verified.
   const missing = missingCritical(a.kind, a.specs);
-  if (missing.length) return `Needs ${missing.map((m) => m.label.toLowerCase()).join(" and ")}`;
+  if (missing.length) {
+    // Named as something to go and do, not as a verdict. Equipment registered before these were
+    // required reads this on its own card, which is where it can be put right.
+    return `Needs its ${missing.map((m) => m.label.toLowerCase()).join(" and ")} recorded`;
+  }
 
   return null;
 }
@@ -357,14 +400,18 @@ export async function addAsset(businessId: string, actorId: string, input: Asset
        implements, services, availability, created_at, updated_at,
        asset_ref, serial_status, condition, condition_note, location, custodian, location_at, location_by,
        lessor, lease_from, lease_to, lease_notes, authorised_by, specs,
-       acquired_on, supplier, purchase_cost_minor, purchase_currency, donor, use_restrictions, submission_key)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`,
+       acquired_on, supplier, purchase_cost_minor, purchase_currency, donor, use_restrictions, submission_key,
+       submitted_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`,
      id, businessId, input.kind, input.name, input.identifier, input.ownership, input.notes,
      input.brand ?? "", input.model ?? "", input.year ?? "", input.horsepower ?? "", input.implements ?? "",
      (input.services ?? []).join(","), input.availability ?? "available", now, now,
      x.assetRef, x.serialStatus, x.condition, x.conditionNote, x.location, x.custodian, x.locationAt, x.locationAt ? actorId : "",
      x.lessor, x.leaseFrom, x.leaseTo, x.leaseNotes, x.authorisedBy, x.specs,
-     x.acquiredOn, x.supplier, x.purchaseCostMinor, x.purchaseCurrency, x.donor, x.useRestrictions, key);
+     x.acquiredOn, x.supplier, x.purchaseCostMinor, x.purchaseCurrency, x.donor, x.useRestrictions, key,
+     // `review` is left to the column's own default of 'pending': a machine nobody at Sagora has
+     // seen is not usable, however it got here. This only records when it joined the queue.
+     now);
   if (!inserted.changes) {
     // Both attempts arrived together and the other one won the unique index. Nothing of this one
     // was written, so there is nothing to undo.
@@ -390,8 +437,16 @@ export async function updateAsset(businessId: string, actorId: string, id: strin
     ? now
     : before.locationAt;
 
+  // "Allow the provider to correct and resubmit the equipment." Editing a rejected machine is
+  // that correction, so it rejoins the queue rather than staying rejected with new details. An
+  // approved machine is not disturbed: editing a name is not a reason to stop it working.
+  const resubmit = before.review === "rejected";
+
   const res = await db.run(`UPDATE equipment SET kind=?, name=?, identifier=?, ownership=?, notes=?, brand=?, model=?, year=?,
        horsepower=?, implements=?, services=?, updated_at=?,
+       review = CASE WHEN ? = 1 THEN 'pending' ELSE review END,
+       review_note = CASE WHEN ? = 1 THEN '' ELSE review_note END,
+       submitted_at = CASE WHEN ? = 1 THEN ? ELSE submitted_at END,
        asset_ref=?, serial_status=?, condition=?, condition_note=?, location=?, custodian=?, location_at=?, location_by=?,
        lessor=?, lease_from=?, lease_to=?, lease_notes=?, authorised_by=?, specs=?,
        acquired_on=?, supplier=?, purchase_cost_minor=?, purchase_currency=?, donor=?, use_restrictions=?
@@ -399,6 +454,7 @@ export async function updateAsset(businessId: string, actorId: string, id: strin
        input.kind, input.name, input.identifier, input.ownership, input.notes,
        input.brand ?? "", input.model ?? "", input.year ?? "", input.horsepower ?? "", input.implements ?? "",
        (input.services ?? []).join(","), now,
+       resubmit ? 1 : 0, resubmit ? 1 : 0, resubmit ? 1 : 0, now,
        x.assetRef, x.serialStatus, x.condition, x.conditionNote, x.location, x.custodian, keepLocationAt,
        keepLocationAt === now ? actorId : before.locationBy,
        x.lessor, x.leaseFrom, x.leaseTo, x.leaseNotes, x.authorisedBy, x.specs,
@@ -746,4 +802,89 @@ export async function faultHistory(businessId: string, equipmentId: string): Pro
   if (!(await getAsset(businessId, equipmentId))) return [];
   const rows = await db.all("SELECT * FROM equipment_fault WHERE equipment_id=? ORDER BY reported_at DESC", equipmentId) as FaultRow[];
   return rows.map(faultFrom);
+}
+
+/* ------------------------------------------------- Sagora's review of a machine */
+
+/**
+ * Equipment waiting for somebody at Sagora to look at it, oldest first.
+ *
+ * Everything the reviewer needs is here, so nobody has to go hunting through a provider's profile
+ * to find what was submitted: who sent it, what it is, what service it is for, its serial and
+ * specifications, and whether it carries a photo. The photo itself is fetched by the screen from
+ * the usual route — a base64 image per row would make this query enormous for no gain.
+ */
+export type ReviewItem = {
+  equipmentId: string;
+  businessId: string;
+  businessName: string;
+  name: string;
+  kind: string;
+  kindLabel: string;
+  identifier: string;
+  /** The services the provider says this machine is for, in words. */
+  services: string[];
+  notes: string;
+  specs: SpecValues;
+  hasPhoto: boolean;
+  submittedAt: string;
+  review: Review;
+  reviewNote: string;
+};
+
+export async function equipmentAwaitingReview(review: Review = "pending"): Promise<ReviewItem[]> {
+  const rows = await db.all(`SELECT e.id, e.business_id, e.name, e.kind, e.identifier, e.services, e.notes, e.specs,
+         e.submitted_at, e.created_at, e.review, e.review_note, b.name AS business_name,
+         (SELECT COUNT(*) FROM equipment_photo p WHERE p.equipment_id = e.id) AS photos
+       FROM equipment e JOIN provider_business b ON b.id = e.business_id
+       WHERE e.review = ? AND e.status = 'active'
+       ORDER BY COALESCE(NULLIF(e.submitted_at, ''), e.created_at) ASC`, review) as
+    {
+      id: string; business_id: string; name: string; kind: string; identifier: string; services: string;
+      notes: string; specs: string | null; submitted_at: string; created_at: string;
+      review: Review; review_note: string; business_name: string; photos: number | string;
+    }[];
+  return rows.map((r) => ({
+    equipmentId: r.id,
+    businessId: r.business_id,
+    businessName: r.business_name,
+    name: r.name,
+    kind: r.kind,
+    kindLabel: kindLabelOf(r.kind),
+    identifier: r.identifier,
+    services: (r.services ? r.services.split(",") : []).filter(Boolean),
+    notes: r.notes,
+    specs: parseSpecs(r.specs),
+    hasPhoto: Number(r.photos) > 0,
+    submittedAt: r.submitted_at || r.created_at,
+    review: r.review,
+    reviewNote: r.review_note,
+  }));
+}
+
+/** How many machines are waiting, for the staff home's queue counts. */
+export async function equipmentPendingCount(): Promise<number> {
+  const r = await db.get("SELECT COUNT(*) AS n FROM equipment WHERE review='pending' AND status='active'") as { n: number | string };
+  return Number(r?.n ?? 0);
+}
+
+/**
+ * Staff approve or reject one machine.
+ *
+ * A rejection must say why: the provider is being asked to correct something, and "no" on its own
+ * leaves them guessing and Sagora answering the phone. Approving needs no note.
+ */
+export async function reviewEquipment(
+  staffId: string, equipmentId: string, decision: Review, note: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (decision !== "approved" && decision !== "rejected") return { ok: false, reason: "Approve it or reject it." };
+  if (decision === "rejected" && note.trim().length < 3) {
+    return { ok: false, reason: "Say why it was not approved, so the provider can put it right." };
+  }
+  const res = await db.run(`UPDATE equipment SET review=?, review_note=?, reviewed_by=?, reviewed_at=?, updated_at=?
+       WHERE id=? AND status='active'`,
+    decision, decision === "rejected" ? note.trim() : "", staffId, new Date().toISOString(), new Date().toISOString(), equipmentId);
+  if (!res.changes) return { ok: false, reason: "That machine is no longer on the register." };
+  await audit(staffId, decision === "approved" ? "equipment.approved" : "equipment.rejected", equipmentId, note.trim());
+  return { ok: true };
 }

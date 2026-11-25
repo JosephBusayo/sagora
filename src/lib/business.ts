@@ -10,6 +10,33 @@ export const DISTRICTS = [
 ] as const;
 
 /**
+ * The districts Sagora actually operates in today.
+ *
+ * Joseph, 25 Nov 2026: the pilot runs in three districts, and neither a farmer nor a provider may
+ * choose outside them. All sixteen stay in DISTRICTS above, because rows written before this —
+ * a request in Bo, a provider's office in Kenema — still have to render their own district by
+ * name. The two lists answer different questions: DISTRICTS is "what is a district", this is
+ * "where may new work be asked for or offered".
+ *
+ * In the order Joseph gave them, which is not alphabetical and is not accidental.
+ */
+export const OPERATING_DISTRICTS = ["Bombali", "Tonkolili", "Port Loko"] as const;
+
+export const isOperatingDistrict = (d: string) => (OPERATING_DISTRICTS as readonly string[]).includes(d);
+
+/**
+ * The districts to offer on a form that may be editing something older than this rule.
+ *
+ * A request raised in Bo before the pilot narrowed to three districts still has to be editable
+ * without its district silently changing to one of the three, so the one it already has is kept
+ * in the list. New work gets the three and nothing else.
+ */
+export const districtChoicesFor = (current?: string | null): readonly string[] =>
+  current && !isOperatingDistrict(current)
+    ? [...OPERATING_DISTRICTS, current]
+    : OPERATING_DISTRICTS;
+
+/**
  * What a farmer may ask for and a provider may cover: the active half of the catalogue.
  *
  * The full list of twenty lives in lib/catalogue.ts, which is pure data so the forms can read it
@@ -48,8 +75,13 @@ export type Business = {
   name: string;
   phone: string;
   email: string;
+  /** The district the office is in. An address, not a service area — see operatingDistricts. */
   district: string;
   town: string;
+  /** Street, landmark or plot: the rest of the official office address. */
+  officeAddress: string;
+  /** Where this business offers to work. The only location matching reads. */
+  operatingDistricts: string[];
   services: string[];
   description: string;
   businessType: string;
@@ -68,14 +100,28 @@ export type Business = {
 type Row = {
   id: string; user_id: string; name: string; phone: string; email: string; district: string; town: string;
   services: string; description: string; status: BusinessStatus; review_note: string;
+  office_address?: string; operating_districts?: string;
   business_type?: string; authorised_name?: string; authorised_role?: string; pricing_basis?: string;
   included_costs?: string; deposit_terms?: string; cancellation_terms?: string;
   submitted_at: string | null; reviewed_at: string | null;
 };
 
+/** A JSON array column read back defensively: a row written before the column existed reads as []. */
+function parseList(raw: string | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 function fromRow(r: Row): Business {
   return {
     id: r.id, userId: r.user_id, name: r.name, phone: r.phone, email: r.email, district: r.district, town: r.town,
+    officeAddress: r.office_address ?? "",
+    operatingDistricts: parseList(r.operating_districts),
     services: JSON.parse(r.services) as string[], description: r.description, status: r.status,
     businessType: r.business_type ?? "", authorisedName: r.authorised_name ?? "", authorisedRole: r.authorised_role ?? "",
     pricingBasis: r.pricing_basis ?? "", includedCosts: r.included_costs ?? "", depositTerms: r.deposit_terms ?? "",
@@ -112,19 +158,23 @@ export async function ensureBusiness(user: { id: string; name: string; email: st
   return (await getBusinessForUser(user.id))!;
 }
 
-export type BusinessInput = Pick<Business, "name" | "phone" | "email" | "district" | "town" | "services" | "description"
+export type BusinessInput = Pick<Business, "name" | "phone" | "email" | "district" | "town" | "officeAddress"
+  | "operatingDistricts" | "services" | "description"
   | "businessType" | "authorisedName" | "authorisedRole" | "pricingBasis" | "includedCosts" | "depositTerms" | "cancellationTerms">;
 
 /** Only a draft or a "changes requested" business can be edited. Returns false if it is locked. */
 export async function saveBusiness(userId: string, input: BusinessInput, submit: boolean): Promise<boolean> {
   const now = new Date().toISOString();
   const res = await db.run(`UPDATE provider_business
-         SET name=?, phone=?, email=?, district=?, town=?, services=?, description=?, updated_at=?,
+         SET name=?, phone=?, email=?, district=?, town=?, office_address=?, operating_districts=?,
+             services=?, description=?, updated_at=?,
              business_type=?, authorised_name=?, authorised_role=?, pricing_basis=?, included_costs=?, deposit_terms=?, cancellation_terms=?,
              status = CASE WHEN ? = 1 THEN 'submitted' ELSE status END,
              submitted_at = CASE WHEN ? = 1 THEN ? ELSE submitted_at END,
              review_note = CASE WHEN ? = 1 THEN '' ELSE review_note END
-       WHERE user_id=? AND status IN ('draft','changes_requested')`, input.name, input.phone, input.email, input.district, input.town, JSON.stringify(input.services), input.description, now,
+       WHERE user_id=? AND status IN ('draft','changes_requested')`, input.name, input.phone, input.email, input.district, input.town,
+      input.officeAddress, JSON.stringify(input.operatingDistricts.filter(isOperatingDistrict)),
+      JSON.stringify(input.services), input.description, now,
       input.businessType, input.authorisedName, input.authorisedRole, input.pricingBasis, input.includedCosts, input.depositTerms, input.cancellationTerms,
       submit ? 1 : 0, submit ? 1 : 0, now, submit ? 1 : 0, userId,);
   if (res.changes === 0) return false;

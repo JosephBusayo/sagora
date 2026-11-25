@@ -1,6 +1,7 @@
 import "server-only";
 import { LAND_ACCESS, LAND_CLEARANCE, LAND_CONDITION, LAND_TYPE, CROP_READINESS } from "./land";
 import { chiefdomsOf } from "./chiefdoms";
+import { OPERATING_DISTRICTS } from "./business";
 
 /**
  * Voice-note request intake, phase 1-2 (see the plan). Gemini listens to the audio directly and
@@ -31,13 +32,10 @@ const TIMEOUT_MS = 45_000;
  * MONIME_API_URL lets them stand in for Monime. Unset everywhere else, including production. */
 const baseUrl = () => process.env.GEMINI_API_URL?.replace(/\/$/, "") || "https://generativelanguage.googleapis.com";
 
-/** Sierra Leone's districts, exactly as BookForm's own list spells them (src/lib/business.ts),
- * so an extracted district matches the dropdown's value instead of needing a human to retype it. */
-const DISTRICTS = [
-  "Bo", "Bombali", "Bonthe", "Falaba", "Kailahun", "Kambia", "Karene", "Kenema",
-  "Koinadugu", "Kono", "Moyamba", "Port Loko", "Pujehun", "Tonkolili",
-  "Western Area Rural", "Western Area Urban",
-];
+/** The districts Sagora operates in, read from the one list that defines them, so a district
+ * heard in a voice note matches the dropdown's value instead of needing a human to retype it —
+ * and so voice intake cannot produce a request the form itself would refuse. */
+const DISTRICTS = OPERATING_DISTRICTS as readonly string[];
 
 export const geminiConfigured = (): boolean => Boolean(apiKey());
 

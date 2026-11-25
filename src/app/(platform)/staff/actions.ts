@@ -67,7 +67,10 @@ export async function decideAreasAction(fd: FormData) {
     const where = byDistrict(change.areas).map((d) => `${d.district}: ${d.services.join(", ")}`).join("\n");
     await notify({
       kind: approve ? "coverage.approved" : "coverage.declined",
-      dedupeKey: `coverage:${id}:${Date.now()}`,
+      // Keyed on the decision, not the clock. It used to carry Date.now(), which guaranteed a
+      // fresh key every time and so guaranteed no duplicate protection at all: two taps on
+      // Approve sent the provider two emails (Joseph, 25 Nov 2026).
+      dedupeKey: `coverage:${id}:${approve ? "approved" : "declined"}:${change.areas.map((a) => `${a.district}/${a.service}`).sort().join(",")}`,
       to: change.email,
       subject: approve ? "New districts approved on Sagora" : "Your district request on Sagora",
       text: approve
@@ -77,4 +80,53 @@ export async function decideAreasAction(fd: FormData) {
   }
   await flash(n ? (approve ? `Approved for ${change?.name ?? "the provider"}.` : `Declined for ${change?.name ?? "the provider"}.`) : "Already decided.");
   revalidatePath("/staff/providers");
+}
+
+/**
+ * Staff approve or reject one machine a provider registered.
+ *
+ * Nothing a provider types into a form is true because the form accepted it: a serial can be
+ * copied off somebody else's tractor, a photo can be of a machine that was sold last year. So a
+ * new machine is saved but not usable until somebody here has looked at it (migration 035). A
+ * rejection carries its reason back to the provider, who can correct it and send it again.
+ */
+export async function reviewEquipmentAction(fd: FormData) {
+  const staff = await requireStaff();
+  const { reviewEquipment } = await import("@/lib/equipment");
+  const { flash } = await import("@/lib/flash");
+  const { db } = await import("@/lib/db");
+
+  const equipmentId = String(fd.get("equipmentId") ?? "");
+  const decision = String(fd.get("decision") ?? "") === "approve" ? "approved" : "rejected";
+  const note = String(fd.get("note") ?? "").trim();
+
+  const row = await db.get(`SELECT e.name, b.email AS email, b.name AS business FROM equipment e
+       JOIN provider_business b ON b.id = e.business_id WHERE e.id = ?`, equipmentId) as
+    { name: string; email: string; business: string } | undefined;
+
+  const result = await reviewEquipment(staff.id, equipmentId, decision, note);
+  if (!result.ok) {
+    await flash(result.reason);
+    revalidatePath("/staff/providers");
+    return;
+  }
+
+  if (row?.email) {
+    await notify({
+      kind: decision === "approved" ? "equipment.approved" : "equipment.rejected",
+      // One decision, one message. A second tap on Approve finds the key already used.
+      dedupeKey: `equipment.${decision}:${equipmentId}:${note}`,
+      to: row.email,
+      subject: decision === "approved"
+        ? `${row.name} is approved on Sagora`
+        : `${row.name} was not approved on Sagora`,
+      text: decision === "approved"
+        ? `${row.business}: ${row.name} has been approved. You can now put it on quotes and jobs.`
+        : `${row.business}: ${row.name} was not approved.\n\n${note}\n\n` +
+          "Open it on your Equipment screen, put that right and save it. That sends it back to us automatically.",
+    });
+  }
+  await flash(decision === "approved" ? `${row?.name ?? "Equipment"} approved.` : `${row?.name ?? "Equipment"} rejected.`);
+  revalidatePath("/staff/providers");
+  revalidatePath("/provider/equipment");
 }

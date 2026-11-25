@@ -3,7 +3,7 @@ import { PendingButton } from "@/components/app/PendingButton";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { BUSINESS_TYPES, DISTRICTS, PRICING_BASES, SERVICES, ensureBusiness, getBusinessForUser, optionLabel, type BusinessStatus } from "@/lib/business";
+import { BUSINESS_TYPES, DISTRICTS, OPERATING_DISTRICTS, PRICING_BASES, SERVICES, ensureBusiness, getBusinessForUser, optionLabel, type BusinessStatus } from "@/lib/business";
 import { documentKindLabel, listDocuments } from "@/lib/business-documents";
 import { DocumentsSection } from "@/components/setup/DocumentsSection";
 import { requireProvider } from "@/lib/session";
@@ -70,10 +70,13 @@ export default async function Page() {
           <>
           <DocumentsSection docs={docs.map((d) => ({ id: d.id, kind: d.kind, kindLabel: documentKindLabel(d.kind), fileName: d.fileName }))} />
           <SetupForm
-            initial={{ name: b.name, phone: b.phone, email: b.email, district: b.district, town: b.town, services: b.services, description: b.description,
+            initial={{ name: b.name, phone: b.phone, email: b.email, district: b.district, town: b.town,
+              officeAddress: b.officeAddress, operatingDistricts: b.operatingDistricts,
+              services: b.services, description: b.description,
               businessType: b.businessType, authorisedName: b.authorisedName, authorisedRole: b.authorisedRole, pricingBasis: b.pricingBasis,
               includedCosts: b.includedCosts, depositTerms: b.depositTerms, cancellationTerms: b.cancellationTerms }}
             districts={DISTRICTS}
+            operatingDistricts={OPERATING_DISTRICTS}
             services={SERVICES}
             businessTypes={BUSINESS_TYPES}
             pricingBases={PRICING_BASES}
@@ -83,7 +86,8 @@ export default async function Page() {
           <dl className="setup__summary">
             <dt>Phone</dt><dd>{b.phone}</dd>
             <dt>Email</dt><dd>{b.email}</dd>
-            <dt>Location</dt><dd>{b.town}, {b.district}</dd>
+            <dt>Office</dt><dd>{[b.officeAddress, b.town, b.district].filter(Boolean).join(", ")}</dd>
+            <dt>Districts you work in</dt><dd>{b.operatingDistricts.join(", ") || "None chosen yet"}</dd>
             <dt>Services</dt><dd>{b.services.map((s) => SERVICES.find((x) => x.id === s)?.label ?? s).join(", ")}</dd>
             {b.description ? (<><dt>About</dt><dd>{b.description}</dd></>) : null}
             {b.businessType ? (<><dt>Kind of business</dt><dd>{optionLabel(BUSINESS_TYPES, b.businessType)}</dd></>) : null}

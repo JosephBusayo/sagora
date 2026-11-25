@@ -29,19 +29,24 @@ export async function saveBusinessDetails(_prev: FormState, fd: FormData): Promi
   const name = str(fd, "name");
   const email = str(fd, "email");
   const town = str(fd, "town");
+  // The official office address, kept apart from the districts the business works in: those are
+  // the coverage pairs below, and they are the only thing matching reads (migration 034).
+  const officeAddress = str(fd, "officeAddress");
   const description = str(fd, "description");
   const phone = normaliseSierraLeonePhone(str(fd, "phone"));
-  const values = { name, phone: str(fd, "phone"), email, town, description };
+  const values = { name, phone: str(fd, "phone"), email, town, officeAddress, description };
 
   const fieldErrors: Record<string, string> = {};
   if (name.length < 2) fieldErrors.name = "Enter your business name";
   if (!phone) fieldErrors.phone = "Enter a valid Sierra Leone number, for example 76 123 456";
   if (!emailSchema.safeParse(email).success) fieldErrors.email = "Enter a valid email address";
   if (town.length < 2) fieldErrors.town = "Enter your village or town";
+  if (officeAddress.length > 200) fieldErrors.officeAddress = "Use 200 characters or fewer";
   if (description.length > 500) fieldErrors.description = "Use 500 characters or fewer";
   if (Object.keys(fieldErrors).length) return { fieldErrors, values };
 
-  await db.run("UPDATE provider_business SET name=?, phone=?, email=?, town=?, description=?, updated_at=? WHERE id=?", name, phone, email.toLowerCase(), town, description, new Date().toISOString(), business.id);
+  await db.run("UPDATE provider_business SET name=?, phone=?, email=?, town=?, office_address=?, description=?, updated_at=? WHERE id=?",
+    name, phone, email.toLowerCase(), town, officeAddress, description, new Date().toISOString(), business.id);
   await audit(user.id, "business.details_updated", business.id);
   revalidatePath("/provider/settings/business");
   return { notice: "Your business details have been saved." };

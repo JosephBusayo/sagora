@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { DISTRICTS, SERVICES } from "@/lib/business";
+import { SERVICES, districtChoicesFor } from "@/lib/business";
 import { BookForm } from "@/components/requests/BookForm";
 import { GuestShell } from "@/components/guest/GuestShell";
 import { guestRequest } from "@/lib/guest";
@@ -19,7 +19,7 @@ export default async function Page() {
       <div className="modal modal--book guest__panel">
         <BookForm
           services={SERVICES}
-          districts={DISTRICTS}
+          districts={districtChoicesFor(request.district)}
           service={request.service}
           requestId={request.id}
           guest

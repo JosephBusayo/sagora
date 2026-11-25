@@ -120,7 +120,9 @@ export async function confirmEmailChange(user: SessionUser, fd: FormData, doneHr
   // The old address hears about it, so a change nobody asked for does not go unnoticed.
   await notify({
     kind: "account.email_changed",
-    dedupeKey: `account.email_changed:${user.id}:${now}`,
+    // Keyed on the change itself — who, from where, to where — rather than on the clock, so a
+    // retried submission cannot send the warning twice (Joseph, 25 Nov 2026).
+    dedupeKey: `account.email_changed:${user.id}:${user.email}:${newEmail}`,
     to: user.email,
     subject: "Your Sagora email address was changed",
     text:

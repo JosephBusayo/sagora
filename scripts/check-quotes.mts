@@ -14,6 +14,22 @@ import * as requests from "../src/lib/requests";
 import * as quotes from "../src/lib/quotes";
 import * as jobs from "../src/lib/jobs";
 import * as equipment from "../src/lib/equipment";
+
+/**
+ * Registers a machine and has Sagora approve it.
+ *
+ * Since migration 035 a newly registered machine waits for approval before it can be put on any
+ * work. That gate has its own checks in check-register.mts; everything here is about what happens
+ * once a machine is accepted, so these go through the review rather than around it.
+ */
+const addApproved = async (
+  businessId: string, actorId: string, input: Parameters<typeof equipment.addAsset>[2],
+) => {
+  const a = await equipment.addAsset(businessId, actorId, input);
+  await equipment.reviewEquipment("suite-reviewer", a.id, "approved", "");
+  return (await equipment.getAsset(businessId, a.id))!;
+};
+
 import * as holds from "../src/lib/holds";
 import { operator, provider as providerFixture, quoteInput } from "./fixtures.mjs";
 import * as inspections from "../src/lib/inspections";
@@ -37,8 +53,8 @@ async function user(name: string, role = "farmer") {
 }
 async function business(ownerId: string, name: string) {
   const id = randomUUID();
-  await db.run(`INSERT INTO provider_business (id, user_id, name, phone, email, district, town, services, status, created_at, updated_at)
-     VALUES (?,?,?,'76000000',?,'Bo','Testville','["ploughing"]','approved',?,?)`, id, ownerId, name, `${id}@example.test`, now, now);
+  await db.run(`INSERT INTO provider_business (id, user_id, name, phone, email, district, town, operating_districts, services, status, created_at, updated_at)
+     VALUES (?,?,?,'76000000',?,'Bo','Testville','["Bo"]','["ploughing"]','approved',?,?)`, id, ownerId, name, `${id}@example.test`, now, now);
   return id;
 }
 async function request(farmer: string, label: string) {
@@ -51,7 +67,7 @@ async function request(farmer: string, label: string) {
 
 const owner = await user("Owner", "provider");
 const biz = await business(owner, "Clash Co");
-const tractor = await equipment.addAsset(biz, owner, {
+const tractor = await addApproved(biz, owner, {
   name: "Tractor A", kind: "machine", identifier: "REG-1", ownership: "owned", notes: "",
 });
 // A quote now names an actual operator as well as actual machines, and holds both.
@@ -110,7 +126,7 @@ ok("and that farmer can accept", (await quotes.acceptQuote(q3.quote.id, f3)).ok)
 console.log("\nThe operator is held too, and the whole set moves together");
 const f6 = await user("Farmer Six");
 const r6 = await request(f6, "Farmer Six");
-const spare = await equipment.addAsset(biz, owner, {
+const spare = await addApproved(biz, owner, {
   name: "Tractor B", kind: "machine", identifier: "REG-2", ownership: "owned", notes: "",
 });
 // A different machine, but the same driver, over days the first quote already holds.

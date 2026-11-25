@@ -236,7 +236,7 @@ export async function getByReference(reference: string): Promise<ServiceRequest 
 }
 
 export async function listForFarmer(farmerId: string): Promise<ServiceRequest[]> {
-  const rows = await db.all("SELECT * FROM service_request WHERE farmer_id = ? ORDER BY created_at DESC", farmerId) as Row[];
+  const rows = await db.all("SELECT * FROM service_request WHERE farmer_id = ? ORDER BY created_at DESC, id DESC", farmerId) as Row[];
   return rows.map(fromRow);
 }
 
@@ -245,7 +245,9 @@ export async function listForFarmer(farmerId: string): Promise<ServiceRequest[]>
 export type Filters = { service?: string; district?: string; window?: string; reference?: string };
 
 /** The business a list is for: its coverage is read from lib/coverage.ts. */
-type Provider = { id: string; district: string; services: string[] };
+// What browsing needs of a business: who it is, and where and what it works. The office
+// district is not part of it — see migration 034.
+type Provider = { id: string; operatingDistricts: string[]; services: string[] };
 
 /** Requests sent to this business, and open requests in any district and service it covers. */
 function coverageClause(c: Coverage, where: string[], params: (string | number)[]) {
@@ -325,7 +327,12 @@ export async function browse(filters: Filters, page: number, business: Provider)
   const total = Number((await db.get(`SELECT COUNT(*) AS n FROM service_request ${clause}`, ...params) as { n: number }).n);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const safePage = Math.min(Math.max(1, page), pages);
-  const rows = await db.all(`SELECT * FROM service_request ${clause} ORDER BY preferred_date ASC, created_at DESC LIMIT ? OFFSET ?`, ...params, PAGE_SIZE, (safePage - 1) * PAGE_SIZE) as Row[];
+  // Newest first (Joseph, 25 Nov 2026). It used to lead with the soonest preferred date, which
+  // put a request raised months ago at the top whenever its date happened to be near, and buried
+  // this morning's. Ordered in the query, not after paging, so page 2 carries on where page 1
+  // stopped; `id` breaks a tie so two requests saved in the same millisecond keep a fixed order
+  // and never swap places between pages.
+  const rows = await db.all(`SELECT * FROM service_request ${clause} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, ...params, PAGE_SIZE, (safePage - 1) * PAGE_SIZE) as Row[];
   return { rows: rows.map(fromRow), total, pages };
 }
 
@@ -363,11 +370,14 @@ export async function providersCovering(
   r: { district: string; service: string; services?: string[] },
 ): Promise<{ businessId: string; email: string }[]> {
   const stages = r.services?.length ? r.services : [r.service];
-  // A business with no coverage rows yet is matched on its setup district and services.
+  // A business with no coverage rows yet is matched on the districts it said it operates in,
+  // times the services it offers. Never on b.district, which is where its office is: an office
+  // in a district is not an offer to work there (migration 034).
   const covers = stages.map(() => `(
          EXISTS (SELECT 1 FROM provider_coverage c WHERE c.business_id = b.id AND c.status = 'active' AND c.district = ? AND c.service = ?)
-         OR (NOT EXISTS (SELECT 1 FROM provider_coverage c WHERE c.business_id = b.id) AND b.district = ? AND b.services LIKE ?))`).join(" AND ");
-  const params = stages.flatMap((service) => [r.district, service, r.district, `%"${service}"%`]);
+         OR (NOT EXISTS (SELECT 1 FROM provider_coverage c WHERE c.business_id = b.id)
+             AND b.operating_districts LIKE ? AND b.services LIKE ?))`).join(" AND ");
+  const params = stages.flatMap((service) => [r.district, service, `%"${r.district}"%`, `%"${service}"%`]);
   const rows = await db.all(`SELECT b.id AS id, u.email AS email FROM provider_business b
        JOIN "user" u ON u.id = b.user_id
        WHERE b.status = 'approved' AND ${covers}`, ...params) as { id: string; email: string }[];

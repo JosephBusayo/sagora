@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/guard";
 import { parseAmount, formatAmount } from "@/lib/money";
 import { RESPONSE_HOURS, sendQuote, withdrawQuote } from "@/lib/quotes";
-import { selectableAssets } from "@/lib/equipment";
+import { selectableAssets, unavailableReason } from "@/lib/equipment";
 import { getById } from "@/lib/requests";
 import { coverageOf, covers } from "@/lib/coverage";
 import { notify } from "@/lib/outbox";
@@ -15,7 +15,7 @@ import { visitWhen } from "@/lib/visit-time";
 import { redirect } from "next/navigation";
 import { kitProblem, pairingEnforced } from "@/lib/pairing";
 import { coversEveryStage, operationsFor, planTotal, spanOf, stagesNotCovered, type PlannedOperation } from "@/lib/operations";
-import { selectableUsableAssets } from "@/lib/shares";
+import { selectableUsableAssets, usableAssets } from "@/lib/shares";
 import type { FormState } from "@/lib/auth-flows";
 
 const str = (fd: FormData, k: string) => (typeof fd.get(k) === "string" ? String(fd.get(k)).trim() : "");
@@ -109,7 +109,24 @@ export async function sendQuoteAction(_prev: FormState, fd: FormData): Promise<F
   const usable = await selectableUsableAssets(business.id);
   const chosen = assetIds.filter((id) => usable.some((a) => a.id === id));
   if (chosen.length !== assetIds.length) {
-    return { error: "Some of that equipment is not on your register, or is not available for work.", values };
+    // Say which machine and why, rather than one sentence covering four different situations
+    // (Joseph, 25 Nov 2026). A machine waiting for Sagora to approve it, one under repair and
+    // one that belongs to somebody else are three different problems with three different
+    // answers, and "not available for work" is none of them.
+    const all = await usableAssets(business.id);
+    const refused = assetIds
+      .filter((id) => !chosen.includes(id))
+      .map((id) => {
+        const a = all.find((x) => x.id === id);
+        return a ? `${a.name} — ${(unavailableReason(a) ?? "not available").toLowerCase()}` : null;
+      })
+      .filter(Boolean);
+    return {
+      error: refused.length
+        ? `${refused.join("; ")}. Take it off this quote, or put that right on the Equipment screen.`
+        : "Some of that equipment is not on your register.",
+      values,
+    };
   }
 
   // The operator has to be this business's own, whatever the form posted.

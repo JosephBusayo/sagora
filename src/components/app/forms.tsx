@@ -8,7 +8,7 @@ import { Actions, SoftForm } from "./SoftForm";
 
 const SETTINGS = "/provider/settings";
 
-export function BusinessForm({ initial }: { initial: { name: string; phone: string; email: string; town: string; description: string } }) {
+export function BusinessForm({ initial }: { initial: { name: string; phone: string; email: string; town: string; officeAddress: string; description: string } }) {
   return (
     <SoftForm action={saveBusinessDetails}>
       {(s) => {
@@ -20,7 +20,12 @@ export function BusinessForm({ initial }: { initial: { name: string; phone: stri
             <Field name="name" label="Business name" placeholder="Kandeh Farming Services" autoComplete="organization" defaultValue={val("name")} error={e.name} />
             <Field name="phone" label="Phone number" type="tel" inputMode="tel" prefix="+232" placeholder="00 000 000" autoComplete="tel-national" defaultValue={val("phone")} error={e.phone} />
             <Field name="email" label="Email address" type="email" inputMode="email" placeholder="abc@gmail.com" autoComplete="email" defaultValue={val("email")} error={e.email} />
-            <Field icon="pin" name="town" label="Village/town" placeholder="Where your equipment is based" defaultValue={val("town")} error={e.town} />
+            <Field icon="pin" name="town" label="Village/town" placeholder="Where your office is" defaultValue={val("town")} error={e.town} />
+            {/* The office, not the service area. Where this business takes requests from is the
+                Where you work panel below, and only that decides what reaches them. */}
+            <Field icon="pin" name="officeAddress" label="Office or business address"
+              placeholder="Street, plot or nearest landmark" maxLength={200}
+              defaultValue={val("officeAddress")} error={e.officeAddress} />
             <div className={`field${e.description ? " field--invalid" : ""}`}>
               <label className="field__label" htmlFor="desc">Additional information</label>
               <div className="field__box" style={{ height: "auto", alignItems: "flex-start" }}>

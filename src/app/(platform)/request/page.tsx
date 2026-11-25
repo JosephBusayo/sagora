@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { randomUUID } from "node:crypto";
-import { DISTRICTS, SERVICES, getApprovedBusiness } from "@/lib/business";
+import { OPERATING_DISTRICTS, SERVICES, getApprovedBusiness } from "@/lib/business";
 import { RequestEntry } from "@/components/requests/RequestEntry";
 import { SiteNav } from "@/components/requests/SiteNav";
 import { redirect } from "next/navigation";
@@ -32,7 +32,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
     <div className="quick-request">
       <SiteNav />
       <main className="quick-request__main">
-        <RequestEntry services={SERVICES} districts={DISTRICTS} service={service} direct={direct} submissionKey={randomUUID()} guest cancelHref="/" voiceEnabled={voiceIntakeConfigured()} />
+        <RequestEntry services={SERVICES} districts={OPERATING_DISTRICTS} service={service} direct={direct} submissionKey={randomUUID()} guest cancelHref="/" voiceEnabled={voiceIntakeConfigured()} />
       </main>
     </div>
   );

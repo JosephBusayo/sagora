@@ -15,6 +15,22 @@ import * as requests from "../src/lib/requests";
 import * as quotes from "../src/lib/quotes";
 import * as jobs from "../src/lib/jobs";
 import * as equipment from "../src/lib/equipment";
+
+/**
+ * Registers a machine and has Sagora approve it.
+ *
+ * Since migration 035 a newly registered machine waits for approval before it can be put on any
+ * work. That gate has its own checks in check-register.mts; everything here is about what happens
+ * once a machine is accepted, so these go through the review rather than around it.
+ */
+const addApproved = async (
+  businessId: string, actorId: string, input: Parameters<typeof equipment.addAsset>[2],
+) => {
+  const a = await equipment.addAsset(businessId, actorId, input);
+  await equipment.reviewEquipment("suite-reviewer", a.id, "approved", "");
+  return (await equipment.getAsset(businessId, a.id))!;
+};
+
 import * as fee from "../src/lib/fee";
 import * as revenue from "../src/lib/revenue";
 import * as holds from "../src/lib/holds";
@@ -55,8 +71,8 @@ async function user(name: string, role = "farmer") {
 }
 async function business(ownerId: string, name: string) {
   const id = randomUUID();
-  await db.run(`INSERT INTO provider_business (id, user_id, name, phone, email, district, town, services, status, created_at, updated_at)
-     VALUES (?,?,?,'76000000',?,'Bo','Testville','["ploughing"]','approved',?,?)`, id, ownerId, name, `${id}@example.test`, now, now);
+  await db.run(`INSERT INTO provider_business (id, user_id, name, phone, email, district, town, operating_districts, services, status, created_at, updated_at)
+     VALUES (?,?,?,'76000000',?,'Bo','Testville','["Bo"]','["ploughing"]','approved',?,?)`, id, ownerId, name, `${id}@example.test`, now, now);
   return id;
 }
 
@@ -297,7 +313,7 @@ console.log("\nRequest kinds");
   }) => ({ note: "", daysToComplete: 2, dailyRateMinor: 10000, assetIds: [mach], operatorId: driver, ...over });
   const other = await user("Owner other", "provider");
   const otherBiz = await business(other, "Other Business");
-  const coverage = (id: string) => ({ id, district: "Bo", services: ["ploughing"] });
+  const coverage = (id: string) => ({ id, operatingDistricts: ["Bo"], services: ["ploughing"] });
   const farmer = await user("Farmer direct");
   const base = { service: "ploughing", acres: 2, landAccess: "easy", landCondition: "", landClearance: "cleared", district: "Bo", village: "Directville",
     preferredDate: inDays(20), alternateDate: null, notes: "", contactName: "F", contactPhone: "76000003", contactEmail: "f@example.test" };
@@ -315,7 +331,7 @@ console.log("\nRequest kinds");
   const job = (await jobs.jobForRequest(harvest.id))!;
   // Since migration 026 a machine missing a critical specification is blocked on its own, so
   // these fixtures carry theirs — otherwise this would test the wrong refusal.
-  const tractor = await equipment.addAsset(biz, owner, {
+  const tractor = await addApproved(biz, owner, {
     name: "Only a tractor", kind: "tractor", identifier: "SN-ONLY", ownership: "owned", notes: "",
     specs: { power: "90", hitch: "Three-point category 2", lift: "2500" },
   });
@@ -324,7 +340,7 @@ console.log("\nRequest kinds");
   // Since the catalogue replaced the hardcoded rule, the refusal names what would actually do the
   // job rather than one machine: a tractor can harvest, with a reaper on the back.
   await ok("and it names what is missing", !refused.ok && /reaper|thresher/i.test(refused.reason));
-  const harvester = await equipment.addAsset(biz, owner, {
+  const harvester = await addApproved(biz, owner, {
     name: "Harvester", kind: "harvester", identifier: "SN-HARV", ownership: "owned", notes: "",
     specs: { ownEngine: "Own engine", power: "120", header: "3" },
   });
@@ -415,11 +431,11 @@ console.log("\nA reschedule moves the reservation, or changes nothing at all");
   // The fixture's machine is the generic kind, which cannot power ploughing. Rescheduling enforces
   // the catalogue requirement — a quote that cannot become a job was the bug this test found — so
   // the job is given a real tractor and plough to move onto.
-  const tractor = await equipment.addAsset(f.biz, f.owner, {
+  const tractor = await addApproved(f.biz, f.owner, {
     name: "Reschedule tractor", kind: "tractor", identifier: "SN-RS-T", ownership: "owned", notes: "",
     specs: { power: "90", hitch: "Three-point category 2", lift: "2500" },
   });
-  const ploughRS = await equipment.addAsset(f.biz, f.owner, {
+  const ploughRS = await addApproved(f.biz, f.owner, {
     name: "Reschedule plough", kind: "plough", identifier: "SN-RS-P", ownership: "owned", notes: "",
     specs: { powerNeeded: "70", hitch: "Three-point category 2" },
   });
@@ -507,7 +523,7 @@ console.log("\nRevenue per machine, net of fees and attributable refunds");
   // attributable to one machine leaves 90,000 earned.
   const farmer = await user("Farmer A14");
   const p = await providerFixture("A14");
-  const plough = await equipment.addAsset(p.biz, p.owner, {
+  const plough = await addApproved(p.biz, p.owner, {
     name: "A14 plough", kind: "plough", identifier: "SN-A14-P", ownership: "owned", notes: "",
     specs: { powerNeeded: "70", hitch: "Three-point category 2" },
   });

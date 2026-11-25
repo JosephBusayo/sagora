@@ -49,6 +49,9 @@ export async function scheduleJobAction(_prev: FormState, fd: FormData): Promise
     if (row?.email) {
       await notify({
         kind: "job.machine_replaced",
+        // The change itself is the key, so a resubmitted form cannot send it twice while a
+        // genuine second swap later still reaches the farmer.
+        dedupeKey: `job.machine_replaced:${jobId}:${detail}`,
         to: row.email,
         subject: `Equipment has changed on ${row.reference}`,
         text: `${business.name} has changed the plan for ${row.reference}: ${detail}. Your price and terms have not changed.`,

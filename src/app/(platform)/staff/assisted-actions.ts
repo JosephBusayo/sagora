@@ -4,7 +4,7 @@ import { flash } from "@/lib/flash";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { DISTRICTS, SERVICES } from "@/lib/business";
+import { OPERATING_DISTRICTS, SERVICES } from "@/lib/business";
 import type { FormState } from "@/lib/auth-flows";
 import { confirmOnBehalf } from "@/lib/jobs";
 import { chiefdomFits } from "@/lib/chiefdoms";
@@ -34,7 +34,9 @@ const schema = z.object({
   landAccess: z.string().refine(oneOf(LAND_ACCESS), "Choose the land access"),
   landCondition: z.string().refine((v) => !v || oneOf(LAND_CONDITION)(v), "Choose the land condition"),
   landClearance: z.string().refine(oneOf(LAND_CLEARANCE), "Choose the land clearance"),
-  district: z.enum(DISTRICTS, { error: "Choose the district" }),
+  // The same three districts the farmer-facing form offers: a request taken over the phone is
+  // the same request.
+  district: z.enum(OPERATING_DISTRICTS, { error: "Choose the district" }),
   chiefdom: z.string().max(100),
   village: z.string().min(2, "Enter the village or town").max(100),
   preferredDate: z.string().min(1, "Choose a date").refine((v) => v >= today(), "Choose a date in the future"),

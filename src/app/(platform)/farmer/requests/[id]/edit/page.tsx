@@ -1,7 +1,7 @@
 import { ModalShell } from "@/components/app/ModalShell";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { DISTRICTS, SERVICES } from "@/lib/business";
+import { SERVICES, districtChoicesFor } from "@/lib/business";
 import { requireFarmer } from "@/lib/session";
 import { Shell, PageHead } from "@/components/app/Shell";
 import { BookForm } from "@/components/requests/BookForm";
@@ -31,7 +31,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       <ModalShell closeHref={`/farmer/requests/${request.id}`} label="Edit details" className="modal--book">
           <BookForm
             services={SERVICES}
-            districts={DISTRICTS}
+            districts={districtChoicesFor(request.district)}
             service={request.service}
             requestId={request.id}
             initial={{

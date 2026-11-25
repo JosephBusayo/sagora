@@ -32,8 +32,8 @@ async function user(name: string, role = "farmer") {
 }
 async function business(ownerId: string, name: string) {
   const id = randomUUID();
-  await db.run(`INSERT INTO provider_business (id, user_id, name, phone, email, district, town, services, status, created_at, updated_at)
-     VALUES (?,?,?,'76000000',?,'Bo','Testville','["ploughing"]','approved',?,?)`, id, ownerId, name, `${id}@example.test`, now, now);
+  await db.run(`INSERT INTO provider_business (id, user_id, name, phone, email, district, town, operating_districts, services, status, created_at, updated_at)
+     VALUES (?,?,?,'76000000',?,'Bo','Testville','["Bo"]','["ploughing"]','approved',?,?)`, id, ownerId, name, `${id}@example.test`, now, now);
   return id;
 }
 const req = (farmer: string, label: string) => createRequest(farmer, {

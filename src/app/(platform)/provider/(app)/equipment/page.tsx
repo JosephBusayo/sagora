@@ -54,6 +54,8 @@ export default async function Page() {
       gallery: gallery.map((p) => ({ id: p.id, src: `/provider/equipment/gallery/${p.id}` })),
       galleryFull: gallery.length >= MAX_GALLERY_PHOTOS,
       unavailable: unavailableReason(a),
+      review: a.review,
+      reviewNote: a.reviewNote,
       // Where it has actually been, for the district filter. A fact, unlike `location` (free text)
       // or the business's coverage (where it could go).
       districts: (await db.all(`SELECT DISTINCT sr.district FROM job_asset ja

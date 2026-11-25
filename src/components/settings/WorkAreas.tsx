@@ -1,5 +1,5 @@
 import { PendingButton } from "@/components/app/PendingButton";
-import { DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
+import { OPERATING_DISTRICTS, SERVICES, districtLabel } from "@/lib/business";
 import type { CoverageRow } from "@/lib/coverage";
 import { addAreaAction, dropAreaAction } from "@/app/(platform)/provider/(app)/settings/actions";
 
@@ -15,6 +15,14 @@ export function WorkAreas({ rows, canEdit }: { rows: CoverageRow[]; canEdit: boo
         Requests reach you from these districts, for these services. Sagora checks a new district or service before
         requests start coming from it.
       </p>
+      {/* A business that has chosen nowhere is shown nothing, which is easy to mistake for Sagora
+          being quiet. Say so plainly: this is the one setting that decides whether work arrives. */}
+      {districts.length === 0 ? (
+        <p className="notice notice--warn" role="status">
+          You have not chosen anywhere to work yet, so no requests can reach you. Add a district
+          and the services you offer there.
+        </p>
+      ) : null}
       <ul className="work-areas__list">
         {districts.map((d) => (
           <li key={d} className="work-areas__district">
@@ -47,7 +55,7 @@ export function WorkAreas({ rows, canEdit }: { rows: CoverageRow[]; canEdit: boo
             <div className="field__box">
               <select id="area-district" name="district" className="field__input" defaultValue="" required>
                 <option value="">Select a district</option>
-                {DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                {OPERATING_DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
           </div>

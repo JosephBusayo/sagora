@@ -3,7 +3,20 @@ import fs from "node:fs";
 import path from "node:path";
 import { emailHtml } from "./email-html";
 
-export type Email = { to: string; subject: string; text: string };
+export type Email = {
+  to: string; subject: string; text: string;
+  /**
+   * A stable id for this message, sent to the provider as an idempotency key.
+   *
+   * The outbox can legitimately try the same row twice: a send that succeeded but whose "sent"
+   * write was lost — a frozen instance on Vercel, a dropped database connection — stays pending
+   * and is picked up by the next drain, as does one whose response never arrived even though
+   * Resend had already accepted it. Without a key on the provider's side, each of those is a
+   * second real email in somebody's inbox. With one, Resend collapses the retry into the
+   * original send. (Joseph, 25 Nov 2026: duplicate emails from a single action.)
+   */
+  idempotencyKey?: string;
+};
 
 /** Who our email comes from. EMAIL_FROM should be a sagora.sl address once that domain is verified. */
 const SENDER = () => process.env.EMAIL_FROM ?? "Sagora <onboarding@resend.dev>";
@@ -27,7 +40,11 @@ export async function sendEmail(email: Email): Promise<void> {
   if (key) {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        ...(email.idempotencyKey ? { "Idempotency-Key": email.idempotencyKey } : {}),
+      },
       body: JSON.stringify({
         from: SENDER(),
         to: [email.to],

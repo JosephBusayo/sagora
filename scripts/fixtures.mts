@@ -48,9 +48,9 @@ export async function user(name: string, role = "farmer"): Promise<string> {
 
 export async function business(ownerId: string, name: string, district = "Bo", services = ["ploughing"]): Promise<string> {
   const id = randomUUID();
-  await db.run(`INSERT INTO provider_business (id, user_id, name, phone, email, district, town, services, status, created_at, updated_at)
-     VALUES (?,?,?,'76000000',?,?,'Testville',?,'approved',?,?)`,
-    id, ownerId, name, `${id}@example.test`, district, JSON.stringify(services), now(), now());
+  await db.run(`INSERT INTO provider_business (id, user_id, name, phone, email, district, town, operating_districts, services, status, created_at, updated_at)
+     VALUES (?,?,?,'76000000',?,?,'Testville',?,?,'approved',?,?)`,
+    id, ownerId, name, `${id}@example.test`, district, JSON.stringify([district]), JSON.stringify(services), now(), now());
   for (const service of services) {
     await db.run(`INSERT INTO provider_coverage (business_id, district, service, status, requested_at, decided_at)
        VALUES (?,?,?,'active',?,?) ON CONFLICT DO NOTHING`, id, district, service, now(), now());
@@ -61,10 +61,14 @@ export async function business(ownerId: string, name: string, district = "Bo", s
 /** A machine on the register, ready to be held by a quote. */
 export async function machine(businessId: string, name: string, kind = "machine"): Promise<string> {
   const id = randomUUID();
+  // Approved on the way in: these stand for machines already on the register and already
+  // working. The approval gate itself is proved in check-register.mts, which sets `review` by
+  // hand rather than leaning on what a fixture happens to default to.
   await db.run(`INSERT INTO equipment (id, business_id, kind, name, identifier, ownership, notes,
-       brand, model, year, horsepower, implements, services, availability, created_at, updated_at)
-     VALUES (?,?,?,?,?,'owned','', '', '', '', '', '', ?, 'available', ?, ?)`,
-    id, businessId, kind, name, `SN-${id.slice(0, 8)}`, "ploughing,harvesting,planting", now(), now());
+       brand, model, year, horsepower, implements, services, availability, review, reviewed_by,
+       reviewed_at, created_at, updated_at)
+     VALUES (?,?,?,?,?,'owned','', '', '', '', '', '', ?, 'available', 'approved', 'fixture', ?, ?, ?)`,
+    id, businessId, kind, name, `SN-${id.slice(0, 8)}`, "ploughing,harvesting,planting", now(), now(), now());
   return id;
 }
 

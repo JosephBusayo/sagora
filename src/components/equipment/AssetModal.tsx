@@ -262,7 +262,7 @@ export function AssetModal({ asset, kinds, services, availability, serialStates,
                 {specsFor(kind).map((spec) => (
                   <div key={spec.id} className={`field${e[`spec_${spec.id}`] ? " field--invalid" : ""}`}>
                     <label className="field__label" htmlFor={`a-spec-${spec.id}`}>
-                      {spec.label}{spec.unit ? ` (${spec.unit})` : ""}{spec.critical ? "" : " (optional)"}
+                      {spec.label}{spec.unit ? ` (${spec.unit})` : ""}{spec.critical ? " (required)" : " (optional)"}
                     </label>
                     <div className="field__box">
                       {spec.kind === "choice" ? (

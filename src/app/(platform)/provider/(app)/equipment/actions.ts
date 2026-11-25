@@ -97,6 +97,15 @@ function parse(fd: FormData) {
   // against it. Said here rather than silently stored.
   for (const spec of specsFor(kind)) {
     const value = specs[spec.id];
+    // The critical ones are asked for here, at the only moment the provider can do anything about
+    // them (Joseph, 25 Nov 2026). A machine saved without its hitch or its lift capacity passed
+    // every check on this screen and then failed every quote: `unavailableReason` blocks on
+    // missing critical specifications, so the machine looked registered, looked fine, and was
+    // quietly unusable. Refusing the save is the honest version of the same rule.
+    if (!value && spec.critical) {
+      fieldErrors[`spec_${spec.id}`] = `Enter the ${spec.label.toLowerCase()}: without it this machine cannot be put on a job`;
+      continue;
+    }
     if (!value) continue;
     if (value.length > 80) fieldErrors[`spec_${spec.id}`] = "Use 80 characters or fewer";
     else if (spec.kind === "number" && !/^\d+(\.\d+)?$/.test(value)) fieldErrors[`spec_${spec.id}`] = "Enter a number";

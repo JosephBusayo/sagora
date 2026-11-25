@@ -82,8 +82,17 @@ export const SERVICES: readonly Service[] = [
   { id: "post_hole_digging", label: "Post hole digging", active: false, order: 110 },
 ];
 
-/** Only what is switched on: what a farmer may ask for and a provider may cover. */
-export const activeServices = (): readonly Service[] => SERVICES.filter((s) => s.active);
+/**
+ * Only what is switched on, in the order the work happens: ploughing, then planting, then
+ * harvesting.
+ *
+ * Joseph, 25 Nov 2026, asked for exactly that order on the farmer's form and "do not arrange
+ * these options alphabetically". Sorting by `order` rather than writing a second list means the
+ * tick-boxes come out in the same sequence a package is actually planned in (`inFieldOrder`), so
+ * a farmer reading down the form sees the order their stages will run in.
+ */
+export const activeServices = (): readonly Service[] =>
+  SERVICES.filter((s) => s.active).slice().sort((a, b) => a.order - b.order);
 
 export const serviceLabelOf = (id: string) => SERVICES.find((s) => s.id === id)?.label ?? id;
 export const isService = (id: string) => SERVICES.some((s) => s.id === id);
@@ -276,3 +285,44 @@ export function canPower(service: string, kind: string): boolean {
 
 /** The implement kinds that would satisfy this service, flattened, for offering a choice. */
 export const implementKindsFor = (service: string): string[] => kitFor(service).implements.flat();
+
+/**
+ * Whether a kind of machine can take any part at all in the services Sagora sells today.
+ *
+ * The register carries all thirty-one kinds because the catalogue describes twenty services, but
+ * only three of those services are switched on — so a provider can register a baler, or the
+ * original catch-all "Machine", and then be refused at every quote with no idea why. Naming the
+ * distinction lets the forms say it at the point the choice is made, rather than letting the
+ * provider find out when a farmer is waiting.
+ */
+export function kindServesActiveService(kind: string): boolean {
+  return activeServices().some((s) =>
+    canPower(s.id, kind) || implementKindsFor(s.id).includes(kind));
+}
+
+/** The live services this kind of machine can take part in, in words, for an explanation. */
+export function servicesForKind(kind: string): string[] {
+  return activeServices()
+    .filter((s) => canPower(s.id, kind) || implementKindsFor(s.id).includes(kind))
+    .map((s) => s.label);
+}
+
+/**
+ * What a service needs, in a sentence: "a tractor and a plough", "a combine, or a tractor with a
+ * reaper or a thresher". Written out rather than listed so a refusal reads like an answer.
+ */
+export function kitSentence(service: string): string {
+  const kit = kitFor(service);
+  const alone = (kit.selfContained ?? []).map(kindLabelOf).map((l) => l.toLowerCase());
+  const power = kit.power.filter((p) => !(kit.selfContained ?? []).includes(p)).map(kindLabelOf).map((l) => l.toLowerCase());
+  const groups = kit.implements.map((g) => g.map(kindLabelOf).map((l) => l.toLowerCase()).join(" or "));
+  const withPower = power.length && groups.length
+    ? `${article(power.join(" or "))} with ${article(groups.join(" and "))}`
+    : power.length ? article(power.join(" or "))
+    : groups.length ? article(groups.join(" and "))
+    : "a suitable machine";
+  return alone.length ? `${article(alone.join(" or "))}, or ${withPower}` : withPower;
+}
+
+/** "plough" becomes "a plough"; "auger" becomes "an auger". Only ever used on kind labels. */
+export const article = (noun: string) => `${/^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}`;

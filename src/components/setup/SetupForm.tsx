@@ -11,12 +11,18 @@ import { Field } from "@/components/auth/Field";
 
 type Initial = {
   name: string; phone: string; email: string; district: string; town: string;
+  officeAddress: string; operatingDistricts: string[];
   services: string[]; description: string;
   businessType: string; authorisedName: string; authorisedRole: string; pricingBasis: string;
   includedCosts: string; depositTerms: string; cancellationTerms: string;
 };
 type Option = { id: string; label: string };
-type Props = { initial: Initial; districts: readonly string[]; services: readonly Option[]; businessTypes: readonly Option[]; pricingBases: readonly Option[] };
+type Props = {
+  initial: Initial; districts: readonly string[]; services: readonly Option[];
+  /** The districts Sagora works in. Not the same list as `districts`, which is for the office. */
+  operatingDistricts: readonly string[];
+  businessTypes: readonly Option[]; pricingBases: readonly Option[];
+};
 
 function Choice({ name, label, options, value, error }: { name: string; label: string; options: readonly Option[]; value: string; error?: string }) {
   return (
@@ -47,12 +53,15 @@ function Buttons() {
   );
 }
 
-export function SetupForm({ initial, districts, services, businessTypes, pricingBases }: Props) {
+export function SetupForm({ initial, districts, services, operatingDistricts, businessTypes, pricingBases }: Props) {
   const [state, action] = useActionState(useSafely(saveSetup), {} as FormState);
   const e = state.fieldErrors ?? {};
   const v = state.values ?? {};
   const val = (k: keyof Initial) => (v[k] !== undefined ? v[k] : (initial[k] as string));
   const chosen = new Set(v.services !== undefined ? v.services.split(",").filter(Boolean) : initial.services);
+  const working = new Set(v.operatingDistricts !== undefined
+    ? v.operatingDistricts.split(",").filter(Boolean)
+    : initial.operatingDistricts);
   const districtId = useId();
   const descId = useId();
 
@@ -67,7 +76,7 @@ export function SetupForm({ initial, districts, services, businessTypes, pricing
       <Field name="authorisedRole" label="Their role" placeholder="For example, owner or manager" defaultValue={val("authorisedRole")} error={e.authorisedRole} />
 
       <div className={`field${e.district ? " field--invalid" : ""}`}>
-        <label className="field__label" htmlFor={districtId}>District</label>
+        <label className="field__label" htmlFor={districtId}>District your office is in</label>
         <div className="field__box">
           <select id={districtId} name="district" className="field__input" defaultValue={val("district")} aria-invalid={e.district ? true : undefined}>
             <option value="">Select a district</option>
@@ -77,7 +86,29 @@ export function SetupForm({ initial, districts, services, businessTypes, pricing
         {e.district ? <p className="field__error">{e.district}</p> : null}
       </div>
 
-      <Field icon="pin" name="town" label="Town or village" placeholder="Where your equipment is based" defaultValue={val("town")} error={e.town} />
+      <Field icon="pin" name="town" label="Town or village" placeholder="Where your office is" defaultValue={val("town")} error={e.town} />
+      <Field icon="pin" name="officeAddress" label="Office or business address"
+        placeholder="Street, plot or nearest landmark" maxLength={200}
+        defaultValue={val("officeAddress")} error={e.officeAddress} />
+
+      {/* Where the work happens, which is a different question from where the office is. Only
+          this list brings requests: an office in a district is not an offer to work there. */}
+      <fieldset className={`field setup__services${e.operatingDistricts ? " field--invalid" : ""}`}>
+        <legend className="field__label">Districts you work in</legend>
+        <p className="field__helper">
+          Tick every district you will travel to. Requests reach you from these, not from wherever
+          your office happens to be. Sagora checks each one before requests start coming.
+        </p>
+        <div className="setup__checks">
+          {operatingDistricts.map((d) => (
+            <label key={d} className="setup__check">
+              <input type="checkbox" name="operatingDistricts" value={d} defaultChecked={working.has(d)} />
+              <span>{d}</span>
+            </label>
+          ))}
+        </div>
+        {e.operatingDistricts ? <p className="field__error">{e.operatingDistricts}</p> : null}
+      </fieldset>
 
       <fieldset className={`field setup__services${e.services ? " field--invalid" : ""}`}>
         <legend className="field__label">Services you offer</legend>

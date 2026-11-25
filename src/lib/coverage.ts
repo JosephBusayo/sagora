@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "./db";
-import { DISTRICTS, SERVICES, audit } from "./business";
+import { SERVICES, audit, isOperatingDistrict } from "./business";
 
 /**
  * Where a provider works (UC04): district and service pairs. Only active pairs bring requests.
@@ -13,9 +13,19 @@ export type CoverageRow = Area & { status: AreaStatus };
 /** What a business may be shown and quote on. */
 export type Coverage = { id: string; areas: Area[] };
 
-type HasHome = { id: string; district: string; services: string[] };
+type HasHome = { id: string; operatingDistricts: string[]; services: string[] };
 
-const homeAreas = (b: HasHome): Area[] => (b.district ? b.services.map((service) => ({ district: b.district, service })) : []);
+/**
+ * The pairs a business starts with: the districts it said it works in, times the services it
+ * offers.
+ *
+ * Built from `operatingDistricts` and never from the office district. Joseph, 25 Nov 2026: "The
+ * provider's official office address must NOT determine whether they receive a farmer's request."
+ * Before migration 034 this read `b.district`, which was the office, so an office in Bombali
+ * silently granted Bombali coverage whatever the provider had actually agreed to cover.
+ */
+const homeAreas = (b: HasHome): Area[] =>
+  b.operatingDistricts.flatMap((district) => b.services.map((service) => ({ district, service })));
 
 /** Every pair, pending ones too. A business with none yet is read as its setup district and services. */
 export async function coverageRows(b: HasHome): Promise<CoverageRow[]> {
@@ -52,7 +62,9 @@ export async function activateHome(b: HasHome, staffId: string): Promise<void> {
   }
 }
 
-const validDistrict = (d: string) => (DISTRICTS as readonly string[]).includes(d);
+// Only the districts Sagora operates in may be asked for. A pair already recorded in another
+// district keeps working — this gate is on adding, not on reading.
+const validDistrict = (d: string) => isOperatingDistrict(d);
 const validService = (s: string) => SERVICES.some((x) => x.id === s);
 
 /** Asks to work somewhere new. Returns how many pairs now wait for review. */

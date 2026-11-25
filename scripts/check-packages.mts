@@ -90,11 +90,11 @@ ok("five stages is a season's plan, not a job",
 console.log("\nAll stages must be covered before the package is quoted");
 const partial = await providerFixture("Partial", "Bo", ["ploughing"]);
 const whole = await providerFixture("Whole", "Bo", ALL);
-const seen = await requests.browse({}, 1, { id: partial.biz, district: "Bo", services: ["ploughing"] });
+const seen = await requests.browse({}, 1, { id: partial.biz, operatingDistricts: ["Bo"], services: ["ploughing"] });
 ok("a provider who only ploughs does not see the package",
   !seen.rows.some((r) => r.id === pack.id));
 ok("but still sees the plain ploughing request", seen.rows.some((r) => r.id === plain.id));
-const seenAll = await requests.browse({}, 1, { id: whole.biz, district: "Bo", services: ALL });
+const seenAll = await requests.browse({}, 1, { id: whole.biz, operatingDistricts: ["Bo"], services: ALL });
 ok("a provider who covers every stage sees it", seenAll.rows.some((r) => r.id === pack.id));
 ok("the count agrees with the rows, so the pages are not ragged",
   seenAll.total >= seen.total + 1);
